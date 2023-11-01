@@ -35,11 +35,15 @@ spec:
         {{- include "component-security-context" .Values | indent 6 }}
         envFrom:
         - secretRef:
+            {{- if not .Values.database.existingSecretName }}
             name: {{ template "alfresco-sync-service.fullname" . }}-dbsecret
+            {{ else }}
+            name: {{ .Values.database.existingSecretName }}
+            {{- end}}
         - configMapRef:
             name: {{ template "alfresco-sync-service.fullname" . }}-configmap
         - secretRef:
-            name: {{ template "alfresco-sync-service.brokerSecret" . }}
+            name: {{ template "alfresco-sync-service.fullname" . }}-messagebroker-secret
         ports:
         - name: serviceport
           containerPort: 9090

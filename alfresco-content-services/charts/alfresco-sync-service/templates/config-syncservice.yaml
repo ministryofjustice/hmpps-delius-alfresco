@@ -7,7 +7,7 @@ metadata:
     {{- include "alfresco-sync-service.labels" . | nindent 4 }}
 data:
   JAVA_OPTS: >-
-      -Dsql.db.url={{ include "alfresco-sync-service.dbUrl" . }}
+      -Dsql.db.url=jdbc:postgresql://$RDS_INSTANCE_ENDPOINT/$DATABASE_NAME
       -Dsql.db.driver={{ include "alfresco-sync-service.dbDriver" . | quote }}
       -Dsql.db.username=$DATABASE_USERNAME
       -Dsql.db.password=$DATABASE_PASSWORD
