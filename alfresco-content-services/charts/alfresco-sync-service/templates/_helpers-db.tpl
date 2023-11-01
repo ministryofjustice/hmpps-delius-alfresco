@@ -46,6 +46,6 @@ Get Database URL
 {{- end }}
 {{- printf "jdbc:postgresql://%s%s/%s" $pgsvcname $pgsvcport .Values.postgresql.auth.database }}
 {{- else }}
-{{- required "To enable SyncService external database please provide .database.url" .Values.database.url }}
+{{/* {{- required "To enable SyncService external database please provide .database.url" .Values.database.url }} */}}
 {{- end }}
 {{- end -}}
