@@ -1,3 +1,5 @@
+# temporarily disable for poc
+{{- if false }}
 # Defines the properties required by the content repository
 apiVersion: v1
 kind: ConfigMap
@@ -142,3 +144,4 @@ data:
       -Dmessaging.broker.password=$BROKER_PASSWORD
       -Dencryption.ssl.truststore.location=$JAVA_HOME/lib/security/cacerts
       -Dalfresco_user_store.adminpassword=$REPO_ADMIN_PASSWORD
+{{- end }}

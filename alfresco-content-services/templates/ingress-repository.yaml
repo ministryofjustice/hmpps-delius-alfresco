@@ -1,3 +1,5 @@
+# temporarily disable for poc
+{{- if false }}
 {{- $serviceName :=  printf "%s-%s" (include "content-services.shortname" .) "repository" -}}
 {{- $servicePort := .Values.repository.service.externalPort -}}
 apiVersion: {{ template "common.capabilities.ingress.apiVersion" . }}
@@ -44,3 +46,4 @@ spec:
         pathType: Prefix
         {{- end }}
         backend: {{- include "common.ingress.backend" (dict "serviceName" $serviceName "servicePort" $servicePort "context" $) | nindent 10 }}
+{{- end }}
