@@ -1,3 +1,5 @@
+# temporarily disable for poc
+{{- if false }}
 {{- $serviceName :=  printf "%s-%s" (include "content-services.shortname" .) "share" -}}
 {{- $servicePort := .Values.share.service.externalPort -}}
 apiVersion: {{ template "common.capabilities.ingress.apiVersion" . }}
@@ -31,7 +33,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-  - http: 
+  - http:
       paths:
       - path: {{ .Values.share.ingress.path }}
         {{- if eq "true" (include "common.ingress.supportsPathType" .) }}
@@ -41,3 +43,4 @@ spec:
   {{- if .Values.share.ingress.hostName }}
     host: {{ tpl .Values.share.ingress.hostName . }}
   {{- end }}
+{{- end }}
