@@ -1,5 +1,3 @@
-# temporarily disable for poc
-{{- if false }}
 # Defines the properties required by the content repository
 apiVersion: v1
 kind: ConfigMap
@@ -116,7 +114,7 @@ data:
       {{- if eq .Values.database.external false }}
       -Ddb.url=jdbc:postgresql://{{ printf "%s-%s" .Release.Name .Values.postgresql.nameOverride }}:{{ .Values.postgresql.primary.service.ports.postgresql }}/{{ .Values.postgresql.auth.database }}
       {{- else }}
-      -Ddb.url={{ .Values.database.url }}
+      -Ddb.url=jdbc:postgresql://$RDS_INSTANCE_ENDPOINT/$DATABASE_NAME
       {{- end }}
       {{- if and .Values.mail.host (or .Values.mail.password .Values.mail.existingSecretName) }}
       -Dmail.password=$MAIL_PASSWORD
@@ -144,4 +142,4 @@ data:
       -Dmessaging.broker.password=$BROKER_PASSWORD
       -Dencryption.ssl.truststore.location=$JAVA_HOME/lib/security/cacerts
       -Dalfresco_user_store.adminpassword=$REPO_ADMIN_PASSWORD
-{{- end }}
+
