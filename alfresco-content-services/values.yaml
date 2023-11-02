@@ -489,7 +489,7 @@ aiTransformer:
 # -- Declares the alfresco-shared-file-store used by the content repository
 # and transform service
 filestore:
-  replicaCount: 1
+  replicaCount: 0
   nodeSelector: {}
   image:
     repository: quay.io/alfresco/alfresco-shared-file-store
@@ -659,15 +659,16 @@ database:
   # -- External Postgresql jdbc url ex: `jdbc:postgresql://oldfashioned-mule-postgresql-acs:5432/alfresco`
   url:
   # -- Name of the secret managed by this chart
-  secretName: &acs_database_secretName acs-alfresco-cs-dbsecret
+  # secretName: &acs_database_secretName acs-alfresco-cs-dbsecret
+  secretName:
   # -- An existing secret that contains DATABASE_USERNAME and DATABASE_PASSWORD keys.
   # When using embedded postgres you need to also set `postgresql.existingSecret`.
-  existingSecretName:
+  existingSecretName: rds-alf-psql-instance-output
 alfresco-search-enterprise:
   enabled: false
   elasticsearch:
     # -- Enables the embedded elasticsearch cluster
-    enabled: true
+    enabled: false
   messageBroker:
     existingSecretName: *acs_messageBroker_secretName
   reindexing:
@@ -676,10 +677,10 @@ alfresco-search-enterprise:
       url:
       hostname: postgresql-acs
       database: alfresco
-      existingSecretName: *acs_database_secretName
+      # existingSecretName: *acs_database_secretName
 alfresco-digital-workspace:
   nodeSelector: {}
-  enabled: true
+  enabled: false
   nameOverride: "alfresco-dw"
   service:
     envType: frontend
@@ -726,7 +727,7 @@ alfresco-digital-workspace:
       memory: "1024Mi"
 alfresco-control-center:
   nodeSelector: {}
-  enabled: true
+  enabled: false
   nameOverride: "alfresco-cc"
   service:
     envType: frontend
@@ -767,7 +768,7 @@ postgresql:
   # -- Toggle embedded postgres for Alfresco Content Services repository
   # Check [PostgreSQL Bitnami chart
   # Documentation](https://github.com/bitnami/charts/tree/main/bitnami/postgresql)
-  enabled: true
+  enabled: false
   nameOverride: postgresql-acs
   image:
     tag: 14.4.0
@@ -913,7 +914,7 @@ alfresco-sync-service:
   # -- Toggle deployment of Alfresco Sync Service (Desktop-Sync)
   # Check [Alfresco Sync Service
   # Documentation](https://github.com/Alfresco/alfresco-helm-charts/tree/main/charts/alfresco-sync-service)
-  enabled: true
+  enabled: false
   image:
     tag: 3.9.0
   postgresql:
@@ -953,7 +954,7 @@ global:
   # -- If a private image registry a secret can be defined and passed to
   # kubernetes, see:
   # https://github.com/Alfresco/acs-deployment/blob/a924ad6670911f64f1bba680682d266dd4ea27fb/docs/helm/eks-deployment.md#docker-registry-secret
-  alfrescoRegistryPullSecrets:
+  alfrescoRegistryPullSecrets: quay-registry-secret
   strategy:
     rollingUpdate:
       maxSurge: 1

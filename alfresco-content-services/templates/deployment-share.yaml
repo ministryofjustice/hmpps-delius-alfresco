@@ -1,3 +1,5 @@
+# temporarily disable for poc
+{{- if false }}
 # Defines the deployment for the alfresco share app
 apiVersion: apps/v1
 kind: Deployment
@@ -78,3 +80,4 @@ spec:
       volumes:
 {{ toYaml .Values.share.extraVolumes | indent 6 }}
       {{- end }}
+{{- end }}
