@@ -1,5 +1,3 @@
-# temporarily disable for poc
-{{- if false }}
 {{- $serviceName :=  printf "%s-%s" (include "content-services.shortname" .) "repository" -}}
 {{- $servicePort := .Values.repository.service.externalPort -}}
 apiVersion: {{ template "common.capabilities.ingress.apiVersion" . }}
@@ -9,7 +7,6 @@ metadata:
   labels:
     {{- include "repository.labels" . | nindent 4 }}
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/affinity: "cookie"
     nginx.ingress.kubernetes.io/session-cookie-name: "alf_affinity_route"
     nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
@@ -17,7 +14,10 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.repository.ingress.maxUploadSize }}
     {{- include "ingress_annotations" .Values.repository }}
     {{- include "ingress_vhost_annotations" .Values.repository }}
+    external-dns.alpha.kubernetes.io/aws-weight: "100"
+    external-dns.alpha.kubernetes.io/set-identifier: "{{ template "content-services.shortname" . }}-repository-{{ .Release.Namespace }}-green"
 spec:
+  ingressClassName: default
   {{- if .Values.repository.ingress.tls }}
   tls:
     {{- range .Values.repository.ingress.tls }}
@@ -46,4 +46,3 @@ spec:
         pathType: Prefix
         {{- end }}
         backend: {{- include "common.ingress.backend" (dict "serviceName" $serviceName "servicePort" $servicePort "context" $) | nindent 10 }}
-{{- end }}
