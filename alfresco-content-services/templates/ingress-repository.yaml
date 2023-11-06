@@ -18,9 +18,9 @@ spec:
   ingressClassName: default
   tls:
     - hosts:
-        - {{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
+        - {{ template "content-services.shortname" . }}.{{ .Values.repository.ingress.hostName }}
   rules:
-    - host: {{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
+    - host: {{ template "content-services.shortname" . }}.{{ .Values.repository.ingress.hostName }}
       http:
         paths:
           - path: {{ .Values.repository.ingress.path }}
