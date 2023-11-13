@@ -558,7 +558,7 @@ share:
   image:
     # repository: quay.io/alfresco/alfresco-share
     repository: shazchaudhry/alfresco-share
-    tag: 7.3.1
+    tag: 7.3.1v2
     pullPolicy: IfNotPresent
     internalPort: 8080
   service:
@@ -578,7 +578,7 @@ share:
         - NET_RAW
         - ALL
   podSecurityContext:
-    runAsUser: 1001
+    runAsUser: 65534
   resources:
     requests:
       cpu: "1"

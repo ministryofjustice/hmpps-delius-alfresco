@@ -1,21 +1,16 @@
 FROM quay.io/alfresco/alfresco-share:7.3.1
-# FROM docker.io/alfresco/alfresco-share:7.4.1.1
 
-ARG ALF_GROUP=Alfresco
 ARG TOMCAT_DIR=/usr/local/tomcat
-
-RUN groupadd -g 1001  ${ALF_GROUP} && \
-    useradd -m -u 1001 -g ${ALF_GROUP} ${ALF_GROUP}
 
 USER root
 
  # Restore permissions
-RUN chgrp -R ${ALF_GROUP} ${TOMCAT_DIR}/webapps && \
+RUN chgrp -R nobody ${TOMCAT_DIR}/webapps && \
      find ${TOMCAT_DIR}/webapps -type d -exec chmod 0777 {} \; && \
      find ${TOMCAT_DIR}/webapps -type f -exec chmod 0777 {} \; && \
      find ${TOMCAT_DIR}/shared -type d -exec chmod 0777 {} \; && \
      find ${TOMCAT_DIR}/shared -type f -exec chmod 0777 {} \; && \
      chmod -R g+r ${TOMCAT_DIR}/webapps && \
-     chgrp -R ${ALF_GROUP} ${TOMCAT_DIR}
+     chgrp -R nobody ${TOMCAT_DIR}
 
- USER ${ALF_GROUP}
+ USER nobody
