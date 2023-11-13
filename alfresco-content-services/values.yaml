@@ -556,7 +556,8 @@ share:
   replicaCount: 1
   nodeSelector: {}
   image:
-    repository: quay.io/alfresco/alfresco-share
+    # repository: quay.io/alfresco/alfresco-share
+    repository: shazchaudhry/alfresco-share
     tag: 7.3.1
     pullPolicy: IfNotPresent
     internalPort: 8080
@@ -572,13 +573,12 @@ share:
     #    hosts:
     #      - chart-example.local
   securityContext:
-    runAsNonRoot: false
     capabilities:
       drop:
         - NET_RAW
         - ALL
   podSecurityContext:
-    runAsNonRoot: true
+    runAsUser: 1001
   resources:
     requests:
       cpu: "1"
