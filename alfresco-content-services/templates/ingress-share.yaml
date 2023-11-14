@@ -1,5 +1,3 @@
-# temporarily disable for poc
-{{- if false }}
 {{- $serviceName :=  printf "%s-%s" (include "content-services.shortname" .) "share" -}}
 {{- $servicePort := .Values.share.service.externalPort -}}
 apiVersion: {{ template "common.capabilities.ingress.apiVersion" . }}
@@ -9,7 +7,6 @@ metadata:
   labels:
     {{- include "share.labels" . | nindent 4 }}
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     # Default limit is 1m, document(s) above this size will throw 413 (Request Entity Too Large) error
     nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.repository.ingress.maxUploadSize }}
     nginx.ingress.kubernetes.io/affinity: "cookie"
@@ -21,26 +18,21 @@ metadata:
     {{- if ne .Values.share.ingress.hostName .Values.repository.ingress.hostName }}
     {{- include "ingress_vhost_annotations" .Values.share }}
     {{- end }}
+    external-dns.alpha.kubernetes.io/aws-weight: "100"
+    external-dns.alpha.kubernetes.io/set-identifier: "{{ template "content-services.shortname" . }}-share-{{ .Release.Namespace }}-green"
 spec:
-  {{- if .Values.share.ingress.tls }}
+  ingressClassName: default
   tls:
-    {{- range .Values.share.ingress.tls }}
     - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
-    {{- end }}
-  {{- end }}
+        - {{ template "content-services.shortname" . }}.{{ .Values.repository.ingress.hostName }}
   rules:
-  - http:
-      paths:
-      - path: {{ .Values.share.ingress.path }}
-        {{- if eq "true" (include "common.ingress.supportsPathType" .) }}
-        pathType: Prefix
-        {{- end }}
-        backend: {{- include "common.ingress.backend" (dict "serviceName" $serviceName "servicePort" $servicePort "context" $) | nindent 10 }}
-  {{- if .Values.share.ingress.hostName }}
-    host: {{ tpl .Values.share.ingress.hostName . }}
-  {{- end }}
-{{- end }}
+    - host: {{ template "content-services.shortname" . }}.{{ .Values.repository.ingress.hostName }}
+      http:
+        paths:
+          - path: {{ .Values.share.ingress.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ template "content-services.shortname" . }}-share
+                port:
+                  number: {{  .Values.share.service.externalPort }}
