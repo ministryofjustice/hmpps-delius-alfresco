@@ -1,5 +1,4 @@
 # temporarily disable for poc
-{{- if false }}
 # Defines the properties required by the share app
 apiVersion: v1
 kind: ConfigMap
@@ -19,4 +18,3 @@ data:
   {{- range $key, $val := omit $environment "JAVA_OPTS" }}
   {{ $key }}: {{ tpl $val $ | quote }}
   {{- end }}
-{{- end }}
