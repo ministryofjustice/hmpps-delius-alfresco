@@ -27,9 +27,9 @@ data:
       -Daos.baseUrlOverwrite={{ $alfUrl }}/alfresco/aos
       -Dcsrf.filter.origin={{ $alfUrl }}
       -Dcsrf.filter.referer={{ $alfUrl }}/.*
-      -Dshare.protocol={{ tpl (.Values.externalProtocol | default "http") $ }}
-      -Dshare.host={{ tpl (.Values.externalHost | default (printf "%s-share" (include "content-services.shortname" .))) $ }}
-      -Dshare.port={{ tpl (.Values.externalPort | default .Values.share.service.externalPort | toString) $ }}
+      -Dshare.protocol={{ tpl (.Values.externalProtocol | default "https") $ }}
+      -Dshare.host={{ template "content-services.shortname" . }}.{{ .Values.repository.ingress.hostName }}
+      -Dshare.port=443
       {{- $subsys := include "repository.indexSubsystem" . }}
       {{- if ne $subsys "none" }}
       {{- include "repository.indexConfig" . | indent 6 }}
