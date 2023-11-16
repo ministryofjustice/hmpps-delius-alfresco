@@ -968,7 +968,7 @@ global:
     auth: secret
     # -- Shared secret to authenticate repo/solr traffic.
     # Strong enough secret can be generated with `openssl rand 20 -base64`
-    sharedsecret: sharedsecret
+    sharedsecret: RK3FZJcZrxP0u87DxLNnarSI2ME=
   # -- If a private image registry a secret can be defined and passed to
   # kubernetes, see:
   # https://github.com/Alfresco/acs-deployment/blob/a924ad6670911f64f1bba680682d266dd4ea27fb/docs/helm/eks-deployment.md#docker-registry-secret
