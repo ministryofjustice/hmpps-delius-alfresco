@@ -1,7 +1,0 @@
----
-alfresco-insight-zeppelin:
-  nameOverride: zeppelin
-  enabled: true
-global:
-  tracking:
-    sharedsecret: dummy
