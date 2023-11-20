@@ -626,7 +626,8 @@ messageBroker: &acs_messageBroker
   existingSecretName: null
 alfresco-search:
   searchServicesImage:
-    tag: 2.0.5.2
+    repository: alfresco/alfresco-search-services
+    tag: 2.0.7
   nodeSelector: {}
   enabled: true
   # If an external Solr service is to be used then enabled must be set to false
@@ -968,7 +969,8 @@ global:
     auth: secret
     # -- Shared secret to authenticate repo/solr traffic.
     # Strong enough secret can be generated with `openssl rand 20 -base64`
-    sharedsecret: RK3FZJcZrxP0u87DxLNnarSI2ME=
+    # please do not set a value here for sharedsecret. Instead, overwirte it on the commandline
+    sharedsecret:
   # -- If a private image registry a secret can be defined and passed to
   # kubernetes, see:
   # https://github.com/Alfresco/acs-deployment/blob/a924ad6670911f64f1bba680682d266dd4ea27fb/docs/helm/eks-deployment.md#docker-registry-secret
