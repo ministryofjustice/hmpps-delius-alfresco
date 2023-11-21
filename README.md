@@ -25,8 +25,11 @@ rm -rf charts/alfresco-sync-service-4.1.0.tgz
 ```
 1. Change the chart version in the newly pulled chart. For example change is from `4.1.0` to `4.1.1`
 2. Make your changes and then test them by upgrading Helm release 
-   - "SECRET=$(openssl rand -base64 20) helm upgrade alfresco-content-services . --values=./values.yaml --set global.tracking.sharedsecret=$SECRET"
-   - NOTE: pods consuming resultant (randomly generated) secrets will have to be restarted
+   ```
+   - export SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
+   - helm upgrade alfresco-content-services . --values=./values.yaml --set global.tracking.sharedsecret=$SECRET
+   - NOTE: For the release upgrade, use the existing secret. You will otherwise have to restart pods consuming those secrets
+   ```
 4. Once satisfied with your changes, create a package and add it to the docs directory
    - "helm package charts/alfresco-sync-service -d ../docs"
 5. Create / update an index file in docs directory
@@ -49,10 +52,13 @@ Locate the `Chart.yaml` file and modify the repository URL and version. It shoul
    - `helm dependency update .`
 5. Push the lock file and charts dirctory to the feature branch and get merge approval
 6. Merge into main branch
-6. Update your GitHub pages settings so that the `source branch` is pointing to your main branch
-7. Upgrade the helm release for the changes to be updated in kubernetes cluster
-   - `SECRET=$(openssl rand -base64 20) helm upgrade alfresco-content-services . --values=./values.yaml --set global.tracking.sharedsecret=$SECRET`
-     - NOTE: pods consuming resultant (randomly generated) secrets will have to be restarted
+7. Update your GitHub pages settings so that the `source branch` is pointing to your main branch
+8. Upgrade the helm release for the changes to be updated in kubernetes cluster
+   ```
+   - export SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
+   - helm upgrade alfresco-content-services . --values=./values.yaml --set global.tracking.sharedsecret=$SECRET
+   - NOTE: For the release upgrade, use the existing secret. You will otherwise have to restart pods consuming those secrets
+   ```
 
 ### Alternatively, pull a particular chart either directly from repository URL or by adding it in the local repo
 
