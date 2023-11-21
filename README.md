@@ -22,7 +22,7 @@ rm -rf charts/alfresco-sync-service-4.1.0.tgz
 ```
 
 ### Modify charts
-```
+
 1. Change the chart version in the newly pulled chart. For example change is from `4.1.0` to `4.1.1`
 2. Make your changes and then test them by upgrading Helm release 
    ```
@@ -34,7 +34,7 @@ rm -rf charts/alfresco-sync-service-4.1.0.tgz
    - "helm package charts/alfresco-sync-service -d ../docs"
 5. Create / update an index file in docs directory
    - "helm repo index ../docs --url https://ministryofjustice.github.io/hmpps-delius-alfresco-poc"
-```
+
 
 ### Update the lock file and commit changes
 Locate the `Chart.yaml` file and modify the repository URL and version. It should now look like the code snippet below after the change:
