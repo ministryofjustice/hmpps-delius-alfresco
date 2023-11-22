@@ -2,6 +2,16 @@
 
 These example instsructions explain how you would customise one particular dependant Helm chart and publish a newer version to GitHub pages. Instructions assume GitHub pages are already configured for your repo; see the reference section below
 
+### Start services
+We will first need to ensure all services are up and running. 
+Start k8s services by executing helm command _(Helm will complain if a random secret is not created)_
+```
+cd hmpps-delius-alfresco-poc/alfresco-content-services
+SECRET=$(openssl rand -base64 20) helm install alfresco-content-services . \
+--values=./values.yaml \
+--set global.tracking.sharedsecret=$SECRET
+```
+
 ### Check Chart.lock file for dependent charts and pull the required version
 For the purpose of this demo, we will select the following service from the `Chart.yaml` file
 ```
