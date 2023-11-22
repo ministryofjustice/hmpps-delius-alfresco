@@ -33,7 +33,7 @@ jobs:
       - name: Build image and push to ECR
         working-directory: ./docker-files
         run: |
-          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG Dockerfile-share
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG . -f Dockerfile-share
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
