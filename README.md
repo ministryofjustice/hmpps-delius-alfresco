@@ -12,7 +12,7 @@ SECRET=$(openssl rand -base64 20) helm install alfresco-content-services . \
 --set global.tracking.sharedsecret=$SECRET
 ```
 
-### Check Chart.lock file for dependent charts and pull the required version
+### Check the chart file for dependent charts and pull the required version
 For the purpose of this demo, we will select the following service from the `Chart.yaml` file
 ```
 - condition: alfresco-sync-service.enabled
