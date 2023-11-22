@@ -557,8 +557,8 @@ share:
   nodeSelector: {}
   image:
     # repository: quay.io/alfresco/alfresco-share
-    repository: shazchaudhry/alfresco-share
-    tag: 7.3.1v2
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
+    tag: 1ff41f392f90b1f524039a96b88f93c2d3920f9f
     pullPolicy: IfNotPresent
     internalPort: 8080
   service:
