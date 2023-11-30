@@ -1,0 +1,35 @@
+name: cloud-platform-build-push-share from tar
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # This is required for requesting the JWT
+      contents: read # This is required for actions/checkout
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v3
+
+      - name: Configure aws credentials for ECR
+        uses: aws-actions/configure-aws-credentials@v4.0.1
+        with:
+          role-to-assume: ${{ secrets.ECR_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.ECR_REGION }}
+
+      - name: ECR login
+        uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - name: load image and push to ECR
+        working-directory: ./docker-files
+        run: |
+          docker load < ./docker-files/content.tar
+          docker tag alfresco-content-4.2.8:latest $REGISTRY/$REPOSITORY:alfresco-content-4.2.8
+          docker push $REGISTRY/$REPOSITORY:alfresco-content-4.2.8
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
