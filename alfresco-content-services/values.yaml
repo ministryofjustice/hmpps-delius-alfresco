@@ -28,8 +28,8 @@ repository:
   strategy:
     type: Recreate
   image:
-    repository: quay.io/alfresco/alfresco-content-repository
-    tag: 7.3.1
+    repository: shazchaudhry/alfresco-content
+    tag: 4.2.8
     pullPolicy: IfNotPresent
     internalPort: 8080
     hazelcastPort: 5701
@@ -97,7 +97,7 @@ repository:
     timeoutSeconds: 10
   persistence:
     # -- Persist repository data
-    enabled: true
+    enabled: false
     baseSize: 20Gi
     # -- Specify a storageClass for dynamic provisioning
     accessModes:
@@ -827,17 +827,17 @@ s3connector:
   # -- Enable the S3 Connector
   # For a full list of properties on the S3 connector see:
   # https://docs.alfresco.com/s3connector/references/s3-contentstore-ref-config-props.html
-  enabled: false
+  enabled: true
   config:
     bucketName:
-    bucketLocation:
+    bucketLocation: eu-west-2
   secrets:
-    accessKey:
-    secretKey:
+    accessKey: true
+    secretKey: true
     encryption:
     awsKmsKeyId:
   # -- An existing kubernetes secret that contains ACCESSKEY, SECRETKEY, ENCRYPTION, KMSKEYID keys
-  existingSecretName:
+  existingSecretName: s3-bucket-output
 # -- For a full information of configuring the inbound email system, see
 # https://docs.alfresco.com/content-services/latest/config/email/#manage-inbound-emails
 email:
