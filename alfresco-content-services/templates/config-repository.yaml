@@ -108,6 +108,7 @@ data:
       {{- else }}
       -Devents.subsystem.autoStart=false
       {{- end }}
+      -Dfilecontentstore.subsystem.name=S3
   CATALINA_OPTS: >-
       $ALFRESCO_OPTS
       -Ddb.driver={{ .Values.database.driver | default "org.postgresql.Driver" }}
