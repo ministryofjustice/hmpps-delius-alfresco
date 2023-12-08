@@ -216,7 +216,7 @@ msTeamsService:
       metadataEnabled: true
       imageEnabled: true
 transformrouter:
-  replicaCount: 2
+  replicaCount: 1
   nodeSelector: {}
   image:
     repository: quay.io/alfresco/alfresco-transform-router
@@ -252,7 +252,7 @@ transformrouter:
 # -- Declares the alfresco-pdf-renderer service used by the content repository
 # to transform pdf files
 pdfrenderer:
-  replicaCount: 2
+  replicaCount: 1
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-pdf-renderer
@@ -292,7 +292,7 @@ pdfrenderer:
 # -- Declares the alfresco-imagemagick service used by the content repository
 # to transform image files
 imagemagick:
-  replicaCount: 2
+  replicaCount: 1
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-imagemagick
@@ -332,7 +332,7 @@ imagemagick:
 # -- Declares the alfresco-libreoffice service used by the content repository
 # to transform office files
 libreoffice:
-  replicaCount: 2
+  replicaCount: 1
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-libreoffice
@@ -372,7 +372,7 @@ libreoffice:
 # -- Declares the alfresco-tika service used by the content repository
 # to transform office files
 tika:
-  replicaCount: 2
+  replicaCount: 1
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-tika
@@ -413,7 +413,7 @@ tika:
 # to transform office files
 transformmisc:
   enabled: true
-  replicaCount: 2
+  replicaCount: 1
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-transform-misc
