@@ -28,8 +28,8 @@ repository:
   strategy:
     type: Recreate
   image:
-    repository: shazchaudhry/alfresco-content
-    tag: 4.2.8
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
+    tag: 6893455d0dde5844f9d4821a774d860d379e65d6
     pullPolicy: IfNotPresent
     internalPort: 8080
     hazelcastPort: 5701
