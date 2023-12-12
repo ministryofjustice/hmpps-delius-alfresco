@@ -3,11 +3,20 @@
 These example instsructions explain how you would customise one particular dependant Helm chart and publish a newer version to GitHub pages. Instructions assume GitHub pages are already configured for your repo; see the reference section below
 
 ### Start services
-We will first need to ensure all services are up and running. 
-Start k8s services by executing helm command _(Helm will complain if a random secret is not created)_
+In order to start the alfresco-repository service, we need to make a valid  license available in the namespace. A secret containing the license needs to be created:
+```bash
+ACS_NAMESPACE=hmpps-delius-alfrsco-poc
+kubectl create secret generic alfresco-license \
+  --namespace $ACS_NAMESPACE \
+  --from-file /example/path/to/license/file.lic
 ```
+
+Next We will need to ensure all services are up and running.
+Start k8s services by executing helm command _(Helm will complain if a random secret is not created)_
+
+```bash
 cd hmpps-delius-alfresco-poc/alfresco-content-services
-export SECRET=$(openssl rand -base64 20) 
+export SECRET=$(openssl rand -base64 20)
 export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
 helm install alfresco-content-services . --values=./values.yaml \
 --set s3connector.config.bucketName=$BUCKET_NAME \
@@ -16,7 +25,7 @@ helm install alfresco-content-services . --values=./values.yaml \
 
 ### Check the chart file for dependent charts and pull the required version
 For the purpose of this demo, we will select the following service from the `Chart.yaml` file
-```
+```yaml
 - condition: alfresco-sync-service.enabled
   name: alfresco-sync-service
   repository: https://alfresco.github.io/alfresco-helm-charts/
@@ -36,7 +45,7 @@ rm -rf charts/alfresco-sync-service-4.1.0.tgz
 ### Modify charts
 
 1. Change the chart version in the newly pulled chart. For example change is from `4.1.0` to `4.1.1`
-2. Make your changes and then test them by upgrading Helm release 
+2. Make your changes and then test them by upgrading Helm release
    ```
    - export SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
    - export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
@@ -51,7 +60,7 @@ rm -rf charts/alfresco-sync-service-4.1.0.tgz
 
 ### Update the lock file and commit changes
 Locate the `Chart.yaml` file and modify the repository URL and version. It should now look like the code snippet below after the change:
-```
+```yaml
 - condition: alfresco-sync-service.enabled
   name: alfresco-sync-service
   repository: https://ministryofjustice.github.io/hmpps-delius-alfresco-poc/
@@ -83,7 +92,7 @@ Locate the `Chart.yaml` file and modify the repository URL and version. It shoul
 helm repo add alfresco-sync-service https://ministryofjustice.github.io/hmpps-delius-alfresco-poc/
 
 helm search repo alfresco-sync-service
-NAME                                            CHART VERSION   APP VERSION     DESCRIPTION          
+NAME                                            CHART VERSION   APP VERSION     DESCRIPTION
 alfresco-sync-service/alfresco-sync-service     4.1.1           3.9.0           Alfresco Sync Service
 ```
 
