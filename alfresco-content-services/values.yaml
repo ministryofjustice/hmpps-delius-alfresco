@@ -21,7 +21,7 @@ repository:
   # it must be contained within a `data['*.lic']` property
   # For details on how to manage license, see:
   # https://github.com/Alfresco/acs-deployment/blob/master/docs/helm/examples/alf_license.md
-  licenseSecret: null
+  licenseSecret: alfresco-license
   edition: Enterprise
   replicaCount: 1
   nodeSelector: {}
