@@ -28,7 +28,7 @@ data:
       -Dcsrf.filter.origin={{ $alfUrl }}
       -Dcsrf.filter.referer={{ $alfUrl }}/.*
       -Dshare.protocol={{ tpl (.Values.externalProtocol | default "https") $ }}
-      -Dshare.host={{ template "content-services.shortname" . }}.{{ .Values.repository.ingress.hostName }}
+      -Dshare.host={{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
       -Dshare.port=443
       {{- $subsys := include "repository.indexSubsystem" . }}
       {{- if ne $subsys "none" }}
