@@ -54,30 +54,20 @@ jobs:
           if [ -z ${SECRET+x} ] 
           then 
             SECRET=$(openssl rand -base64 20)
+            echo "Unset secret = $SECRET"
           else 
             SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
+            echo "Secret = $SECRET"
           fi
-
-          echo "====== Shared secret =============="
-          echo $SECRET
-          echo "===================="
 
           # This is the S3 bucket where docs are stored
           export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
 
-          echo "====== BUCKET_NAME =============="
-          echo $BUCKET_NAME
-          echo "===================="
-
           cd alfresco-content-services
-
-          echo "======== Content of current directory ============"
-          ls -latr $PWD
-          echo "===================="
-          # helm upgrade --install alfresco-content-services . --values=./values.yaml \
-          # --namespace hmpps-delius-alfrsco-poc \
-          # --set s3connector.config.bucketName=$BUCKET_NAME \
-          # --set global.tracking.sharedsecret=$SECRET
+          helm upgrade --install alfresco-content-services . --values=./values.yaml \
+          --namespace hmpps-delius-alfrsco-poc \
+          --set s3connector.config.bucketName=$BUCKET_NAME \
+          --set global.tracking.sharedsecret=$SECRET
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
