@@ -58,13 +58,12 @@ jobs:
           # kubectl get all
 
           # Helm will not deploy unless this secret is present
-          if [ -z ${SECRET+x} ] 
+          SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
+
+          if [ -z ${SECRET} ] 
           then 
             SECRET=$(openssl rand -base64 20)
             echo "Generated secret value = $SECRET"
-          else 
-            SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
-            echo "Secret value fetched from 'alfresco-content-services-alfresco-repository-properties-secret' = $SECRET"
           fi
 
           # This is the S3 bucket where docs are stored
