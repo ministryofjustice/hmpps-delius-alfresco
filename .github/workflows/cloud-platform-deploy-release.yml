@@ -42,7 +42,7 @@ jobs:
         uses: azure/setup-helm@v3
 
       - name: Deploy to dev
-        shell: bash
+        shell: sh
         working-directory: ./alfresco-content-services
         run: |
           # https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
