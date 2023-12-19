@@ -45,7 +45,8 @@ jobs:
         # shell: bash
         working-directory: ./alfresco-content-services
         run: |
-          # https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
+          # See this link how github action secrets are created: https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount
+          # See this example on how to use github secrets: https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
           kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
           kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
