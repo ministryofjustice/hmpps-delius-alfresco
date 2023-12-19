@@ -66,6 +66,8 @@ jobs:
             echo "Generated secret value = $SECRET"
           fi
 
+          echo "===== Final secret value = $SECRET"
+
           # This is the S3 bucket where docs are stored
           export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
 
