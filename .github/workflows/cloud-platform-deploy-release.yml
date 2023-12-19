@@ -55,7 +55,7 @@ jobs:
           # For Alfresco, we only use one single namespace
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
-          kubectl get all
+          # kubectl get all
 
           # Helm will not deploy unless this secret is present
           SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
