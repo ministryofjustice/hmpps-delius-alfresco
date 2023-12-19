@@ -51,13 +51,13 @@ jobs:
           kubectl config use-context ${KUBE_CLUSTER}
 
           # Helm will not deploy unless this secret is present
-          if [ -z ${SECRET+x} ] 
+          if [ -z ${SECRET} ] 
           then 
             SECRET=$(openssl rand -base64 20)
-            echo "Unset secret = $SECRET"
+            echo "Unset secret"
           else 
             SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
-            echo "Secret = $SECRET"
+            echo "Set secret"
           fi
 
           # This is the S3 bucket where docs are stored
