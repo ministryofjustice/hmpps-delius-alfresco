@@ -69,6 +69,8 @@ jobs:
           echo $BUCKET_NAME
           echo "===================="
 
+          cd alfresco-content-services
+
           echo "======== Content of current directory ============"
           ls -latr $PWD
           echo "===================="
