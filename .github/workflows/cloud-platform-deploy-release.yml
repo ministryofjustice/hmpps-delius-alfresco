@@ -1,0 +1,70 @@
+name: cloud-platform-deploy-release
+
+on:
+  push:
+    branches: [NIT-994-alfresco-pipeline-for-deployments-helm, main]
+    # Ecluding path as they are specifig to building Share container image
+    paths-ignore:
+      - 'docker-files/Dockerfile-share'
+      - '.github/workflows/cloud-platform-build-push-share.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-to-dev:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # This is required for requesting the JWT
+      contents: read # This is required for actions/checkout
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v3
+
+      - name: Configure aws credentials for ECR
+        uses: aws-actions/configure-aws-credentials@v4.0.1
+        with:
+          role-to-assume: ${{ secrets.SHARE_ECR_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.SHARE_ECR_REGION }}
+
+      - name: ECR login
+        uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - name: Alfresco Enterprise image repository login
+        run: docker login quay.io -u ${{ secrets.ALFRESCO_QUAY_IO_USERNAME }} -p ${{ secrets.ALFRESCO_QUAY_IO_PASSWORD }}
+
+      - name: Install Kubernetes
+        uses: azure/setup-kubectl@v3
+        with:
+           version: '1.28.3' # default is latest stable
+        id: install
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy to dev
+        run: |
+          # https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+
+          # Helm will not deploy unless this secret is present
+          if [ -z ${SECRET+x} ] 
+          then 
+            SECRET=$(openssl rand -base64 20)
+          else 
+            SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
+          fi
+
+          # This is the S3 bucket where docs are stored
+          export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
+
+          helm upgrade --install alfresco-content-services . --values=./values.yaml \
+          --namespace hmpps-delius-alfrsco-poc \
+          --set s3connector.config.bucketName=$BUCKET_NAME \
+          --set global.tracking.sharedsecret=$SECRET
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
