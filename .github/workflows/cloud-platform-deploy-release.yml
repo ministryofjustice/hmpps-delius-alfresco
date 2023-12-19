@@ -69,8 +69,8 @@ jobs:
           echo $BUCKET_NAME
           echo "===================="
 
-          echo "======== Current directory ============"
-          pwd
+          echo "======== Content of current directory ============"
+          ls -latr $PWD
           echo "===================="
           # helm upgrade --install alfresco-content-services . --values=./values.yaml \
           # --namespace hmpps-delius-alfrsco-poc \
