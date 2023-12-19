@@ -34,9 +34,9 @@ jobs:
 
       - name: Install Kubernetes
         uses: azure/setup-kubectl@v3
-        with:
-           version: 'v1.28' # default is latest stable
-        id: install
+        # with:
+        #    version: 'v1.28' # default is latest stable
+        # id: install
 
       - name: Install Helm
         uses: azure/setup-helm@v3
