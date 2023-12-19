@@ -36,7 +36,7 @@ jobs:
         uses: azure/setup-kubectl@v3
         # with:
         #    version: 'v1.28' # default is latest stable
-        # id: install
+        id: install
 
       - name: Install Helm
         uses: azure/setup-helm@v3
@@ -53,7 +53,7 @@ jobs:
           # For Alfresco, we only use one single namespace
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
-          kubectl get all
+          # kubectl get all
 
           # Helm will not deploy unless this secret is present
           if [ -z ${SECRET+x} ] 
