@@ -49,6 +49,8 @@ jobs:
           kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
           kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
           kubectl config use-context ${KUBE_CLUSTER}
+
+          # For Alfresco, we only use one single namespace
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
           kubectl get all
@@ -57,13 +59,11 @@ jobs:
           if [ -z ${SECRET+x} ] 
           then 
             SECRET=$(openssl rand -base64 20)
-            echo "Unset secret value = $SECRET"
+            echo "Generated secret value = $SECRET"
           else 
             SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
-            echo "Set secret value = $SECRET"
+            echo "Secret value fetched from 'alfresco-content-services-alfresco-repository-properties-secret' = $SECRET"
           fi
-
-          echo "The value of secret that has finally be set = $SECRET"
 
           # This is the S3 bucket where docs are stored
           export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
