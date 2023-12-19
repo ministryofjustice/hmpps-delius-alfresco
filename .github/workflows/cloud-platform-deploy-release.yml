@@ -1,4 +1,4 @@
-name: cloud-platform-deploy-release
+name: cloud-platform-helm-releases
 
 on:
   push:
@@ -42,6 +42,8 @@ jobs:
         uses: azure/setup-helm@v3
 
       - name: Deploy to dev
+        shell: bash
+        working-directory: ./alfresco-content-services
         run: |
           # https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
@@ -68,7 +70,6 @@ jobs:
           # This is the S3 bucket where docs are stored
           export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
 
-          cd alfresco-content-services
           helm upgrade --install alfresco-content-services . --values=./values.yaml \
           --set s3connector.config.bucketName=$BUCKET_NAME \
           --set global.tracking.sharedsecret=$SECRET
