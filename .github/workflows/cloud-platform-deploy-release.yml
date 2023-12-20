@@ -33,7 +33,7 @@ jobs:
         run: docker login quay.io -u ${{ secrets.ALFRESCO_QUAY_IO_USERNAME }} -p ${{ secrets.ALFRESCO_QUAY_IO_PASSWORD }}
 
       - name: Install Kubernetes
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v3.2
         with:
           version: 'v1.25' # default is latest stable
         id: kubectl_install
