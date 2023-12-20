@@ -66,7 +66,7 @@ jobs:
           echo "===== kubectl version ======"
           kubectl version -o json
 
-          # kubectl get all
+          kubectl get all
 
           # Helm will not deploy unless this secret is present
           SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
@@ -79,9 +79,9 @@ jobs:
           # This is the S3 bucket where docs are stored
           export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
 
-          helm upgrade --install alfresco-content-services . --values=./values.yaml \
-          --set s3connector.config.bucketName=$BUCKET_NAME \
-          --set global.tracking.sharedsecret=$SECRET
+          # helm upgrade --install alfresco-content-services . --values=./values.yaml \
+          # --set s3connector.config.bucketName=$BUCKET_NAME \
+          # --set global.tracking.sharedsecret=$SECRET
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
