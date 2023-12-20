@@ -1,0 +1,5 @@
+# this file overrides values defined in ./values.yaml
+repository:
+  replicaCount: 1
+share:
+  replicaCount: 1
