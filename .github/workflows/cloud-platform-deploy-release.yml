@@ -68,10 +68,10 @@ jobs:
           kubectl get all
 
           # Helm will not deploy unless this secret is present. Create a new one if one does not already exist from env section
-          export SECRET = $(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
+          SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
           # if [ -z ${SECRET} ] 
           # then 
-          #   export SECRET=$(openssl rand -base64 20)
+          #   SECRET=$(openssl rand -base64 20)
           # fi
 
           # # Upgrad an existing release or create a new one if one does not exist
