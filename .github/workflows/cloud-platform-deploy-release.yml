@@ -40,6 +40,8 @@ jobs:
 
       - name: Install Helm
         uses: azure/setup-helm@v3.5
+        with:
+          version: 'v3.9.0'
         id: helm_install
         
 
