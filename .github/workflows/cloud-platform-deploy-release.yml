@@ -79,9 +79,9 @@ jobs:
           # This is the S3 bucket where docs are stored
           export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
 
-          # helm upgrade --install alfresco-content-services . --values=./values.yaml \
-          # --set s3connector.config.bucketName=$BUCKET_NAME \
-          # --set global.tracking.sharedsecret=$SECRET
+          helm upgrade --install alfresco-content-services . --values=./values.yaml \
+          --set s3connector.config.bucketName=$BUCKET_NAME \
+          --set global.tracking.sharedsecret=$SECRET
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
