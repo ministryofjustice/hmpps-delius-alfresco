@@ -2,7 +2,7 @@ name: helm-releases
 
 on:
   push:
-    branches: [NIT-994-alfresco-pipeline-for-deployments-helm, main]
+    branches: [main]
     # Ecluding path as they are specifig to building Share container image
     paths-ignore:
       - 'docker-files/Dockerfile-share'
@@ -74,8 +74,6 @@ jobs:
           then 
             SECRET=$(openssl rand -base64 20)
           fi
-
-          echo "Secret value = $SECRET"
 
           # Upgrad an existing release or create a new one if one does not exist
           BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
