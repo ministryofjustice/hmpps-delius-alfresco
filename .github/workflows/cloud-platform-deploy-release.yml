@@ -14,10 +14,10 @@ permissions:
   contents: read # This is required for actions/checkout
 defaults:
   run:
-    working-directory: ./alfresco-content-services
+    working-directory: alfresco-content-services
 
 jobs:
-  poc-deployment-job:
+  poc-release:
     # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at: 
     # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments
     environment: poc
@@ -51,7 +51,7 @@ jobs:
           version: 'v3.9.0'
         id: helm_install
 
-      - name: PoC deployment
+      - name: PoC release
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
@@ -84,11 +84,11 @@ jobs:
           --set global.tracking.sharedsecret=$SECRET \
           --atomic
 
-  dev-deployment-job:
-    needs: poc-deployment-job
+  dev-release:
+    needs: poc-release
     environment: dev
     runs-on: ubuntu-latest
     steps:
-      - name: PoC deployment
+      - name: Dev release
         run: |
           echo "This job will only run in sequence and only after the above job is completed successfully"
