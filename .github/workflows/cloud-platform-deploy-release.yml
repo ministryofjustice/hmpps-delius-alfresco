@@ -89,6 +89,8 @@ jobs:
     environment: dev
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v3
       - name: Dev release
         run: |
           echo "This job will only run in sequence and only after the above job is completed successfully"
