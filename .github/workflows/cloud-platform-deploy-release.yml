@@ -1,4 +1,4 @@
-name: cloud-platform-helm-releases
+name: helm-releases
 
 on:
   push:
@@ -10,7 +10,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy-to-dev:
+  poc-deployment-job:
+    # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at: 
+    # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments
+    environment: poc
     runs-on: ubuntu-latest
     permissions:
       id-token: write # This is required for requesting the JWT
@@ -43,11 +46,15 @@ jobs:
         with:
           version: 'v3.9.0'
         id: helm_install
-        
 
-      - name: Deploy to dev
-        # shell: bash
+      - name: PoC deployment
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+          SECRET: $(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
+          BUCKET_NAME: $(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
         working-directory: ./alfresco-content-services
+        # shell: bash
         run: |
 
           # See this link how github action secrets are created: https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount
@@ -61,21 +68,16 @@ jobs:
           # For Alfresco, we only use one single namespace
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
-          # Helm will not deploy unless this secret is present
-          SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
-
+          # Helm will not deploy unless this secret is present. Create a new one if one does not already exist from env section
           if [ -z ${SECRET} ] 
           then 
             SECRET=$(openssl rand -base64 20)
           fi
 
-          # This is the S3 bucket where docs are stored
-          export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
+          echo "===== secret value = ${SECRET}"
 
-          # Install helm
+          # Upgrad an existing release or create a new one if one does not exist
           helm upgrade --install alfresco-content-services . --values=./values.yaml \
-          --set s3connector.config.bucketName=$BUCKET_NAME \
-          --set global.tracking.sharedsecret=$SECRET
-        env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+          --set s3connector.config.bucketName=${BUCKET_NAME} \
+          --set global.tracking.sharedsecret=${SECRET} \
+          --atomic
