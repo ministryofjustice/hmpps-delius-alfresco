@@ -47,10 +47,6 @@ jobs:
         # shell: bash
         working-directory: ./alfresco-content-services
         run: |
-          echo "===== Helm version ======"
-          helm version
-          echo "===== kubectl version ======"
-          kubectl version
 
           # See this link how github action secrets are created: https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount
           # See this example on how to use github secrets: https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
@@ -62,6 +58,11 @@ jobs:
 
           # For Alfresco, we only use one single namespace
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
+
+          echo "===== Helm version ======"
+          helm version
+          echo "===== kubectl version ======"
+          kubectl version
 
           # kubectl get all
 
