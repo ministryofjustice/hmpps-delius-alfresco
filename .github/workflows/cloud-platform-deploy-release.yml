@@ -64,7 +64,7 @@ jobs:
           echo "===== Helm version ======"
           helm version
           echo "===== kubectl version ======"
-          kubectl version
+          kubectl version -o json
 
           # kubectl get all
 
