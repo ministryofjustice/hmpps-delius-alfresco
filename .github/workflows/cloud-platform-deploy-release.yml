@@ -36,15 +36,22 @@ jobs:
         uses: azure/setup-kubectl@v3
         # with:
         #    version: 'v1.28' # default is latest stable
-        id: install
+        id: kubectl_install
 
       - name: Install Helm
         uses: azure/setup-helm@v3.5
+        id: helm_install
+        
 
       - name: Deploy to dev
         # shell: bash
         working-directory: ./alfresco-content-services
         run: |
+          echo "===== Helm version ======"
+          helm version
+          echo "===== kubectl version ======"
+          kubectl version
+
           # See this link how github action secrets are created: https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount
           # See this example on how to use github secrets: https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
