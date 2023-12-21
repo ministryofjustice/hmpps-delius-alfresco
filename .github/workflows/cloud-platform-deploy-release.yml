@@ -26,19 +26,6 @@ jobs:
       - name: Checkout current repo
         uses: actions/checkout@v3
 
-      - name: Configure aws credentials for ECR
-        uses: aws-actions/configure-aws-credentials@v4.0.1
-        with:
-          role-to-assume: ${{ secrets.SHARE_ECR_ROLE_TO_ASSUME }}
-          aws-region: ${{ vars.SHARE_ECR_REGION }}
-
-      - name: ECR login
-        uses: aws-actions/amazon-ecr-login@v2
-        id: login-ecr
-
-      - name: Alfresco Enterprise image repository login
-        run: docker login quay.io -u ${{ secrets.ALFRESCO_QUAY_IO_USERNAME }} -p ${{ secrets.ALFRESCO_QUAY_IO_PASSWORD }}
-
       - name: Install Kubernetes
         uses: azure/setup-kubectl@v3.2
         with:
