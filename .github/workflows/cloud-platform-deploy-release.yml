@@ -2,7 +2,7 @@ name: helm-releases
 
 on:
   push:
-    branches: [main]
+    branches: [main, NIT-994-alfresco-pipeline-matrix]
     # Ecluding path as they are specifig to building Share container image
     paths-ignore:
       - 'docker-files/Dockerfile-share'
