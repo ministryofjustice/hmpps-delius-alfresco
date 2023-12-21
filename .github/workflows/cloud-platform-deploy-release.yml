@@ -18,9 +18,9 @@ defaults:
 
 jobs:
   release:
-    continue-on-error: false
+    continue-on-error: true
     strategy:
-      fail-fast: true
+      fail-fast: false
       max-parallel: 1
       matrix:
         include:
