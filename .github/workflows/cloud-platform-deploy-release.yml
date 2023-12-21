@@ -2,7 +2,7 @@ name: helm-releases
 
 on:
   push:
-    branches: [main]
+    branches: [main, NIT-994-alfresco-pipeline-matrix]
     # Ecluding path as they are specifig to building Share container image
     paths-ignore:
       - 'docker-files/Dockerfile-share'
@@ -17,10 +17,19 @@ defaults:
     working-directory: alfresco-content-services
 
 jobs:
-  poc-release:
+  release:
+    continue-on-error: false
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        include:
+        - environment: poc
+          values: values_poc.yaml
     # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at: 
     # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments
-    environment: poc
+    environment:
+      name: ${{ matrix.environment }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
@@ -38,7 +47,7 @@ jobs:
           version: 'v3.9.0'
         id: helm_install
 
-      - name: PoC release
+      - name: ${{ matrix.environment }} release
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
@@ -64,18 +73,7 @@ jobs:
 
           # Upgrad an existing release or create a new one if one does not exist
           BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
-          helm upgrade --install alfresco-content-services . --values=./values.yaml \
+          helm upgrade --install alfresco-content-services . --values=./values.yaml --values=./${{ matrix.values }}
           --set s3connector.config.bucketName=$BUCKET_NAME \
           --set global.tracking.sharedsecret=$SECRET \
           --atomic
-
-  dev-release:
-    needs: poc-release
-    environment: dev
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout current repo
-        uses: actions/checkout@v3
-      - name: Dev release
-        run: |
-          echo "This job will only run in sequence and only after the above job is completed successfully"
