@@ -558,7 +558,7 @@ share:
   image:
     # repository: quay.io/alfresco/alfresco-share
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
-    tag: 56302f65ffc961a372823ee79f390e6727c63b4b
+    tag: 9dac5c1560fd54a60879b95d707a5ccd515be990
     pullPolicy: IfNotPresent
     internalPort: 8080
   service:
