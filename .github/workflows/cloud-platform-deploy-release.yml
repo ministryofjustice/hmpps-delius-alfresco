@@ -3,10 +3,6 @@ name: helm-releases
 on:
   push:
     branches: [main]
-    # Ecluding path as they are specifig to building Share container image
-    paths-ignore:
-      - 'docker-files/Dockerfile-share'
-      - '.github/workflows/cloud-platform-build-push-share.yml'
   workflow_dispatch:
 
 permissions:
