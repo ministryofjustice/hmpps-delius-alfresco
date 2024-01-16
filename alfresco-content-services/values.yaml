@@ -68,6 +68,7 @@ repository:
       -Dencryption.keystore.location=/usr/local/tomcat/shared/classes/alfresco/extension/keystore/keystore
       -Dmetadata-keystore.aliases=metadata
       -Dmetadata-keystore.metadata.algorithm=DESede
+      -Dsystem.workflow.engine.activiti.enabled=false
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33000
