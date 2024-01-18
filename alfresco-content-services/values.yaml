@@ -29,7 +29,7 @@ repository:
     type: Recreate
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: 6893455d0dde5844f9d4821a774d860d379e65d6
+    tag: 61f0ddf33bfe31f5d66cccd6551c0ee2c99a19af
     pullPolicy: IfNotPresent
     internalPort: 8080
     hazelcastPort: 5701
@@ -559,7 +559,7 @@ share:
   image:
     # repository: quay.io/alfresco/alfresco-share
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
-    tag: 9dac5c1560fd54a60879b95d707a5ccd515be990
+    tag: db27f64e5c91889b247e8ccb86679917bb3dd0ce
     pullPolicy: IfNotPresent
     internalPort: 8080
   service:
