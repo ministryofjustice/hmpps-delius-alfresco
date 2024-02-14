@@ -5,6 +5,7 @@ metadata:
   labels:
     {{- include "repository.labels" . | nindent 4 }}
   annotations:
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ join "," .Values.global.whitelistSourceRanges }}
     nginx.ingress.kubernetes.io/affinity: "cookie"
     nginx.ingress.kubernetes.io/session-cookie-name: "alf_affinity_route"
     nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
