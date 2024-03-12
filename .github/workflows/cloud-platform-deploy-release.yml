@@ -24,6 +24,8 @@ jobs:
           values: values_poc.yaml
         - environment: dev
           values: values_dev.yaml
+        - environment: test
+          values: values_test.yaml
     # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at:
     # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments
     environment:
