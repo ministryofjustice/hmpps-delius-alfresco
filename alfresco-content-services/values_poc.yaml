@@ -5,9 +5,12 @@ share:
   replicaCount: 1
 global:
   whitelistSourceRanges:
-    - "3.11.29.246"        # delius-mis-dev-az1-nat-gateway
-    - "18.130.165.209"     # delius-mis-dev-az2-nat-gateway
-    - "35.178.35.115"      # delius-mis-dev-az3-nat-gateway
+    - "3.11.29.246"        # legacy delius-mis-dev-az1-nat-gateway
+    - "18.130.165.209"     # legacy delius-mis-dev-az2-nat-gateway
+    - "35.178.35.115"      # legacy delius-mis-dev-az3-nat-gateway
+    - "35.178.209.113"     # Cloud Platform live-1-eu-west-2a
+    - "3.8.51.207"         # Cloud Platform live-1-eu-west-2c
+    - "35.177.252.54"      # Cloud Platform live-1-eu-west-2b
     - "35.176.93.186/32"   # MoJ GlobalProtect
     - "35.177.125.252/32"  # MoJ VPN Gateway Proxies
     - "35.177.137.160/32"  # MoJ VPN Gateway Proxies
