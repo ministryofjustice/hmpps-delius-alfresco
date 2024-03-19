@@ -17,7 +17,7 @@ Start k8s services by executing helm command _(Helm will complain if a random se
 ```bash
 cd hmpps-delius-alfresco-poc/alfresco-content-services
 export SECRET=$(openssl rand -base64 20)
-export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
+export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d))
 helm install alfresco-content-services . --values=./values.yaml \
 --set s3connector.config.bucketName=$BUCKET_NAME \
 --set global.tracking.sharedsecret=$SECRET
@@ -48,7 +48,7 @@ rm -rf charts/alfresco-sync-service-4.1.0.tgz
 2. Make your changes and then test them by upgrading Helm release
    ```
    - export SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d))
-   - export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
+   - export BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d))
    - helm upgrade alfresco-content-services . --values=./values.yaml --set s3connector.config.bucketName=$BUCKET_NAME --set global.tracking.sharedsecret=$SECRET
    - NOTE: For the release upgrade, use the existing secret. You will otherwise have to restart pods consuming those secrets
    ```
