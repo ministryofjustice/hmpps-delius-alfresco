@@ -1,0 +1,156 @@
+---
+name: Alfresco Data Refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_env:
+        description: Environment to copy data from
+        required: true
+        type: choice
+        options:
+          - dev
+      destination_env:
+        description: Environment to copy data to
+        required: true
+        type: choice
+        options:
+          - poc
+
+permissions:
+  contents: read
+
+jobs:
+  stop-destination-environment:
+    name: Stop ${{ github.event.inputs.destination_env }} Environment
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ github.event.inputs.destination_env }}
+    steps:
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CERT }}" > ca.crt
+        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+        kubectl config use-context ${KUBE_CLUSTER}
+      env:
+        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+    - name: Stop ${{ github.event.inputs.destination_env }} Environment
+      run: |
+        kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=0
+
+  refresh-db:
+    name: Refresh DB
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ github.event.inputs.source_env }}
+    needs: stop-destination-environment
+    steps:
+      - uses: actions/checkout@v4.1.1
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Start DB Refresh Job
+        run: |
+          kubectl apply -f jobs/refresh-db.yaml
+          kubectl wait --timeout 10m --for=condition=complete job/refresh-db
+
+      - name: Delete DB Refresh Job
+        run: kubectl delete job refresh-db
+
+  refresh-s3:
+    name: Refresh S3
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ github.event.inputs.source_env }}
+    needs: stop-destination-environment
+    steps:
+      - uses: actions/checkout@v4.1.1
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Start S3 Refresh Job
+        run: |
+          kubectl apply -f jobs/refresh-s3.yaml
+          kubectl wait --timeout 10m --for=condition=complete job/refresh-s3
+
+      - name: Delete S3 Refresh Job
+        run: kubectl delete job refresh-s3
+
+  wipe-solr-data:
+    name: Wipe Solr Data
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ github.event.inputs.destination_env }}
+    needs: stop-destination-environment
+    steps:
+      - uses: actions/checkout@v4.1.1
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Start Solr Data Wipe Job
+        run: |
+          kubectl apply -f jobs/wipe-solr-data.yaml
+          kubectl wait --timeout 10m --for=condition=complete job/wipe-solr-data
+
+      - name: Delete Refresh Job
+        run: kubectl delete job wipe-solr-data
+
+  start-destination-environment:
+    name: Start ${{ github.event.inputs.destination_env }} Environment
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ github.event.inputs.destination_env }}
+    needs:
+      - refresh-db
+      - refresh-s3
+      - wipe-solr-data
+    steps:
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CERT }}" > ca.crt
+        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+        kubectl config use-context ${KUBE_CLUSTER}
+      env:
+        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+    - name: Stop ${{ github.event.inputs.destination_env }} Environment
+      run: |
+        kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=1
