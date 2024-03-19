@@ -72,7 +72,7 @@ jobs:
           fi
 
           # Upgrad an existing release or create a new one if one does not exist
-          BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.bucket_name}' | base64 -d))
+          BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d))
           helm upgrade --install alfresco-content-services . --values=./values.yaml --values=./${{ matrix.values }} \
           --set s3connector.config.bucketName=$BUCKET_NAME \
           --set global.tracking.sharedsecret=$SECRET \
