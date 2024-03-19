@@ -668,7 +668,7 @@ database:
   secretName:
   # -- An existing secret that contains DATABASE_USERNAME and DATABASE_PASSWORD keys.
   # When using embedded postgres you need to also set `postgresql.existingSecret`.
-  existingSecretName: rds-alf-psql-instance-output
+  existingSecretName: rds-instance-output
 alfresco-search-enterprise:
   enabled: false
   liveIndexing:
