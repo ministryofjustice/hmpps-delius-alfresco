@@ -1,6 +1,6 @@
 # this file overrides values defined in ./values.yaml
 repository:
-  replicaCount: 1
+  replicaCount: 2
   resources:
     limits:
       cpu: "4"
