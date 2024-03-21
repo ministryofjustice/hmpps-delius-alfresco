@@ -1,6 +1,10 @@
 # this file overrides values defined in ./values.yaml
 repository:
   replicaCount: 1
+  resources:
+    limits:
+      cpu: "4"
+      memory: "6Gi"
   persistence:
     baseSize: 100Gi
 share:
