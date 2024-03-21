@@ -95,7 +95,7 @@ repository:
   livenessProbe:
     initialDelaySeconds: 130
     periodSeconds: 20
-    timeoutSeconds: 10
+    timeoutSeconds: 15
   persistence:
     # -- Persist repository data
     enabled: false
@@ -393,7 +393,7 @@ tika:
       memory: "600Mi"
     limits:
       cpu: "2"
-      memory: "1000Mi"
+      memory: "2Gi"
   environment:
     JAVA_OPTS: >-
       -XX:MinRAMPercentage=50
