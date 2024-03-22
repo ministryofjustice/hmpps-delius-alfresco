@@ -12,9 +12,9 @@ data:
     chmod 0600 ~/.pgpass
     set -x
 
-    pg_dump --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --format=custom --no-owner --no-privileges --verbose --file=/tmp/db.dump $SRC_DB_NAME
-    pg_restore --host="$DST_DB_HOST" --username="$DST_DB_USER" --clean --no-owner --verbose --dbname="$DST_DB_NAME" /tmp/db.dump
-    rm -v /tmp/db.dump ~/.pgpass
+    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/tmp/db-dump
+    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --clean --if-exists --no-owner --no-privileges --verbose /tmp/db-dump
+    rm -rv /tmp/db-dump ~/.pgpass
 ---
 apiVersion: batch/v1
 kind: Job
