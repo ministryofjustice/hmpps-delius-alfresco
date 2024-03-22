@@ -20,8 +20,9 @@ jobs:
       max-parallel: 1
       matrix:
         include:
-        - environment: poc
-          values: values_poc.yaml
+        ## PoC environment temporarily removed from the pipeline while we try to fix a configuration bug
+        # - environment: poc
+        #   values: values_poc.yaml
         - environment: dev
           values: values_dev.yaml
         - environment: test
