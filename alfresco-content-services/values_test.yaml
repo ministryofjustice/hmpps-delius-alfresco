@@ -3,12 +3,14 @@ repository:
   replicaCount: 2
   resources:
     limits:
-      cpu: "4"
-      memory: "6Gi"
+      cpu: 4
+      memory: 8Gi
   persistence:
     baseSize: 100Gi
 share:
   replicaCount: 1
+tika:
+  replicaCount: 2
 global:
   whitelistSourceRanges:
     - "35.176.126.163"     # legacy delius-test-az1-nat-gateway
