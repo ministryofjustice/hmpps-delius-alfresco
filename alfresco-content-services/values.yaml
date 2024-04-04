@@ -69,6 +69,14 @@ repository:
       -Dmetadata-keystore.aliases=metadata
       -Dmetadata-keystore.metadata.algorithm=DESede
       -Dsystem.workflow.engine.activiti.enabled=false
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33000
@@ -240,6 +248,14 @@ transformrouter:
     initialDelaySeconds: 140
     periodSeconds: 120
     timeoutSeconds: 60
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33016
@@ -264,6 +280,14 @@ pdfrenderer:
     name: pdfrenderer
     type: ClusterIP
     externalPort: 80
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33001
@@ -304,6 +328,14 @@ imagemagick:
     name: imagemagick
     type: ClusterIP
     externalPort: 80
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33002
@@ -351,6 +383,14 @@ libreoffice:
     limits:
       cpu: "4"
       memory: "1000Mi"
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33003
@@ -384,6 +424,14 @@ tika:
     name: tika
     type: ClusterIP
     externalPort: 80
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33004
@@ -425,6 +473,14 @@ transformmisc:
     name: transformmisc
     type: ClusterIP
     externalPort: 80
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 33006
@@ -463,6 +519,14 @@ aiTransformer:
     name: ai-transformer
     type: ClusterIP
     externalPort: 80
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsUser: 33015
   resources:
@@ -511,6 +575,14 @@ filestore:
     name: filestore
     type: ClusterIP
     externalPort: 80
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsUser: 33030
     runAsGroup: 1000
@@ -574,10 +646,14 @@ share:
     #    hosts:
     #      - chart-example.local
   securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
     capabilities:
       drop:
         - NET_RAW
         - ALL
+    seccompProfile:
+      type: RuntimeDefault
   podSecurityContext:
     runAsUser: 65534
   resources:
@@ -616,6 +692,14 @@ activemq:
     # -- Default password for the embedded broker admin user
     password: admin
 # -- external activemq connection setting when activemq.enabled=false
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
 messageBroker: &acs_messageBroker
   url: null
   user: null
@@ -652,6 +736,14 @@ alfresco-search:
     #  - secretName: chart-example-tls
     #    hosts:
     #      - chart-example.local
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
 database:
   # -- Enable using an external database for Alfresco Content Services. Must disable `postgresql.enabled` when true.
   external: true
