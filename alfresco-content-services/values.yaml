@@ -69,6 +69,9 @@ repository:
       -Dmetadata-keystore.aliases=metadata
       -Dmetadata-keystore.metadata.algorithm=DESede
       -Dsystem.workflow.engine.activiti.enabled=false
+      -Dsystem.prop_table_cleaner.algorithm=V2
+      -Dsystem.delete_not_exists.read_only=false
+      -Dsystem.delete_not_exists.timeout_seconds=3600
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
