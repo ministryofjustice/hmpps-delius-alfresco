@@ -1,0 +1,5 @@
+apiVersion: v2
+appVersion: 0.1
+version: 0.0.1
+description: Jobs to refresh S3 data
+name: refresh-s3
