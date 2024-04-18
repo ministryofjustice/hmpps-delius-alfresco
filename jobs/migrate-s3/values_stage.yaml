@@ -1,0 +1,13 @@
+environment: stage
+srcBucket: tf-eu-west-2-hmpps-delius-stage-alfresco-storage-s3bucket
+dirs:
+  - 2019
+  - 2020
+  - 2021
+  - 2022
+  - 2023
+  - 2024
+  - contentstore/2016
+  - contentstore/2017
+  - contentstore/2018
+  - contentstore/2019

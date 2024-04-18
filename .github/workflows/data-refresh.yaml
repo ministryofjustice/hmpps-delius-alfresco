@@ -64,13 +64,16 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Start DB Refresh Job
+      - name: DB Refresh
+        working-directory: jobs/refresh-db
         run: |
-          kubectl apply -f jobs/refresh-db.yaml
-          kubectl wait --timeout 10m --for=condition=complete job/refresh-db
+          helm install refresh-db . \
+            --set sourceEnvironment=${{ github.event.inputs.source_env }} \
+            --set destinationEnvironment=${{ github.event.inputs.destination_env }}
+          kubectl wait job refresh-db --for=condition=complete --timeout 10h
 
-      - name: Delete DB Refresh Job
-        run: kubectl delete job refresh-db
+      - name: Uninstall DB Refresh chart
+        run: helm uninstall refresh-db
 
   refresh-s3:
     name: Refresh S3
@@ -92,13 +95,27 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Start S3 Refresh Job
+      - name: S3 Refresh
+        working-directory: jobs/refresh-s3
         run: |
-          kubectl apply -f jobs/refresh-s3.yaml
-          kubectl wait --timeout 10m --for=condition=complete job/refresh-s3
+          set -xeo pipefail
 
-      - name: Delete S3 Refresh Job
-        run: kubectl delete job refresh-s3
+          SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
+          SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+
+          SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+
+          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk -F ' ' '{print $2}' | tr -d '/' | tr '\n' ',')
+
+          helm install refresh-s3 . \
+            --set sourceEnvironment=${{ github.event.inputs.source_env }} \
+            --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
+            --set directories="{${DIRS:0:-1}}"
+
+          kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
+
+      - name: Uninstall S3 Refresh chart
+        run: helm uninstall refresh-s3
 
   wipe-solr-data:
     name: Wipe Solr Data
@@ -151,6 +168,10 @@ jobs:
 
     - name: Stop ${{ github.event.inputs.destination_env }} Environment
       run: |
-        kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=1
-        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=1
+        apt update && apt install -y jq
+
+        HELM_VALUES=$(helm get values alfresco-content-services -o json)
+
+        kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=$(echo $HELM_VALUES | jq '.repository.replicaCount')
+        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=$(echo $HELM_VALUES | jq '.share.replicaCount')
         kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=1

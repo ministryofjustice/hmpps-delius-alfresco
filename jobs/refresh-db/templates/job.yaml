@@ -27,6 +27,10 @@ spec:
       - name: refresh-db
         image: postgres:14
         imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: 4
+            memory: 2Gi
         command:
         - /bin/entrypoint.sh
         env:
@@ -53,22 +57,22 @@ spec:
         - name: DST_DB_NAME
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-poc
+              name: rds-instance-output-{{ .Values.destinationEnvironment }}
               key: DATABASE_NAME
         - name: DST_DB_USER
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-poc
+              name: rds-instance-output-{{ .Values.destinationEnvironment }}
               key: DATABASE_USERNAME
         - name: DST_DB_PASS
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-poc
+              name: rds-instance-output-{{ .Values.destinationEnvironment }}
               key: DATABASE_PASSWORD
         - name: DST_DB_HOST
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-poc
+              name: rds-instance-output-{{ .Values.destinationEnvironment }}
               key: RDS_INSTANCE_ADDRESS
         volumeMounts:
         - name: refresh-db-script
@@ -79,7 +83,13 @@ spec:
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: false
+          runAsNonRoot: true
           runAsUser: 999
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
       serviceAccount: hmpps-migration-development
       serviceAccountName: hmpps-migration-development
       restartPolicy: Never
