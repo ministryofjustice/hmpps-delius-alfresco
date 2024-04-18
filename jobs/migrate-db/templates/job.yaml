@@ -1,0 +1,102 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migrate-db-script
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -e
+    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
+    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
+    chmod 0600 ~/.pgpass
+    set -x
+
+    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/tmp/db-dump
+    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --clean --if-exists --no-owner --no-privileges --verbose /tmp/db-dump
+    rm -rv /tmp/db-dump ~/.pgpass
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-db
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate-db
+        image: postgres:14
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: 4
+            memory: 2Gi
+        command:
+        - /bin/entrypoint.sh
+        env:
+        - name: SRC_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: legacy-rds-instance
+              key: DATABASE_NAME
+        - name: SRC_DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: legacy-rds-instance
+              key: DATABASE_USERNAME
+        - name: SRC_DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: legacy-rds-instance
+              key: DATABASE_PASSWORD
+        - name: SRC_DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: legacy-rds-instance
+              key: RDS_INSTANCE_ADDRESS
+        - name: DST_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: rds-instance-output
+              key: DATABASE_NAME
+        - name: DST_DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: rds-instance-output
+              key: DATABASE_USERNAME
+        - name: DST_DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rds-instance-output
+              key: DATABASE_PASSWORD
+        - name: DST_DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: rds-instance-output
+              key: RDS_INSTANCE_ADDRESS
+        volumeMounts:
+        - name: migrate-db-script
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 999
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      serviceAccount: hmpps-migration-{{ .Values.environment }}
+      serviceAccountName: hmpps-migration-{{ .Values.environment }}
+      restartPolicy: Never
+      volumes:
+      - name: migrate-db-script
+        configMap:
+          name: migrate-db-script
+          defaultMode: 0755
+  backoffLimit: 0
+...

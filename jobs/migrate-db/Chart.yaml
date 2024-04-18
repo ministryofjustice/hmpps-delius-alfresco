@@ -1,0 +1,5 @@
+apiVersion: v2
+appVersion: 0.1
+version: 0.0.1
+description: A quickly thrown together Helm chart for deploying a job to migrate S3 data
+name: migrate-s3
