@@ -1,11 +1,6 @@
 name: Alfresco Restore Docs Worker Process
 
 on:
-  push:
-    branches:
-      - main
-      - "NIT-1120-alfresco-recover-deleted-documents"
-
   workflow_dispatch:
     inputs:
       which_env:
@@ -20,10 +15,10 @@ permissions:
 
 jobs:
   stop-destination-environment:
-    name: Stop ${{ github.event.inputs.destination_env }} Environment
+    name: Stop ${{ github.event.inputs.which_env }} Environment
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ github.event.inputs.destination_env }}
+      name: ${{ github.event.inputs.which_env }}
     steps:
     - name: Configure kubectl
       run: |
@@ -36,17 +31,18 @@ jobs:
         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-    - name: Stop ${{ github.event.inputs.destination_env }} Environment
+    - name: Stop ${{ github.event.inputs.which_env }} Environment
       run: |
-        kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
-        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0
-        kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=0
+          kubectl get po
+        # kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
+        # kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0
+        # kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=0
 
   restore-docs-worker:
     name: Restore Docs from Glacier 
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ github.event.inputs.source_env }}
+      name: ${{ github.event.inputs.which_env }}
     needs: stop-destination-environment
     steps:
       - uses: actions/checkout@v4.1.1
@@ -75,10 +71,10 @@ jobs:
         run: kubectl delete job restore-docs-worker
 
   start-destination-environment:
-    name: Start ${{ github.event.inputs.destination_env }} Environment
+    name: Start ${{ github.event.inputs.which_env }} Environment
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ github.event.inputs.destination_env }}
+      name: ${{ github.event.inputs.which_env }}
     needs:
       - restore-docs-worker
     steps:
@@ -93,8 +89,9 @@ jobs:
         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-    - name: Stop ${{ github.event.inputs.destination_env }} Environment
+    - name: Stop ${{ github.event.inputs.which_env }} Environment
       run: |
-        kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=1
-        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=1
-        kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=1
+        kubectl get po
+        # kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=1
+        # kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=1
+        # kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=1
