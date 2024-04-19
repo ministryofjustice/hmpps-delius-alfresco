@@ -1,20 +1,11 @@
 name: Alfresco Restore Docs Worker Process
 
 on:
+  push:
+    branches:
+      - main
+
   workflow_dispatch:
-    inputs:
-      source_env:
-        description: Environment to copy data from
-        required: true
-        type: choice
-        options:
-          - dev
-      destination_env:
-        description: Environment to copy data to
-        required: true
-        type: choice
-        options:
-          - poc
 
 permissions:
   contents: read
