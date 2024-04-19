@@ -1,9 +1,6 @@
 name: Alfresco Restore Docs Worker Process
 
 on:
-  push:
-    branches:
-      - "NIT-1120-alfresco-recover-deleted-documents"
   workflow_dispatch:
     inputs:
       which_env:
