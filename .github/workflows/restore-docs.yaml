@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "NIT-1120-alfresco-recover-deleted-documents"
 
   workflow_dispatch:
 
