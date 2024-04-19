@@ -7,6 +7,13 @@ on:
       - "NIT-1120-alfresco-recover-deleted-documents"
 
   workflow_dispatch:
+    inputs:
+      which_env:
+        description: Environment where this restore docs process will run
+        required: true
+        type: choice
+        options:
+          - poc
 
 permissions:
   contents: read
