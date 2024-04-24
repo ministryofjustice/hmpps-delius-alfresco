@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: restore-docs-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: restore-docs-worker
+        image: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/webops/cloud-platform-service-pod:c5f69b4624b956248001fa7c173c89a0556a457e
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash", "/scripts/restore-docs-worker.sh"]
+        env:
+        - name: BUCKET_NAME
+          valueFrom:
+            secretKeyRef:
+              name: s3-bucket-output
+              key: BUCKET_NAME
+        - name: OBJECT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: s3-bucket-output-poc
+              key: BUCKET_NAME
+        - name: AWS_REGION
+          value: "eu-west-2"
+        volumeMounts:
+        - name: restore-docs-worker-volume
+          mountPath: /scripts
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+      volumes:
+      - name: restore-docs-worker-volume
+        configMap:
+          name: restore-docs-worker-cm
+          defaultMode: 0755
+      serviceAccount: hmpps-migration-development
+      serviceAccountName: hmpps-migration-development
+      restartPolicy: Never
+  backoffLimit: 0
