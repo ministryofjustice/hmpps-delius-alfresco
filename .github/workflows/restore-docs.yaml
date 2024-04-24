@@ -65,6 +65,7 @@ jobs:
             local restore_status=$(aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$S3_OBJECT_KEY" | jq -r '.Restore')
             if [[ "$restore_status" == *"ongoing-request=\"true\""* ]]; then
                 #restore in progress
+                echo "Restore for object s3://${S3_BUCKET_NAME}/${S3_OBJECT_KEY} in progress. Please wait!"
                 sleep "$wait_interval"
             fi
 
