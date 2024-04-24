@@ -9,13 +9,13 @@ on:
         type: choice
         options:
           - poc
-      object_key:
+      s3_object_key:
         description: S3 Object which needs to be restored
         required: true
       job_tier:
-        description: Glacier job tier (expedited, standard, bulk)
+        description: Glacier job tier (Expedited, Standard, Bulk)
         required: false
-        default: 'expedited'
+        default: 'Expedited'
 
 permissions:
   contents: read
@@ -53,20 +53,29 @@ jobs:
           # Exec into the service pod and execute the script
           kubectl exec $SERVICE_POD_NAME -- /bin/sh -c '
             # Delete the delete marker versions
-            local version_id=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${OBJECT_KEY}" --query "Versions[?IsLatest==\`true\`].[VersionId]" --output text | jq -r ".[0]")
-            aws s3api delete-object --bucket "$S3_BUCKET_NAME" --key "${OBJECT_KEY}" --version-id "$version_id"
+            local version_id=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}" --query "Versions[?IsLatest==\`true\`].[VersionId]" --output text | jq -r ".[0]")
+            aws s3api delete-object --bucket "$S3_BUCKET_NAME" --key "${S3_OBJECT_KEY}" --version-id "$version_id"
             echo "Deleted marker version: $version_id"          
             
             # Restore from Glacier
-            aws s3api restore-object --bucket "$S3_BUCKET_NAME" --key "${OBJECT_KEY}" --restore-request "{\"Days\":1,\"GlacierJobParameters\":{\"Tier\":\"'$JOB_TIER'\"}}"
+            aws s3api restore-object --bucket "$S3_BUCKET_NAME" --key "${S3_OBJECT_KEY}" --restore-request "{\"Days\":1,\"GlacierJobParameters\":{\"Tier\":\"'$JOB_TIER'\"}}"
+
+            # Wait for restoration to complete
+            local wait_interval=20
+            local restore_status=$(aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$S3_OBJECT_KEY" | jq -r '.Restore')
+            if [[ "$restore_status" == *"ongoing-request=\"true\""* ]]; then
+                #restore in progress
+                sleep "$wait_interval"
+            fi
 
             # Copy object within S3 bucket to update storage class
-            aws s3 cp "s3://$S3_BUCKET_NAME/${OBJECT_KEY}" "s3://$S3_BUCKET_NAME/${OBJECT_KEY}" --storage-class STANDARD
+            aws s3 cp "s3://$S3_BUCKET_NAME/${S3_OBJECT_KEY}" "s3://$S3_BUCKET_NAME/${S3_OBJECT_KEY}" --storage-class STANDARD
 
-            echo "Restore for object s3://${S3_BUCKET_NAME}/${OBJECT_KEY} task complete."
-          ' - "$S3_BUCKET_NAME" "$JOB_TIER" "${{ github.event.inputs.object_key }}"
+            echo "Restore for object s3://${S3_BUCKET_NAME}/${S3_OBJECT_KEY} task complete."
+          ' - "$JOB_TIER" "${{ github.event.inputs.s3_object_key }}"
         env:
           JOB_TIER: ${{ github.event.inputs.job_tier }}
+          S3_OBJECT_KEY: ${{ github.event.inputs.s3_object_key }}
 
   # restore-docs-worker:
   #   name: Restore Docs from Glacier 
