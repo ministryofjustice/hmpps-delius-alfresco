@@ -53,8 +53,15 @@ jobs:
 
           # Exec into the service pod and execute the script
           kubectl exec $SERVICE_POD_NAME -- /bin/sh -c '
+            # check if object is present or not
+            object_versions=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}")
+            if [[ -z "$object_versions" ]]; then
+              echo "Object not found in bucket"
+              exit 1
+            fi
+            
             # Delete the delete marker versions
-            version_id=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}" --query "Versions[?IsLatest==\`true\`].[VersionId]" --output text | jq -r ".[0]")
+            version_id=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}" --query "DeleteMarkers[0].[VersionId]" --output text)
             aws s3api delete-object --bucket "$S3_BUCKET_NAME" --key "${S3_OBJECT_KEY}" --version-id "$version_id"
             echo "Deleted marker version: $version_id"          
             
