@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: refresh-s3-script
+data:
+  entrypoint.sh: |-
+    #!/bin/sh
+    set -xe
+
+    aws configure set default.s3.max_concurrent_requests 2000
+
+    date=$(date +%Y%m%d%H%M%S)
+
+    aws s3 sync /pvc_mount s3://$DST_BUCKET/snapshot-${date} --delete --no-progress --only-show-errors
+
+    set +x
+    echo sync of pvc mount directory completed
+
+{{- range .Values.directories }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: solr-backup-pvc-{{ . | toString | replace "/" "-" }}
+  labels:
+    name-prefix: solr-backup-pvc
+spec:
+  template:
+    spec:
+      containers:
+      - name: backup-pvc
+        image: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/webops/cloud-platform-service-pod:c5f69b4624b956248001fa7c173c89a0556a457e
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: 4
+            memory: 8Gi
+        command:
+        - /bin/entrypoint.sh
+        env:
+        - name: DST_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: s3-bucket-solr-backup-pvc-output
+              key: BUCKET_NAME
+        - name: DIR
+          value: {{ . | quote }}
+        volumeMounts:
+        - name: solr-backup-pvc-script
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      serviceAccount: hmpps-migration-development
+      serviceAccountName: hmpps-migration-development
+      restartPolicy: OnFailure
+      volumes:
+      - name: solr-backup-pvc-script
+        configMap:
+          name: solr-backup-pvc-script
+          defaultMode: 0755
+      - name: pvc-mount
+        persistentVolumeClaim:
+          claimName: # not sure how to get this
+  backoffLimit: 10
+{{- end }}
+...
