@@ -1,16 +1,52 @@
 # this file overrides values defined in ./values.yaml
 repository:
   replicaCount: 2
-  resources:
+  resources: # requests and limits set closer together to ensure CP stability
+    requests:
+      cpu: 1
+      memory: 2Gi
     limits:
-      cpu: 4
-      memory: 8Gi
+      cpu: 3
+      memory: 4Gi
   persistence:
     baseSize: 100Gi
+  environment: # override JAVA_OPTS to set XX:MaxRAM. TODO: this override can be removed once we can use cgroup v2 api
+    JAVA_OPTS: >-
+      -Dtransform.service.enabled=true
+      -XX:MinRAMPercentage=50
+      -XX:MaxRAMPercentage=80
+      -XX:MaxRAM=4294967296
+      -Dencryption.keystore.type=JCEKS
+      -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding
+      -Dencryption.keyAlgorithm=DESede
+      -Dencryption.keystore.location=/usr/local/tomcat/shared/classes/alfresco/extension/keystore/keystore
+      -Dmetadata-keystore.aliases=metadata
+      -Dmetadata-keystore.metadata.algorithm=DESede
+      -Dsystem.workflow.engine.activiti.enabled=false
+      -Dsystem.prop_table_cleaner.algorithm=V2
+      -Dsystem.delete_not_exists.read_only=false
+      -Dsystem.delete_not_exists.timeout_seconds=3600
 share:
   replicaCount: 1
+alfresco-search:
+  resources:
+    requests:
+      cpu: 1
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+  environment:
+    SOLR_JAVA_MEM: >-
+      -XX:MinRAMPercentage=50
+      -XX:MaxRAMPercentage=80
+      -XX:MaxRAM=2147483648
 tika:
   replicaCount: 2
+  resources:
+    limits:
+      cpu: 2
+      memory: 2Gi
 global:
   whitelistSourceRanges:
     - "35.176.126.163"     # legacy delius-test-az1-nat-gateway
