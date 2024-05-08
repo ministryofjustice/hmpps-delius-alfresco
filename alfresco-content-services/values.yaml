@@ -449,6 +449,7 @@ tika:
     JAVA_OPTS: >-
       -XX:MinRAMPercentage=50
       -XX:MaxRAMPercentage=80
+      -Dorg.apache.logging.log4j.level=INFO
   readinessProbe:
     initialDelaySeconds: 60
     periodSeconds: 60
