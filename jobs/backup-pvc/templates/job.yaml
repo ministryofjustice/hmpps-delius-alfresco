@@ -16,7 +16,7 @@ data:
 
     tar -czf /tmp/solr-data-${date}.tar.gz alfresco alfrescoModels archive   
 
-    aws s3 cp /tmp/solr-data-${date}.tar.gz s3://$DST_BUCKET/solr-data-${date}.tar.gz --delete --no-progress --only-show-errors
+    aws s3 cp /tmp/solr-data-${date}.tar.gz s3://$DST_BUCKET/solr-data-${date}.tar.gz --no-progress --only-show-errors
 
     set +x
     echo backup of pvc mount directory completed
@@ -46,7 +46,7 @@ spec:
         - name: DST_BUCKET
           valueFrom:
             secretKeyRef:
-              name: s3-bucket-solr-backup-pvc-output
+              name: s3-backups-bucket-output
               key: BUCKET_NAME
         - name: DIR
           value: {{ . | quote }}
