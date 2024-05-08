@@ -12,10 +12,14 @@ data:
 
     date=$(date +%Y%m%d%H%M%S)
 
-    aws s3 sync /pvc_mount s3://$DST_BUCKET/snapshot-${date} --delete --no-progress --only-show-errors
+    cd /pvc-mount/alfresco-content-services/solr-data
+
+    tar -czf /tmp/solr-data-${date}.tar.gz alfresco alfrescoModels archive   
+
+    aws s3 cp /tmp/solr-data-${date}.tar.gz s3://$DST_BUCKET/solr-data-${date}.tar.gz --delete --no-progress --only-show-errors
 
     set +x
-    echo sync of pvc mount directory completed
+    echo backup of pvc mount directory completed
 
 {{- range .Values.directories }}
 ---
@@ -72,7 +76,6 @@ spec:
           defaultMode: 0755
       - name: pvc-mount
         persistentVolumeClaim:
-          claimName: # not sure how to get this
+          claimName: alfresco-content-services-alfresco-search-solr-claim
   backoffLimit: 10
 {{- end }}
-...
