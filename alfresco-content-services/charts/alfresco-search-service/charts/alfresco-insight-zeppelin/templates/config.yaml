@@ -1,0 +1,17 @@
+---
+# Defines the config for the Alfresco Insight Zeppelin App
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "alfresco-insight-zeppelin.fullName" . }}-configmap
+  labels:
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    component: zeppelin
+data:
+  REPO_HOST: "{{ template "alfresco-repo-host" . }}"
+  REPO_PORT: "{{ template "alfresco-repo-port" . }}"
+  {{- range $key, $value := .Values.environment }}
+  {{ $key }}: {{ $value }}
+  {{- end }}
