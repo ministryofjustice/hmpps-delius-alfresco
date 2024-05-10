@@ -43,6 +43,10 @@ tika:
     limits:
       cpu: 2
       memory: 4Gi
+  environment:
+    JAVA_OPTS: >-
+      -Xms1024M
+      -Xmx3276M
 global:
   whitelistSourceRanges:
     - "3.10.104.193"       # legacy delius-stage-az1-nat-gateway
