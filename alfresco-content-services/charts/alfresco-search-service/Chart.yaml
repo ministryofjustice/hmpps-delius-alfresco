@@ -23,4 +23,4 @@ keywords:
 name: alfresco-search-service
 sources:
 - https://github.com/Alfresco/alfresco-helm-charts
-version: 1.1.0
+version: 1.1.1
