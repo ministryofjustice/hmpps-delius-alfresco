@@ -1,0 +1,30 @@
+{{- define "httpTransport" -}}
+{{- if .Values.ingress.tls -}}
+  https
+{{- else -}}
+  http
+{{- end -}}
+{{- end -}}
+
+{{- define "httpHost" -}}
+{{- if .Values.ingress.tls -}}
+  {{- with (index .Values.ingress.tls 0) }}
+  {{- index .hosts 0 }}
+  {{- end }}
+{{- else -}}
+  clusterhostname.domain.tld
+{{- end -}}
+{{- end -}}
+
+You can access Alfresco Search using:
+{{- if .Values.ingress.enabled }}
+ * Solr: {{ template "httpTransport" . }}://{{ template "httpHost" . }}/{{ .Values.ingress.path | default "solr" }}
+
+{{- with (index .Values "alfresco-insight-zeppelin") }}
+{{ if .enabled }}
+ * Zeppelin: {{ template "httpTransport" (dict "Values" .) }}://{{ template "httpHost" (dict "Values" .) }}/{{ .ingress.path | default "zeppelin" }}
+{{ end }}
+{{- end }}
+{{- else }}
+ * Solr: http://{{ template "alfresco-search.fullName" . }}-solr:{{ template "alfresco-search.svcPort" . }}/solr
+{{- end }}
