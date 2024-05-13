@@ -1,5 +1,65 @@
 apiVersion: v1
 entries:
+  activemq:
+  - apiVersion: v2
+    appVersion: 5.17.4
+    created: "2024-05-13T10:00:11.974170323Z"
+    dependencies:
+    - name: alfresco-common
+      repository: https://alfresco.github.io/alfresco-helm-charts/
+      version: 1.0.0
+    description: A Helm chart providing a basic Apache ActiveMQ deployment required
+      to evaluate ACS (not meant to be used in production).
+    digest: c7f01d7d463ad60edea7e1ace6536db81f75c820e1e07af8f4cc7ff03cbeb0bd
+    icon: https://avatars0.githubusercontent.com/u/391127?s=200&v=4
+    keywords:
+    - activemq
+    - message broker
+    name: activemq
+    sources:
+    - https://github.com/Alfresco/alfresco-helm-charts
+    urls:
+    - https://github.com/ministryofjustice/hmpps-delius-alfresco/releases/download/activemq-3.1.0/activemq-3.1.0.tgz
+    version: 3.1.0
+  alfresco-common:
+  - apiVersion: v2
+    created: "2024-05-13T10:00:12.14383082Z"
+    dependencies:
+    - name: common
+      repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami/
+      version: 1.x.x
+    description: 'A helper subchart to avoid duplication in alfresco charts and set
+      common external dependencies '
+    digest: 17cc3142cfe45f3066bc914a1b5d3df168370f4cdd2b9fd8c76168683f623634
+    icon: https://avatars0.githubusercontent.com/u/391127?s=200&v=4
+    name: alfresco-common
+    type: library
+    urls:
+    - https://github.com/ministryofjustice/hmpps-delius-alfresco/releases/download/alfresco-common-2.0.0/alfresco-common-2.0.0.tgz
+    version: 2.0.0
+  alfresco-search-enterprise:
+  - apiVersion: v2
+    appVersion: 3.3.0
+    created: "2024-05-13T10:00:12.334575926Z"
+    dependencies:
+    - name: alfresco-common
+      repository: https://alfresco.github.io/alfresco-helm-charts/
+      version: 2.0.0
+    - condition: activemq.enabled
+      name: activemq
+      repository: https://alfresco.github.io/alfresco-helm-charts/
+      version: 3.1.0
+    - condition: elasticsearch.enabled
+      name: elasticsearch
+      repository: https://helm.elastic.co
+      version: 7.17.3
+    description: A Helm chart for deploying Alfresco Elasticsearch connector
+    digest: 75c511250208d702be730786261c8f739d1516bfb7db553757b68a0d1fca2c3a
+    name: alfresco-search-enterprise
+    type: application
+    urls:
+    - https://github.com/ministryofjustice/hmpps-delius-alfresco/releases/download/alfresco-search-enterprise-1.2.0/alfresco-search-enterprise-1.2.0.tgz
+    version: 1.2.0
   alfresco-search-service:
   - apiVersion: v2
     appVersion: 2.0.7
@@ -31,4 +91,83 @@ entries:
     urls:
     - https://github.com/ministryofjustice/hmpps-delius-alfresco/releases/download/alfresco-search-service-1.1.0/alfresco-search-service-1.1.0.tgz
     version: 1.1.0
-generated: "2024-05-10T11:01:25.954226273Z"
+  alfresco-sync-service:
+  - apiVersion: v2
+    appVersion: 3.9.0
+    created: "2024-05-13T10:00:12.516718243Z"
+    dependencies:
+    - name: common
+      repository: oci://registry-1.docker.io/bitnamicharts
+      version: 2.x.x
+    - name: alfresco-common
+      repository: https://alfresco.github.io/alfresco-helm-charts/
+      version: 2.0.0
+    - condition: activemq.enabled
+      name: activemq
+      repository: https://alfresco.github.io/alfresco-helm-charts/
+      version: 3.1.0
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: oci://registry-1.docker.io/bitnamicharts
+      version: 12.x.x
+    description: Alfresco Sync Service
+    digest: 2b4344c025298b1aa1b0d3e161461d6a732513084f27a1eac68eb1da6db8bb80
+    icon: https://avatars0.githubusercontent.com/u/391127?s=200&v=4
+    keywords:
+    - syncservice
+    - alfresco
+    - application
+    name: alfresco-sync-service
+    sources:
+    - https://github.com/Alfresco/acs-deployment
+    urls:
+    - https://github.com/ministryofjustice/hmpps-delius-alfresco/releases/download/alfresco-sync-service-4.1.0/alfresco-sync-service-4.1.0.tgz
+    version: 4.1.0
+  common:
+  - apiVersion: v1
+    created: "2024-05-13T10:00:12.683448677Z"
+    description: A Helm chart for Activiti Cloud Common Templates
+    digest: d012a55b2c4e9bb9ca280a881caf92788692be95936b3dd7c9b5aff445e354be
+    icon: https://raw.githubusercontent.com/Activiti/activiti.github.io/master/mstile-150x150.png
+    name: common
+    sources:
+    - https://github.com/Activiti/activiti-cloud-common-chart
+    urls:
+    - https://github.com/ministryofjustice/hmpps-delius-alfresco/releases/download/common-7.7.0/common-7.7.0.tgz
+    version: 7.7.0
+  postgresql:
+  - annotations:
+      category: Database
+      licenses: Apache-2.0
+    apiVersion: v2
+    appVersion: 15.3.0
+    created: "2024-05-13T10:00:12.881744164Z"
+    dependencies:
+    - name: common
+      repository: oci://registry-1.docker.io/bitnamicharts
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    description: PostgreSQL (Postgres) is an open source object-relational database
+      known for reliability and data integrity. ACID-compliant, it supports foreign
+      keys, joins, views, triggers and stored procedures.
+    digest: 9e49d2109f8190bca4ca6ae9c629e541be61acf1a2368f79b98f3b9f06e9683a
+    home: https://bitnami.com
+    icon: https://bitnami.com/assets/stacks/postgresql/img/postgresql-stack-220x234.png
+    keywords:
+    - postgresql
+    - postgres
+    - database
+    - sql
+    - replication
+    - cluster
+    maintainers:
+    - name: VMware, Inc.
+      url: https://github.com/bitnami/charts
+    name: postgresql
+    sources:
+    - https://github.com/bitnami/charts/tree/main/bitnami/postgresql
+    urls:
+    - https://github.com/ministryofjustice/hmpps-delius-alfresco/releases/download/postgresql-12.5.6/postgresql-12.5.6.tgz
+    version: 12.5.6
+generated: "2024-05-13T10:00:12.881756247Z"
