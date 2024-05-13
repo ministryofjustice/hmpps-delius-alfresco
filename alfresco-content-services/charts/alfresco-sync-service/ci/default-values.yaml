@@ -1,0 +1,10 @@
+---
+repository:
+  host: dummy-repo
+activemq:
+  enabled: true
+messageBroker:
+  nameOverride: mqsync
+postgresql:
+  enabled: true
+  nameOverride: pgsync
