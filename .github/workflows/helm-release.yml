@@ -29,6 +29,7 @@ jobs:
       - name: Add helm dependencies
         run: |
           helm repo add alfresco-common https://alfresco.github.io/alfresco-helm-charts/
+          helm repo add bitnami https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami/
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
