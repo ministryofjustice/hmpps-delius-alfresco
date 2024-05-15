@@ -46,9 +46,12 @@ jobs:
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
 
-          RDS_INSTANCE_IDENTIFIER=
+          RDS_INSTANCE_IDENTIFIER=$(kubectl get secrets rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_IDENTIFIER}' | base64 -d)
+
+          echo "Creating RDS snapshot for $RDS_INSTANCE_IDENTIFIER"
+
           # Exec into the service pod and execute the script
-          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c 'aws rds create-db-snapshot --db-instance-identifier $(kubectl get secrets rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_IDENTIFIER}' | base64 -d)  --db-snapshot-identifier ${{ steps.snapshot_name.outputs.snapshot_name}}'
+          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c 'aws rds create-db-snapshot --db-instance-identifier ${RDS_INSTANCE_IDENTIFIER} --db-snapshot-identifier ${{ steps.snapshot_name.outputs.snapshot_name}}'
 
           # wait for the snapshot to be created
 
