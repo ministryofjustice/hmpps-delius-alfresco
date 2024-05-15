@@ -1,0 +1,89 @@
+name: "Alfresco: Read-only apply"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to make read-only
+        required: true
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+defaults:
+  run:
+    working-directory: alfresco-content-services
+
+jobs:
+  nginx-ingress-read-only:
+    continue-on-error: false
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+    # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at:
+    # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments
+    environment:
+      name: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v3
+
+      - name: Install Kubernetes
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: "v1.26.0" # default is latest stable
+        id: kubectl_install
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3.5
+        with:
+          version: "v3.9.0"
+        id: helm_install
+
+      - name: Install yq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yq
+
+      - name: Insert read-only annotation into nginx ingress
+        run: |
+          yq eval '.repository.ingress.annotations += {"nginx.ingress.kubernetes.io/server-snippet": "if ($request_method !~ ^(GET)$ ) {\n  return 403;\n}"}' values.yaml > ./values_readonly.yaml
+
+      - name: Helm deploy to ${{ inputs.environment }} env
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+        run: |
+
+          # See this link how github action secrets are created: https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount
+          # See this example on how to use github secrets: https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+
+          # For Alfresco, a k8s namespace will be an environment
+          kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
+
+          # Helm will not deploy unless this secret is present. Create a new one if one does not already exist from env section
+          SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
+          if [ -z ${SECRET} ]
+          then
+            SECRET=$(openssl rand -base64 20)
+          fi
+
+          # Upgrad an existing release or create a new one if one does not exist
+          BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d))
+          helm upgrade --install alfresco-content-services . --values=./values_readonly.yaml --values=./values_${{ inputs.environment }} \
+          --set s3connector.config.bucketName=$BUCKET_NAME \
+          --set global.tracking.sharedsecret=$SECRET \
+          --atomic
