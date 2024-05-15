@@ -23,10 +23,6 @@ defaults:
 
 jobs:
   nginx-ingress-read-only:
-    continue-on-error: false
-    strategy:
-      fail-fast: true
-      max-parallel: 1
     # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at:
     # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments
     environment:
@@ -42,22 +38,7 @@ jobs:
           version: "v1.26.0" # default is latest stable
         id: kubectl_install
 
-      - name: Install Helm
-        uses: azure/setup-helm@v3.5
-        with:
-          version: "v3.9.0"
-        id: helm_install
-
-      - name: Install yq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y yq
-
-      - name: Insert read-only annotation into nginx ingress
-        run: |
-          yq eval '.repository.ingress.annotations += {"nginx.ingress.kubernetes.io/server-snippet": "if ($request_method !~ ^(GET)$ ) {\n  return 403;\n}"}' values.yaml > ./values_readonly.yaml
-
-      - name: Helm deploy to ${{ inputs.environment }} env
+      - name: Deploy updated annotation to ${{ inputs.environment }} repository ingress
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
@@ -74,16 +55,14 @@ jobs:
           # For Alfresco, a k8s namespace will be an environment
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
-          # Helm will not deploy unless this secret is present. Create a new one if one does not already exist from env section
-          SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
-          if [ -z ${SECRET} ]
-          then
-            SECRET=$(openssl rand -base64 20)
-          fi
+          # Get the current server-snippet annotation
+          CURRENT_SNIPPET=$(kubectl get ingress alfresco-content-services-alfresco-cs-repository -n hmpps-delius-alfrsco-poc -o=jsonpath='{.metadata.annotations.nginx\.ingress\.kubernetes\.io\/server-snippet}')
 
-          # Upgrad an existing release or create a new one if one does not exist
-          BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d))
-          helm upgrade --install alfresco-content-services . --values=./values_readonly.yaml --values=./values_${{ inputs.environment }} \
-          --set s3connector.config.bucketName=$BUCKET_NAME \
-          --set global.tracking.sharedsecret=$SECRET \
-          --atomic
+          # Define the new server-snippet
+          NEW_SNIPPET='if ($request_method !~ ^(GET)$ ) { return 403; }'
+
+          # Combine the current and new snippets
+          FINAL_SNIPPET="$CURRENT_SNIPPET"$'\n'"$NEW_SNIPPET"
+
+          # Apply the new server-snippet
+          kubectl annotate ingress alfresco-content-services-alfresco-cs-repository -n hmpps-delius-alfrsco-poc nginx.ingress.kubernetes.io/server-snippet="$FINAL_SNIPPET" --overwrite=true
