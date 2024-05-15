@@ -1,0 +1,41 @@
+name: Scale down Lower Environments
+
+on:
+  schedule:
+    - cron: '10 10 * * *'
+
+jobs:
+  scale-down:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+          environment: ["poc"]
+    environment:
+      name: ${{ matrix.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+    
+      - name: Install Kubernetes
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: 'v1.26.0' # default is latest stable
+        id: kubectl_install
+
+      - name: Scale Down Deployments in ${{ matrix.environment }}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+        run: |
+
+          # See this link how github action secrets are created: https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount
+          # See this example on how to use github secrets: https://github.com/ministryofjustice/cloud-platform-example-application/blob/main/.github/workflows/deploy.yml#L38
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+
+          kubectl config set-context --current --namespace=${KUBE_NAMESPACE}        
+          
+          kubectl scale deployment -all --replicas=0
