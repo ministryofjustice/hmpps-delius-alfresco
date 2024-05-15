@@ -1,4 +1,4 @@
-name: Alfresco Restore Docs Worker Process
+name: Alfresco create RDS snapshot
 
 on:
   workflow_dispatch:
