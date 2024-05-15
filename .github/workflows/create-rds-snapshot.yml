@@ -56,5 +56,5 @@ jobs:
 
       - name: Output Snapshot Name
         run: |
-        echo "Snapshot Name: ${{ steps.snapshot_name.outputs.snapshot_name }}"
+            echo "Snapshot Name: ${{ steps.snapshot_name.outputs.snapshot_name }}"
       
