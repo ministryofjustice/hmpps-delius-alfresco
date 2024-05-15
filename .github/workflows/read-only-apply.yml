@@ -67,7 +67,12 @@ jobs:
 
           # If read-only mode is enabled, append the new snippet to the current one, otherwise remove it
           if [[ ${{ inputs.enable }} == "true" ]]; then
-            FINAL_SNIPPET="$CURRENT_SNIPPET"$'\n'"$NEW_SNIPPET"
+            if echo "$CURRENT_SNIPPET" | grep -q "$NEW_SNIPPET"; then
+              echo "Read-only mode is already enabled"
+              exit 0
+            else
+              FINAL_SNIPPET="$CURRENT_SNIPPET"$'\n'"$NEW_SNIPPET"
+            fi
           else
             FINAL_SNIPPET=$(echo "$CURRENT_SNIPPET" | sed -e "s/$NEW_SNIPPET//" -e '/^$/d')
           fi
