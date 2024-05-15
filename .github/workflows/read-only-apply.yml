@@ -13,6 +13,10 @@ on:
           - test
           - stage
           - preprod
+      enable:
+        description: Enable (true) or disable (false) read-only mode
+        required: true
+        type: boolean
 
 permissions:
   id-token: write # This is required for requesting the JWT
@@ -61,8 +65,12 @@ jobs:
           # Define the new server-snippet
           NEW_SNIPPET="if (\$request_method != GET) { return 403; }"
 
-          # Combine the current and new snippets
-          FINAL_SNIPPET="$CURRENT_SNIPPET"$'\n'"$NEW_SNIPPET"
+          # If read-only mode is enabled, append the new snippet to the current one, otherwise remove it
+          if [[ ${{ inputs.enable }} == "true" ]]; then
+            FINAL_SNIPPET="$CURRENT_SNIPPET"$'\n'"$NEW_SNIPPET"
+          else
+            FINAL_SNIPPET=$(echo "$CURRENT_SNIPPET" | sed -e "s/$NEW_SNIPPET//" -e '/^$/d')
+          fi
 
           # Apply the new server-snippet
           kubectl annotate ingress alfresco-content-services-alfresco-cs-repository -n ${KUBE_NAMESPACE} nginx.ingress.kubernetes.io/server-snippet="$FINAL_SNIPPET" --overwrite=true
