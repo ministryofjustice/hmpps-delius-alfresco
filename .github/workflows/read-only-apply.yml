@@ -59,7 +59,7 @@ jobs:
           CURRENT_SNIPPET=$(kubectl get ingress alfresco-content-services-alfresco-cs-repository -n hmpps-delius-alfrsco-poc -o=jsonpath='{.metadata.annotations.nginx\.ingress\.kubernetes\.io\/server-snippet}')
 
           # Define the new server-snippet
-          NEW_SNIPPET='if ($request_method !~ ^(GET)$ ) { return 403; }'
+          NEW_SNIPPET="if (\$request_method != GET) { return 403; }"
 
           # Combine the current and new snippets
           FINAL_SNIPPET="$CURRENT_SNIPPET"$'\n'"$NEW_SNIPPET"
