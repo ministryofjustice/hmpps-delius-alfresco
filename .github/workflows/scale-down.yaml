@@ -2,7 +2,7 @@ name: Scale down Lower Environments
 
 on:
   schedule:
-    - cron: '10 10 * * *'
+    - cron: '15 10 * * *'
 
 jobs:
   scale-down:
