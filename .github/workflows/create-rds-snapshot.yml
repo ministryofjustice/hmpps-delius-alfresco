@@ -16,7 +16,8 @@ permissions:
 jobs:
   restore-docs-worker:
     runs-on: ubuntu-latest
-
+    environment:
+      name: ${{ github.event.inputs.which_env }}
     steps:
       - name: Checkout current repo
         uses: actions/checkout@v3
