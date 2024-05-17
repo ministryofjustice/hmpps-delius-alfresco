@@ -1,9 +1,8 @@
 name: Scale down Lower Environments
 
 on:
-  workflow_dispatch:
-  # schedule:
-  #   - cron: '00 19 * * *'
+  schedule:
+    - cron: '00 19 * * *'
 
 jobs:
   scale-down:
@@ -29,7 +28,7 @@ jobs:
           version: 'v3.9.0'
         id: helm_install
 
-      - name: Scale Down Deployments in ${{ matrix.environment }}
+      - name: Scaling Down Deployments in ${{ matrix.environment }} namespace
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
