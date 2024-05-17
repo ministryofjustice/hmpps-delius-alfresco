@@ -1,0 +1,66 @@
+name: Scale down Lower Environments
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+
+jobs:
+  scale-up:
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+          environment: ["poc"]
+    environment:
+      name: ${{ matrix.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+    
+      - name: Install Kubernetes
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: 'v1.26.0' # default is latest stable
+        id: kubectl_install
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v3.5
+        with:
+          version: 'v3.9.0'
+        id: helm_install
+      
+      - name: Install yq
+        uses: dcarbone/install-yq-action@v1.1.1
+        with:
+          download-compressed: true
+          version: "v4.35.1"
+          force: true
+
+      - name: Scale up Deployments in ${{ matrix.environment }}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+        run: |
+          
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+
+          kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
+
+          RELEASE_NAME="alfresco-content-services"
+          LATEST_REVISION=$(helm history "$RELEASE_NAME" --max 1 -o yaml | yq '.[0].revision')
+          LATEST_VALUES=$(helm get values "$RELEASE_NAME" --revision "$LATEST_REVISION")
+
+          kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=$(echo $LATEST_VALUES | yq '.repository.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=$(echo $LATEST_VALUES | yq '.share.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-activemq --replicas=$(echo $LATEST_VALUES | yq '.activemq.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-cs-imagemagick --replicas=$(echo $LATEST_VALUES | yq '.imagemagick.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-cs-libreoffice --replicas=$(echo $LATEST_VALUES | yq '.libreoffice.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-cs-pdfrenderer --replicas=$(echo $LATEST_VALUES | yq '.pdfrenderer.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-cs-tika --replicas=$(echo $LATEST_VALUES | yq '.tika.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-cs-transform-misc --replicas=$(echo $LATEST_VALUES | yq '.transformmisc.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-filestore --replicas=$(echo $LATEST_VALUES | yq '.filestore.replicaCount // 0')
+          kubectl scale deployment alfresco-content-services-alfresco-router --replicas=$(echo $LATEST_VALUES | yq '.transformrouter.replicaCount // 1')
+          kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=$(echo $LATEST_VALUES | yq '.share.replicaCount // 1')
