@@ -1,9 +1,10 @@
-name: Scale down Lower Environments
+name: Scale Up Lower Environments
 
 on:
-  schedule:
-    - cron: '0 7 * * *'
-
+  # schedule:
+  #   - cron: '0 6 * * *'
+  workflow_dispatch:
+  
 jobs:
   scale-up:
     runs-on: ubuntu-latest
@@ -50,7 +51,7 @@ jobs:
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
           RELEASE_NAME="alfresco-content-services"
-          LATEST_REVISION=$(helm history "$RELEASE_NAME" --max 1 -o yaml | yq '.[0].revision')
+          LATEST_REVISION=$(helm history "$RELEASE_NAME" --max 1 -o json | jq '.[0].revision')
           LATEST_VALUES=$(helm get values "$RELEASE_NAME" --revision "$LATEST_REVISION")
 
           kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=$(echo $LATEST_VALUES | yq '.repository.replicaCount // 1')
