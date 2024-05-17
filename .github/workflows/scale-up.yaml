@@ -51,7 +51,7 @@ jobs:
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
           RELEASE_NAME="alfresco-content-services"
-          LATEST_REVISION=$((helm history "$RELEASE_NAME" --max 1 -o json | jq '.[0].revision'))
+          LATEST_REVISION=$(helm history "$RELEASE_NAME" --max 1 -o json | jq '.[0].revision')
           echo $LATEST_REVISION
           LATEST_VALUES=$(helm get values "$RELEASE_NAME" --revision "$LATEST_REVISION")
 
