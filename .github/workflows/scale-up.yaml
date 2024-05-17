@@ -56,7 +56,7 @@ jobs:
           LATEST_REVISION=$(helm history "$RELEASE_NAME" --max 1 -o yaml | yq -r '.[0].revision')
           echo "latest revision is $LATEST_REVISION"
           LATEST_VALUES=$(helm get values "$RELEASE_NAME" --revision "$LATEST_REVISION" -o yaml)
-          COUNT=$(echo $LATEST_VALUES | yq -r '.repository.replicaCount // 19')
+          COUNT=$(yq -r '.repository.replicaCount // 19' <<< "$LATEST_VALUES")
           echo "replica count is $COUNT"
           # kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=$((echo $LATEST_VALUES | yq -r '.repository.replicaCount // 1'))
           # kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=$((echo $LATEST_VALUES | yq -r '.share.replicaCount // 1'))
