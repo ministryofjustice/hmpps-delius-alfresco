@@ -1,9 +1,8 @@
 name: Scale Up Lower Environments
 
 on:
-  # schedule:
-  #   - cron: '0 6 * * *'
-  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
   
 jobs:
   scale-up:
@@ -36,7 +35,7 @@ jobs:
           version: "v4.35.1"
           force: true
 
-      - name: Scale up Deployments in ${{ matrix.environment }}
+      - name: Scaling up Deployments in ${{ matrix.environment }} namespace
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
