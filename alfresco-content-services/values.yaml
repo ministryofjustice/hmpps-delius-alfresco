@@ -216,6 +216,9 @@ msTeamsService:
     baseUrl: change_me_alf_base_url
     digitalWorkspace:
       contextPath: /workspace/
+    elasticsearch:
+      host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
+      port: 8080
   microsoft:
     app:
       id: change_me_app_id
@@ -712,12 +715,14 @@ messageBroker: &acs_messageBroker
   # -- Alternatively, provide credentials via an existing secret that contains
   # BROKER_URL, BROKER_USERNAME and BROKER_PASSWORD keys
   existingSecretName: null
+alfresco-elasticsearch-connector:
+  enabled: true
 alfresco-search:
   searchServicesImage:
     repository: alfresco/alfresco-search-services
     tag: 2.0.7
   nodeSelector: {}
-  enabled: true
+  enabled: false
   # If an external Solr service is to be used then enabled must be set to false
   # and external has to be configured accordingly.
   external:
