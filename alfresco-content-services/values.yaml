@@ -33,6 +33,10 @@ repository:
     pullPolicy: IfNotPresent
     internalPort: 8080
     hazelcastPort: 5701
+  elasticsearch:
+    host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
+    port: 8080
+    createIndexIfNotExists: true
   initContainers:
     db:
       image:
@@ -216,9 +220,6 @@ msTeamsService:
     baseUrl: change_me_alf_base_url
     digitalWorkspace:
       contextPath: /workspace/
-    elasticsearch:
-      host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
-      port: 8080
   microsoft:
     app:
       id: change_me_app_id
@@ -770,7 +771,7 @@ database:
   # When using embedded postgres you need to also set `postgresql.existingSecret`.
   existingSecretName: rds-instance-output
 alfresco-search-enterprise:
-  enabled: false
+  enabled: true
   liveIndexing:
     mediation:
       image:
@@ -794,10 +795,10 @@ alfresco-search-enterprise:
       tag: 3.2.0
     enabled: true
     postgresql:
-      url:
-      hostname: postgresql-acs
-      database: alfresco
-      # existingSecretName: *acs_database_secretName
+      url: 
+      hostname: 
+      database:
+      existingSecretName: rds-instance-output
 alfresco-digital-workspace:
   nodeSelector: {}
   enabled: false
@@ -1093,16 +1094,17 @@ global:
     #   s3Bucket:
     #   comprehendRoleARN:
   # -- Shared connections details for Elasticsearch/Opensearch, required when
-  # alfresco-search-enterprise.enabled is true
+  # .enabled is true
   elasticsearch:
     # -- The host where service is available. The provided default is for when
     # elasticsearch.enabled is true
-    host: elasticsearch-master
+    host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
     # -- The port where service is available
-    port: 9200
+    port: 8080
     # -- Valid values are http or https
     protocol: http
     # -- The username required to access the service, if any
     user: null
     # -- The password required to access the service, if any
     password: null
+    createIndexIfNotExist: true

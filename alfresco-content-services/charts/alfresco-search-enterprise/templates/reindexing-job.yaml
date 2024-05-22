@@ -29,6 +29,8 @@ spec:
                 name: {{ template "alfresco-search-enterprise.fullName" . }}-reindexing-configmap
             - secretRef:
                 name: {{ default (printf "%s-messagebroker-secret" (include "alfresco-search-enterprise.fullName" .)) .Values.messageBroker.existingSecretName }}
+            - secretRef:
+                name: {{ .Values.reindexing.postgresql.existingSecretName }}
           env:
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
@@ -40,6 +42,11 @@ spec:
                 secretKeyRef:
                   name: {{ default (printf "%s-postgresql-secret" (include "alfresco-search-enterprise.fullName" $)) $.Values.reindexing.postgresql.existingSecretName }}
                   key: DATABASE_USERNAME
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-postgresql-secret" (include "alfresco-search-enterprise.fullName" $)) $.Values.reindexing.postgresql.existingSecretName }}
+                  key: RDS_JDBC_URL
             {{- include "spring.activemq.env" . | nindent 12 }}
             {{- include "alfresco-search-enterprise.config.spring.envCredentials" $ | nindent 12 }}
           ports:
