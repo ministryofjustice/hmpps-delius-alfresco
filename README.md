@@ -1,3 +1,6 @@
+### Warning
+This repository was made "internal" due to potential security risks of running workflows on self-hosted runners.
+
 ### Purpose
 
 These example instsructions explain how you would customise one particular dependant Helm chart and publish a newer version to GitHub pages. Instructions assume GitHub pages are already configured for your repo; see the reference section below
