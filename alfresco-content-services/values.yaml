@@ -773,26 +773,12 @@ database:
 alfresco-search-enterprise:
   enabled: true
   liveIndexing:
-    mediation:
-      image:
-        tag: 3.2.0
-    content:
-      image:
-        tag: 3.2.0
-    metadata:
-      image:
-        tag: 3.2.0
-    path:
-      image:
-        tag: 3.2.0
   elasticsearch:
     # -- Enables the embedded elasticsearch cluster
     enabled: false
   messageBroker:
-    existingSecretName: *acs_messageBroker_secretName
+    existingSecretName: acs-alfresco-cs-brokersecret
   reindexing:
-    image:
-      tag: 3.2.0
     enabled: true
     postgresql:
       url: 
