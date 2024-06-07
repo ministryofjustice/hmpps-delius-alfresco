@@ -48,10 +48,10 @@ jobs:
           
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          S3_BUCKET_NAME=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
           # Exec into the service pod and execute the script
-          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c '
-            S3_BUCKET_NAME=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          kubectl exec $SERVICE_POD_NAME -- env S3_BUCKET_NAME=${S3_BUCKET_NAME} /bin/sh -c '  
             # check if object is present or not
             object_versions=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}")
             if [[ -z "$object_versions" ]]; then
@@ -84,38 +84,3 @@ jobs:
         env:
           JOB_TIER: ${{ github.event.inputs.job_tier }}
           S3_OBJECT_KEY: ${{ github.event.inputs.s3_object_key }}
-
-  # restore-docs-worker:
-  #   name: Restore Docs from Glacier 
-  #   runs-on: ubuntu-22.04
-  #   environment:
-  #     name: ${{ github.event.inputs.which_env }}
-  #   steps:
-  #     - name: Check out code
-  #       uses: actions/checkout@v4.1.1
-
-  #     - name: Configure kubectl
-  #       run: |
-  #         echo "${{ secrets.KUBE_CERT }}" > ca.crt
-  #         kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-  #         kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-  #         kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-  #         kubectl config use-context ${KUBE_CLUSTER}
-  #       env:
-  #         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-  #         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-        
-  #     - name: Create ConfigMap using the restore-docs-worker.sh script
-  #       run: |
-  #         kubectl create configmap restore-docs-worker-cm --from-file=scripts/restore-docs-worker.sh
-    
-  #     - name: Start Restore Docs Job
-  #       run: |
-  #         kubectl apply -f jobs/restore-docs-worker.yaml
-  #         kubectl wait --timeout 10m --for=condition=complete job/restore-docs-worker
-
-  #     - name: Delete Restore Docs Job
-  #       run: kubectl delete job restore-docs-worker
-      
-  #     - name: Delete configmap
-  #       run: kubectl delete cm restore-docs-worker-cm
