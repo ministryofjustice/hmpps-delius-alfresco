@@ -772,7 +772,6 @@ database:
   existingSecretName: rds-instance-output
 alfresco-search-enterprise:
   enabled: true
-  liveIndexing:
   elasticsearch:
     # -- Enables the embedded elasticsearch cluster
     enabled: false
