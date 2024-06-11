@@ -54,7 +54,7 @@ jobs:
           S3_BUCKET_NAME=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
           # Exec into the service pod and execute the script
-          kubectl exec $SERVICE_POD_NAME -- env S3_BUCKET_NAME=${S3_BUCKET_NAME} /bin/sh -c '
+          kubectl exec $SERVICE_POD_NAME -- env S3_BUCKET_NAME=${S3_BUCKET_NAME} S3_OBJECT_KEY=${S3_OBJECT_KEY} JOB_TIER=${JOB_TIER} /bin/sh -c '
             echo "object key being passed is ------ ${S3_OBJECT_KEY}"
             # check if object is present or not
             object_versions=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}")
