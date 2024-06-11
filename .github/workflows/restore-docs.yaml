@@ -65,12 +65,15 @@ jobs:
             echo "Deleted marker version: $version_id"          
             
             # Restore from Glacier
-            aws s3api restore-object --bucket "$S3_BUCKET_NAME" --key "${S3_OBJECT_KEY}" --restore-request "{\"Days\":1,\"GlacierJobParameters\":{\"Tier\":\"'$JOB_TIER'\"}}"
+            aws s3api restore-object --bucket "$S3_BUCKET_NAME" --key "${S3_OBJECT_KEY}" --restore-request "{\"Days\":1,\"GlacierJobParameters\":{\"Tier\":\"$JOB_TIER\"}}"
 
             # Wait for restoration to complete
-            wait_interval=20
-            restore_status=$(aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$S3_OBJECT_KEY" | jq -r '.Restore')
-            if [[ "$restore_status" == *"ongoing-request=\"true\""* ]]; then
+            wait_interval=30
+            result=$(aws s3api head-object --bucket "$S3_BUCKET_NAME" --key "$S3_OBJECT_KEY")
+            # Check if the Restore field contains the substring "ongoing-request=\"false\"", that means restore complete.
+            restore_status=$(echo "$result" | grep -q 'ongoing-request=\\"false\\"' && echo true || echo false)
+
+            if ! $restore_status; then
                 #restore in progress
                 echo "Restore for object s3://${S3_BUCKET_NAME}/${S3_OBJECT_KEY} in progress. Please wait!"
                 sleep "$wait_interval"
@@ -80,7 +83,7 @@ jobs:
             aws s3 cp "s3://$S3_BUCKET_NAME/${S3_OBJECT_KEY}" "s3://$S3_BUCKET_NAME/${S3_OBJECT_KEY}" --storage-class STANDARD
 
             echo "Restore for object s3://${S3_BUCKET_NAME}/${S3_OBJECT_KEY} task complete."
-          ' - "$JOB_TIER" "${{ github.event.inputs.s3_object_key }}"
+          '
         env:
           JOB_TIER: ${{ github.event.inputs.job_tier }}
           S3_OBJECT_KEY: ${{ github.event.inputs.s3_object_key }}
