@@ -47,7 +47,7 @@ jobs:
         run: |
 
           #!/bin/bash
-          set -xe
+          set -e
           
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
@@ -58,15 +58,15 @@ jobs:
             # check if object is present or not
             object_versions=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}")
             if [[ -z "$object_versions" ]]; then
-              echo "Object not found in bucket"
+              echo "Object not found in the bucket."
               exit 1
             fi
             
             # Delete the delete marker versions
             version_id=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}" --query "DeleteMarkers[0].[VersionId]" --output text)
             if [[ "$version_id" = "None" ]]; then
-              echo "No version id found"
-              exit 1
+              echo "There is no Delete Marker present for the object, so no version id found, exiting normally."
+              exit 0
             fi
 
             aws s3api delete-object --bucket "$S3_BUCKET_NAME" --key "${S3_OBJECT_KEY}" --version-id "$version_id"
