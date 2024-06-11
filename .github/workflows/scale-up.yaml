@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
         matrix:
-          environment: ["poc"]
+          environment: ["poc", "dev"]
     environment:
       name: ${{ matrix.environment }}
     steps:
