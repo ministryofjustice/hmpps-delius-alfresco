@@ -41,6 +41,9 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
       - name: Restore from Glacier by executing in the service pod
+        env:
+          JOB_TIER: ${{ github.event.inputs.job_tier }}
+          S3_OBJECT_KEY: ${{ github.event.inputs.s3_object_key }}
         run: |
 
           #!/bin/bash
@@ -51,7 +54,8 @@ jobs:
           S3_BUCKET_NAME=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
           # Exec into the service pod and execute the script
-          kubectl exec $SERVICE_POD_NAME -- env S3_BUCKET_NAME=${S3_BUCKET_NAME} /bin/sh -c '  
+          kubectl exec $SERVICE_POD_NAME -- env S3_BUCKET_NAME=${S3_BUCKET_NAME} /bin/sh -c '
+            echo "object key being passed is ------ ${S3_OBJECT_KEY}"
             # check if object is present or not
             object_versions=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}")
             if [[ -z "$object_versions" ]]; then
@@ -84,6 +88,3 @@ jobs:
 
             echo "Restore for object s3://${S3_BUCKET_NAME}/${S3_OBJECT_KEY} task complete."
           '
-        env:
-          JOB_TIER: ${{ github.event.inputs.job_tier }}
-          S3_OBJECT_KEY: ${{ github.event.inputs.s3_object_key }}
