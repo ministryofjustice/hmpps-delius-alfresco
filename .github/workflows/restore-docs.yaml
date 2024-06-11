@@ -55,7 +55,6 @@ jobs:
 
           # Exec into the service pod and execute the script
           kubectl exec $SERVICE_POD_NAME -- env S3_BUCKET_NAME=${S3_BUCKET_NAME} S3_OBJECT_KEY=${S3_OBJECT_KEY} JOB_TIER=${JOB_TIER} /bin/sh -c '
-            echo "object key being passed is ------ ${S3_OBJECT_KEY}"
             # check if object is present or not
             object_versions=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}")
             if [[ -z "$object_versions" ]]; then
@@ -65,6 +64,11 @@ jobs:
             
             # Delete the delete marker versions
             version_id=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}" --query "DeleteMarkers[0].[VersionId]" --output text)
+            if [[ "$version_id" = "None"]]; then
+              echo "No version id found"
+              exit 1
+            fi
+
             aws s3api delete-object --bucket "$S3_BUCKET_NAME" --key "${S3_OBJECT_KEY}" --version-id "$version_id"
             echo "Deleted marker version: $version_id"          
             
