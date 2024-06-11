@@ -64,7 +64,7 @@ jobs:
             
             # Delete the delete marker versions
             version_id=$(aws s3api list-object-versions --bucket "$S3_BUCKET_NAME" --prefix "${S3_OBJECT_KEY}" --query "DeleteMarkers[0].[VersionId]" --output text)
-            if [[ "$version_id" = "None"]]; then
+            if [[ "$version_id" = "None" ]]; then
               echo "No version id found"
               exit 1
             fi
