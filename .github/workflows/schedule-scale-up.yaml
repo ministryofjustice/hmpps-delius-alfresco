@@ -1,0 +1,29 @@
+name: Schedule Scale Up Environments
+
+on:
+  schedule:
+    - cron: '0 6 * * 1-5'  # Schedule for POC environment
+    - cron: '0 3 * * 1-5'  # Schedule for DEV environment
+
+jobs:
+  scale-up:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: ["poc", "dev"]
+    steps:
+      - name: Determine Environment
+        id: which-env
+        run: |
+          if [[ "0 6 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "poc" ]]; then
+            echo "ENV_TO_SCALE=poc" >> $GITHUB_ENV
+          elif [[ "0 3 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "dev" ]]; then
+            echo "ENV_TO_SCALE=dev" >> $GITHUB_ENV
+          else
+            echo "ENV_TO_SCALE=NONE" >> $GITHUB_ENV
+
+      - name: Call scale up workflow
+        if: env.ENV_TO_SCALE != 'NONE'
+        uses: ./.github/workflows/scale-up.yml
+        with:
+          environment: ${{ env.ENV_TO_SCALE }}
