@@ -37,7 +37,7 @@ jobs:
           force: true
 
       - name: Scaling up Deployments in poc namespace
-        if: ${{ matrix.environment }} == 'poc' || github.event.schedule == '0 6 * * 1-5'
+        if: ${{ matrix.environment }} == 'poc' && github.event.schedule == '0 6 * * 1-5'
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
@@ -67,7 +67,7 @@ jobs:
           kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=$(yq -r '.share.replicaCount // 1' <<< "$LATEST_VALUES")
     
       - name: Scaling up Deployments in dev namespace
-        if: ${{ matrix.environment }} == 'dev' || github.event.schedule == '0 3 * * 1-5'
+        if: ${{ matrix.environment }} == 'dev' && github.event.schedule == '0 3 * * 1-5'
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
