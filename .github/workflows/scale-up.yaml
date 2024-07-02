@@ -1,17 +1,18 @@
 name: Scale Up Lower Environments
 
 on:
-  schedule:
-    - cron: '0 6 * * 1-5'
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to scale up'
+        required: true
+        type: string
   
 jobs:
   scale-up:
     runs-on: ubuntu-latest
-    strategy:
-        matrix:
-          environment: ["poc", "dev"]
     environment:
-      name: ${{ matrix.environment }}
+      name: ${{ inputs.environment }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -35,7 +36,7 @@ jobs:
           version: "v4.35.1"
           force: true
 
-      - name: Scaling up Deployments in ${{ matrix.environment }} namespace
+      - name: Scaling up Deployments in ${{ inputs.environment }} namespace
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
