@@ -46,12 +46,24 @@ jobs:
 
   refresh-db:
     name: Refresh DB
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, Linux, management-infrastructure]
     environment:
       name: ${{ github.event.inputs.source_env }}
     needs: stop-destination-environment
     steps:
       - uses: actions/checkout@v4.1.1
+
+      - name: Install Kubernetes
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: 'v1.26.0' # default is latest stable
+        id: kubectl_install
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3.5
+        with:
+          version: 'v3.9.0'
+        id: helm_install
 
       - name: Configure kubectl
         run: |
@@ -77,12 +89,24 @@ jobs:
 
   refresh-s3:
     name: Refresh S3
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, Linux, management-infrastructure]
     environment:
       name: ${{ github.event.inputs.source_env }}
     needs: stop-destination-environment
     steps:
       - uses: actions/checkout@v4.1.1
+
+      - name: Install Kubernetes
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: 'v1.26.0' # default is latest stable
+        id: kubectl_install
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3.5
+        with:
+          version: 'v3.9.0'
+        id: helm_install
 
       - name: Configure kubectl
         run: |
