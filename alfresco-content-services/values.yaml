@@ -76,6 +76,7 @@ repository:
       -Dsystem.prop_table_cleaner.algorithm=V2
       -Dsystem.delete_not_exists.read_only=false
       -Dsystem.delete_not_exists.timeout_seconds=3600
+      -Dindex.subsystem.name=elasticsearch
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
