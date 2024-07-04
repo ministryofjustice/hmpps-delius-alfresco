@@ -33,10 +33,6 @@ repository:
     pullPolicy: IfNotPresent
     internalPort: 8080
     hazelcastPort: 5701
-  elasticsearch:
-    host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
-    port: 8080
-    createIndexIfNotExists: true
   initContainers:
     db:
       image:
@@ -773,29 +769,16 @@ database:
   existingSecretName: rds-instance-output
 alfresco-search-enterprise:
   enabled: true
-  liveIndexing:
-    mediation:
-      image:
-        tag: 3.2.0
-    content:
-      image:
-        tag: 3.2.0
-    metadata:
-      image:
-        tag: 3.2.0
-    path:
-      image:
-        tag: 3.2.0
   elasticsearch:
     # -- Enables the embedded elasticsearch cluster
     enabled: false
   messageBroker:
-    existingSecretName: acs-alfresco-cs-brokersecret
+    existingSecretName: *acs_messageBroker_secretName
   reindexing:
     enabled: true
     postgresql:
-      url: 
-      hostname: 
+      url:
+      hostname:
       database:
       existingSecretName: rds-instance-output
 alfresco-digital-workspace:
@@ -1106,4 +1089,3 @@ global:
     user: null
     # -- The password required to access the service, if any
     password: null
-    createIndexIfNotExist: true
