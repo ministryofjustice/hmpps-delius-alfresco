@@ -72,7 +72,6 @@ repository:
       -Dsystem.prop_table_cleaner.algorithm=V2
       -Dsystem.delete_not_exists.read_only=false
       -Dsystem.delete_not_exists.timeout_seconds=3600
-      -Dindex.subsystem.name=elasticsearch
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
@@ -714,7 +713,7 @@ messageBroker: &acs_messageBroker
   # BROKER_URL, BROKER_USERNAME and BROKER_PASSWORD keys
   existingSecretName: null
 alfresco-elasticsearch-connector:
-  enabled: true
+  enabled: false
 alfresco-search:
   searchServicesImage:
     repository: alfresco/alfresco-search-services
@@ -768,7 +767,7 @@ database:
   # When using embedded postgres you need to also set `postgresql.existingSecret`.
   existingSecretName: rds-instance-output
 alfresco-search-enterprise:
-  enabled: true
+  enabled: false
   elasticsearch:
     # -- Enables the embedded elasticsearch cluster
     enabled: false
@@ -1077,15 +1076,4 @@ global:
     #   comprehendRoleARN:
   # -- Shared connections details for Elasticsearch/Opensearch, required when
   # .enabled is true
-  elasticsearch:
-    # -- The host where service is available. The provided default is for when
-    # elasticsearch.enabled is true
-    host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
-    # -- The port where service is available
-    port: 8080
-    # -- Valid values are http or https
-    protocol: http
-    # -- The username required to access the service, if any
-    user: null
-    # -- The password required to access the service, if any
-    password: null
+
