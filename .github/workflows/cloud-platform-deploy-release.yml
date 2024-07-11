@@ -19,10 +19,7 @@ defaults:
 
 jobs:
   release:
-    continue-on-error: false
     strategy:
-      fail-fast: true
-      max-parallel: 1
       matrix:
         include:
         - environment: poc
