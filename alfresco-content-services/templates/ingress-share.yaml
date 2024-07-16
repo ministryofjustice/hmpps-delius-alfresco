@@ -29,10 +29,10 @@ spec:
   ingressClassName: default
   tls:
     - hosts:
-        - {{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
+        - share.{{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
       secretName: share-ingress-cert
   rules:
-    - host: {{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
+    - host: share.{{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
       http:
         paths:
           - path: /
