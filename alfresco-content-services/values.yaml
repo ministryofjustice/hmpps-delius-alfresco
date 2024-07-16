@@ -642,7 +642,7 @@ share:
     type: ClusterIP
     externalPort: 80
   ingress:
-    path: /share
+    path: /
     annotations: {}
     tls: []
     #  - secretName: chart-example-tls
