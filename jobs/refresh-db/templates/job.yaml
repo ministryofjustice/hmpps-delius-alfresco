@@ -7,14 +7,30 @@ data:
   entrypoint.sh: |-
     #!/bin/bash
     set -e
-    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
-    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
-    chmod 0600 ~/.pgpass
-    set -x
+    trap 'send_slack_notification $? "$ERROR_MSG"' EXIT
 
-    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/tmp/db-dump
-    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --clean --if-exists --no-owner --no-privileges --verbose /tmp/db-dump
-    rm -rv /tmp/db-dump ~/.pgpass
+    function send_slack_notification() {
+      STATUS=$1
+      MESSAGE=$2
+      if [ "$STATUS" -eq 0 ]; then
+        TEXT="Refresh DB (${SRC_DB_NAME} to ${DST_DB_NAME}) job succeeded."
+      else
+        TEXT="Refresh DB (${SRC_DB_NAME} to ${DST_DB_NAME}) job failed with error: $MESSAGE"
+      fi
+      curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${TEXT}\"}" $SLACK_WEBHOOK_URL
+    }
+
+    {
+      echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
+      echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
+      chmod 0600 ~/.pgpass
+      set -x
+
+      pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/tmp/db-dump 2> >(tee /tmp/error.log >&2)
+      pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --clean --if-exists --no-owner --no-privileges --verbose /tmp/db-dump 2> >(tee /tmp/error.log >&2)
+      rm -rv /tmp/db-dump ~/.pgpass
+    } || ERROR_MSG=$(tail -n 10 /tmp/error.log)
+
 ---
 apiVersion: batch/v1
 kind: Job
@@ -74,6 +90,8 @@ spec:
             secretKeyRef:
               name: rds-instance-output-{{ .Values.destinationEnvironment }}
               key: RDS_INSTANCE_ADDRESS
+        - name: SLACK_WEBHOOK_URL
+          value: "{{ .Values.slackWebhookUrl }}"
         volumeMounts:
         - name: refresh-db-script
           mountPath: /bin/entrypoint.sh

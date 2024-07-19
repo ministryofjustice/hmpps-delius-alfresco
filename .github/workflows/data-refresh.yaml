@@ -76,16 +76,16 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
+      - name: Uninstall DB Refresh chart
+        run: helm uninstall refresh-db
+
       - name: DB Refresh
         working-directory: jobs/refresh-db
         run: |
           helm install refresh-db . \
             --set sourceEnvironment=${{ github.event.inputs.source_env }} \
             --set destinationEnvironment=${{ github.event.inputs.destination_env }}
-          kubectl wait job refresh-db --for=condition=complete --timeout 10h
-
-      - name: Uninstall DB Refresh chart
-        run: helm uninstall refresh-db
+            --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
   refresh-s3:
     name: Refresh S3
