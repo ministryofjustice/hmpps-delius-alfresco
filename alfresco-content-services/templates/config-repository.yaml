@@ -58,6 +58,7 @@ data:
       {{- range $key, $val := .Values.s3connector.config }}
       -Ds3.{{ $key }}={{ $val }}
       {{- end }}
+      -Dfilecontentstore.subsystem.name=S3
       {{- end }}
       {{- if .Values.email.server.enabled }}
       -Demail.server.enabled={{ .Values.email.server.enabled }}
@@ -108,8 +109,6 @@ data:
       {{- else }}
       -Devents.subsystem.autoStart=false
       {{- end }}
-      -Dfilecontentstore.subsystem.name=S3
-      -Ds3.flatRoot=false
   CATALINA_OPTS: >-
       $ALFRESCO_OPTS
       -Ddb.driver={{ .Values.database.driver | default "org.postgresql.Driver" }}
