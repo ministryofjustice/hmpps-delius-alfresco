@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: alfresco-content-services-reindexing
+spec:
+  template:
+    spec:
+      containers:
+        - name: main-container  # Update this with the actual container name
+          volumeMounts:
+            - name: reindexing-config-volume
+              mountPath: /path/in/container  # Update with the desired mount path
+              subPath: exampleKey
+      volumes:
+        - name: reindexing-config-volume
+          configMap:
+            name: reindexing-config
