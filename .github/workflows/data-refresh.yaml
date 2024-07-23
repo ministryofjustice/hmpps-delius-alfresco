@@ -109,7 +109,7 @@ jobs:
         run: |
           helm install refresh-db . \
             --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-            --set destinationEnvironment=${{ github.event.inputs.destination_env }}
+            --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
             --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
   refresh-s3:
