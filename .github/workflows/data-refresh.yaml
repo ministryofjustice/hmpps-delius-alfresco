@@ -42,6 +42,8 @@ jobs:
       run: |
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
         kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0
+
+        set +e
         
         kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=0
         if [ $? -ne 0 ]; then
@@ -58,6 +60,8 @@ jobs:
           echo "Successfully scaled alfresco-search-enterprise-liveindexing."
           success=true
         fi
+
+        set -e
         
         if [ "$success" = true ]; then
           exit 0
