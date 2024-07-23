@@ -103,7 +103,7 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
       - name: Uninstall DB Refresh chart
-        run: helm uninstall refresh-db
+        run: helm uninstall refresh-db --ignore-not-found
 
       - name: DB Refresh
         working-directory: jobs/refresh-db
