@@ -42,7 +42,29 @@ jobs:
       run: |
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
         kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0
+        
         kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=0
+        if [ $? -ne 0 ]; then
+          echo "Failed to scale alfresco-search-solr, but continuing..."
+        else
+          echo "Successfully scaled alfresco-search-solr."
+          success=true
+        fi
+        
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-liveindexing --replicas=0
+        if [ $? -ne 0 ]; then
+          echo "Failed to scale alfresco-search-enterprise-liveindexing, but continuing..."
+        else
+          echo "Successfully scaled alfresco-search-enterprise-liveindexing."
+          success=true
+        fi
+        
+        if [ "$success" = true ]; then
+          exit 0
+        else
+          echo "Both deployments failed to scale."
+          exit 1
+        fi
 
   refresh-db:
     name: Refresh DB
