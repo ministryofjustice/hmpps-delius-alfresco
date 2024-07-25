@@ -94,9 +94,9 @@ spec:
               key: RDS_INSTANCE_ADDRESS
         - name: SLACK_WEBHOOK_URL
           value: "{{ .Values.slackWebhookUrl }}"
-        - name: SOURCE_ENV
+        - name: SRC_ENV
           value: "{{ .Values.sourceEnvironment }}"
-        - name: DESTINATION_ENV
+        - name: DST_ENV
           value: "{{ .Values.destinationEnvironment }}"
         volumeMounts:
         - name: refresh-db-script
