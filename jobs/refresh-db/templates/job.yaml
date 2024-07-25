@@ -9,13 +9,15 @@ data:
     set -e
     trap 'send_slack_notification $? "$ERROR_MSG"' EXIT
 
+    apt-get update && apt-get install -y curl
+
     function send_slack_notification() {
       STATUS=$1
       MESSAGE=$2
       if [ "$STATUS" -eq 0 ]; then
-        TEXT="Refresh DB (${SRC_DB_NAME} to ${DST_DB_NAME}) job succeeded."
+        TEXT="Refresh DB (${SRC_ENV} to ${DST_ENV}) job succeeded."
       else
-        TEXT="Refresh DB (${SRC_DB_NAME} to ${DST_DB_NAME}) job failed with error: $MESSAGE"
+        TEXT="Refresh DB (${SRC_ENV} to ${DST_ENV}) job failed with error: $MESSAGE"
       fi
       curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${TEXT}\"}" $SLACK_WEBHOOK_URL
     }
@@ -92,6 +94,10 @@ spec:
               key: RDS_INSTANCE_ADDRESS
         - name: SLACK_WEBHOOK_URL
           value: "{{ .Values.slackWebhookUrl }}"
+        - name: SOURCE_ENV
+          value: "{{ .Values.sourceEnvironment }}"
+        - name: DESTINATION_ENV
+          value: "{{ .Values.destinationEnvironment }}"
         volumeMounts:
         - name: refresh-db-script
           mountPath: /bin/entrypoint.sh
