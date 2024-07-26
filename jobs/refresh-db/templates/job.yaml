@@ -23,17 +23,16 @@ data:
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > /job/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> /job/.pgpass
     chmod 0600 /job/.pgpass
-    export PGPASSFILE=/job/.pgpass
     set -x
 
     # Dump the source database
     pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/job/db-dump 2> >(tee /job/error.log >&2)
 
     # Drop the destination database
-    dropdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME" --if-exists
+    dropdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME" --if-exists 2> >(tee /job/error.log >&2)
 
     # Create the destination database
-    createdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME"
+    createdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME" 2> >(tee /job/error.log >&2)
 
     # Restore the source database dump to the destination database
     pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /job/db-dump 2> >(tee /job/error.log >&2)
@@ -58,6 +57,8 @@ spec:
         command:
         - /bin/entrypoint.sh
         env:
+        - name: PGPASSFILE
+          value: /job/.pgpass
         - name: SRC_DB_NAME
           valueFrom:
             secretKeyRef:
