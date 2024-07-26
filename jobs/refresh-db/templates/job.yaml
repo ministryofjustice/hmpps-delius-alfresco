@@ -116,7 +116,7 @@ spec:
           privileged: false
           readOnlyRootFilesystem: false
           runAsNonRoot: true
-          runAsUser: 999
+          runAsUser: job
           capabilities:
             drop:
               - ALL
