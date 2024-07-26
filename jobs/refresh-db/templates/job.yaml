@@ -50,7 +50,7 @@ spec:
     spec:
       containers:
       - name: refresh-db
-        image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:nit-1403-alfresco-move-away-from-long-running-github-workflows-10113786911
+        image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:NIT-1403-alfresco-move-away-from-long-running-github-workflows-10114657186
         imagePullPolicy: IfNotPresent
         resources:
           limits:
