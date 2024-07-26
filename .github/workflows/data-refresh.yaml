@@ -41,38 +41,12 @@ jobs:
     - name: Stop ${{ github.event.inputs.destination_env }} Environment
       run: |
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
-        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0
-
-        set +e
-        
-        kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=0
-        if [ $? -ne 0 ]; then
-          echo "Failed to scale alfresco-search-solr, but continuing..."
-        else
-          echo "Successfully scaled alfresco-search-solr."
-          success=true
-        fi
-        
+        kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0        
         kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-liveindexing --replicas=0
-        if [ $? -ne 0 ]; then
-          echo "Failed to scale alfresco-search-enterprise-liveindexing, but continuing..."
-        else
-          echo "Successfully scaled alfresco-search-enterprise-liveindexing."
-          success=true
-        fi
-
-        set -e
-        
-        if [ "$success" = true ]; then
-          exit 0
-        else
-          echo "Both deployments failed to scale."
-          exit 1
-        fi
 
   refresh-db:
     name: Refresh DB
-    runs-on: [self-hosted, Linux, management-infrastructure]
+    runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.source_env }}
     needs: stop-destination-environment
@@ -114,7 +88,7 @@ jobs:
 
   refresh-s3:
     name: Refresh S3
-    runs-on: [self-hosted, Linux, management-infrastructure]
+    runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.source_env }}
     needs: stop-destination-environment
@@ -142,6 +116,9 @@ jobs:
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+      
+      - name: Uninstall S3 Refresh chart
+        run: helm uninstall refresh-s3
 
       - name: S3 Refresh
         working-directory: jobs/refresh-s3
@@ -165,33 +142,33 @@ jobs:
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3
 
-  wipe-solr-data:
-    name: Wipe Solr Data
-    runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.destination_env }}
-    needs: stop-destination-environment
-    steps:
-      - uses: actions/checkout@v4.1.1
+  # wipe-solr-data:
+  #   name: Wipe Solr Data
+  #   runs-on: ubuntu-22.04
+  #   environment:
+  #     name: ${{ github.event.inputs.destination_env }}
+  #   needs: stop-destination-environment
+  #   steps:
+  #     - uses: actions/checkout@v4.1.1
 
-      - name: Configure kubectl
-        run: |
-          echo "${{ secrets.KUBE_CERT }}" > ca.crt
-          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-          kubectl config use-context ${KUBE_CLUSTER}
-        env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+  #     - name: Configure kubectl
+  #       run: |
+  #         echo "${{ secrets.KUBE_CERT }}" > ca.crt
+  #         kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+  #         kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+  #         kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+  #         kubectl config use-context ${KUBE_CLUSTER}
+  #       env:
+  #         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+  #         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Start Solr Data Wipe Job
-        run: |
-          kubectl apply -f jobs/wipe-solr-data.yaml
-          kubectl wait --timeout 10m --for=condition=complete job/wipe-solr-data
+  #     - name: Start Solr Data Wipe Job
+  #       run: |
+  #         kubectl apply -f jobs/wipe-solr-data.yaml
+  #         kubectl wait --timeout 10m --for=condition=complete job/wipe-solr-data
 
-      - name: Delete Refresh Job
-        run: kubectl delete job wipe-solr-data
+  #     - name: Delete Refresh Job
+  #       run: kubectl delete job wipe-solr-data
 
   start-destination-environment:
     name: Start ${{ github.event.inputs.destination_env }} Environment
@@ -201,7 +178,7 @@ jobs:
     needs:
       - refresh-db
       - refresh-s3
-      - wipe-solr-data
+      # - wipe-solr-data
     steps:
     - name: Configure kubectl
       run: |
@@ -214,12 +191,10 @@ jobs:
         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-    - name: Stop ${{ github.event.inputs.destination_env }} Environment
+    - name: Start ${{ github.event.inputs.destination_env }} Environment
       run: |
-        apt update && apt install -y jq
-
         HELM_VALUES=$(helm get values alfresco-content-services -o json)
 
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=$(echo $HELM_VALUES | jq '.repository.replicaCount')
         kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=$(echo $HELM_VALUES | jq '.share.replicaCount')
-        kubectl scale deployment alfresco-content-services-alfresco-search-solr --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-liveindexing --replicas=1
