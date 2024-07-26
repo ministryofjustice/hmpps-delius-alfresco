@@ -36,7 +36,7 @@ data:
     BEGIN \
       EXECUTE (SELECT string_agg('DROP TABLE IF EXISTS public.' || tablename || ' CASCADE;', ' ') \
               FROM pg_tables WHERE schemaname = 'public'); \
-    END \$\$;" 2> >(tee ~/error.log >&2)s
+    END \$\$;" 2> >(tee ~/error.log >&2)
 
     psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "\
     DO \$\$ \
