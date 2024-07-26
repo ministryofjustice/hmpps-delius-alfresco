@@ -30,7 +30,7 @@ data:
     # Dump the source database
     pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump 2> >(tee ~/error.log >&2)
 
-    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema public cascade;" 2> >(tee ~/error.log >&2)
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;" 2> >(tee ~/error.log >&2)
 
     psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "create schema public;" 2> >(tee ~/error.log >&2)
 
