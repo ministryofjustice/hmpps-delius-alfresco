@@ -9,8 +9,5 @@ RUN apt-get install -y jq
 
 # Create a non-root user and set the home directory
 RUN useradd -u 999 -ms /bin/bash job
-RUN mkdir /job
-RUN chown -R job:job /job/
 USER job
-
-WORKDIR /job
+WORKDIR /home/job
