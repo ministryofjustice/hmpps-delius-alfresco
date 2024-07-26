@@ -25,16 +25,18 @@ data:
     cat ~/.pgpass
     chmod 0600 ~/.pgpass
     chown job:job ~/.pgpass
+
+    export PGPASSFILE=~/.pgpass
     set -x
 
     # Dump the source database
     pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump 2> >(tee ~/error.log >&2)
 
     # Drop the destination database
-    dropdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME" --if-exists 2> >(tee ~/error.log >&2)
+    psql -w --host="$DST_DB_HOST" --username="$DST_DB_USER" --command="DROP DATABASE IF EXISTS $DST_DB_NAME;" 2> >(tee ~/error.log >&2)
 
     # Create the destination database
-    createdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME" 2> >(tee ~/error.log >&2)
+    psql -w --host="$DST_DB_HOST" --username="$DST_DB_USER" --command="CREATE DATABASE $DST_DB_NAME;" 2> >(tee ~/error.log >&2)
 
     # Restore the source database dump to the destination database
     pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump 2> >(tee ~/error.log >&2)
