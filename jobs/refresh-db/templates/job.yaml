@@ -14,19 +14,20 @@ data:
       if [ "$STATUS" -eq 0 ]; then
         JSON_PAYLOAD=$(jq -n --arg text "Refresh DB (${SRC_ENV} to ${DST_ENV}) job succeeded" '{text: $text}')
       else
-        ERROR_MSG=$(tail -n 10 ~/error.log) || ERROR_MSG="Unknown error"
+        ERROR_MSG=$(tail -n 10 /job/error.log) || ERROR_MSG="Unknown error"
         JSON_PAYLOAD=$(jq -n --arg text "Refresh DB (${SRC_ENV} to ${DST_ENV}) job failed with error: $ERROR_MSG" '{text: $text}')
       fi
       curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
     }
 
-    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
-    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
-    chmod 0600 ~/.pgpass
+    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > /job/.pgpass
+    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> /job/.pgpass
+    chmod 0600 /job/.pgpass
+    export PGPASSFILE=/job/.pgpass
     set -x
 
     # Dump the source database
-    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=~/db-dump 2> >(tee ~/error.log >&2)
+    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/job/db-dump 2> >(tee /job/error.log >&2)
 
     # Drop the destination database
     dropdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME" --if-exists
@@ -35,8 +36,8 @@ data:
     createdb -w --host="$DST_DB_HOST" --username="$DST_DB_USER" "$DST_DB_NAME"
 
     # Restore the source database dump to the destination database
-    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose ~/db-dump 2> >(tee ~/error.log >&2)
-    rm -rv ~db-dump ~/.pgpass
+    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /job/db-dump 2> >(tee /job/error.log >&2)
+    rm -rv ~db-dump /job/.pgpass
 
 ---
 apiVersion: batch/v1
@@ -48,7 +49,7 @@ spec:
     spec:
       containers:
       - name: refresh-db
-        image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:nit-1403-alfresco-move-away-from-long-running-github-workflows-10112892047
+        image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:nit-1403-alfresco-move-away-from-long-running-github-workflows-10113786911
         imagePullPolicy: IfNotPresent
         resources:
           limits:
