@@ -118,7 +118,7 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       
       - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3
+        run: helm uninstall refresh-s3 --ignore-not-found
 
       - name: S3 Refresh
         working-directory: jobs/refresh-s3
@@ -140,7 +140,7 @@ jobs:
           kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
 
       - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3
+        run: helm uninstall refresh-s3 --ignore-not-found
 
   # wipe-solr-data:
   #   name: Wipe Solr Data
