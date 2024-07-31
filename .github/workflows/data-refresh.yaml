@@ -130,7 +130,18 @@ jobs:
 
           SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
-          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk -F ' ' '{print $2}' | tr -d '/' | tr '\n' ',')
+          TL_DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk -F ' ' '{print $2}' | tr -d '/' | tr '\n' ',')
+
+          DIRS=""
+          for TL_DIR in $(echo $TL_DIRS | tr ',' ' '); do
+            DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET/$TL_DIR | grep -v contentstore | awk -F ' ' '{print $2}' | tr -d '/' | tr '\n' ',')
+          done
+          DIRS=""
+          for prefix in $(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text); do
+              DIR=$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
+              DIRS+="${DIR},"
+          done
+          DIRS=$(echo $DIRS | tr -d '/' | tr '\n' ',')
 
           helm install refresh-s3 . \
             --set sourceEnvironment=${{ github.event.inputs.source_env }} \
