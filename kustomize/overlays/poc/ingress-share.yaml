@@ -3,6 +3,29 @@ kind: Ingress
 metadata:
   name: alfresco-content-services-alfresco-cs-share
   annotations:
-    external-dns.alpha.kubernetes.io/aws-weight: "100"
     external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-cs-share-hmpps-delius-alfrsco-poc-green
     nginx.ingress.kubernetes.io/whitelist-source-range: placeholder # update values in env/allowlist.yaml
+spec:
+  ingressClassName: default
+  rules:
+  - host: share.hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+    http:
+      paths:
+      - backend:
+          service:
+            name: alfresco-content-services-alfresco-cs-share
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+      - backend:
+          service:
+            name: alfresco-content-services-alfresco-cs-share
+            port:
+              number: 80
+        path: /share/page/
+        pathType: Prefix
+  tls:
+  - hosts:
+    - share.hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+    secretName: share-ingress-cert

@@ -16,6 +16,8 @@ patches:
   target:
     kind: Job
     name: alfresco-content-services-reindexing
+- path: ingress-repository.yaml
+- path: ingress-share.yaml
 
 labels:
 - includeSelectors: true

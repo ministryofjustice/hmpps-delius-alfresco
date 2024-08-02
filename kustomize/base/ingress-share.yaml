@@ -1,0 +1,6 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alfresco-content-services-alfresco-cs-share
+  annotations:
+    external-dns.alpha.kubernetes.io/aws-weight: "100"
