@@ -55,10 +55,6 @@ spec:
               - name: http
                 containerPort: 8080
                 protocol: TCP
-          volumeMounts:
-            - name: prefixes-file-volume
-              mountPath: /alf/reindex.prefixes-file.json
-              subPath: reindex.prefixes-file.json
       volumes:
         - name: prefixes-file-volume
           configMap:
