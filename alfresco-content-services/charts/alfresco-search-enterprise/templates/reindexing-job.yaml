@@ -29,8 +29,6 @@ spec:
                 name: {{ template "alfresco-search-enterprise.fullName" . }}-reindexing-configmap
             - secretRef:
                 name: {{ default (printf "%s-messagebroker-secret" (include "alfresco-search-enterprise.fullName" .)) .Values.messageBroker.existingSecretName }}
-            - secretRef:
-                name: {{ .Values.reindexing.postgresql.existingSecretName }}
           env:
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
@@ -42,27 +40,12 @@ spec:
                 secretKeyRef:
                   name: {{ default (printf "%s-postgresql-secret" (include "alfresco-search-enterprise.fullName" $)) $.Values.reindexing.postgresql.existingSecretName }}
                   key: DATABASE_USERNAME
-            - name: SPRING_DATASOURCE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ default (printf "%s-postgresql-secret" (include "alfresco-search-enterprise.fullName" $)) $.Values.reindexing.postgresql.existingSecretName }}
-                  key: RDS_JDBC_URL
             {{- include "spring.activemq.env" . | nindent 12 }}
             {{- include "alfresco-search-enterprise.config.spring.envCredentials" $ | nindent 12 }}
-            - name: ALFRESCO_REINDEX_PREFIXES_FILE
-              value: file:///alf/reindex.prefixes-file.json
           ports:
               - name: http
                 containerPort: 8080
                 protocol: TCP
-          volumeMounts:
-            - name: prefixes-file-volume
-              mountPath: /alf/reindex.prefixes-file.json
-              subPath: reindex.prefixes-file.json
-      volumes:
-        - name: prefixes-file-volume
-          configMap:
-            name: prefixes-file
       initContainers:
         - name: wait-for-repository
           image: curlimages/curl:7.79.1

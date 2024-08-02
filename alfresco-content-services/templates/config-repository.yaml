@@ -27,9 +27,9 @@ data:
       -Daos.baseUrlOverwrite={{ $alfUrl }}/alfresco/aos
       -Dcsrf.filter.origin={{ $alfUrl }}
       -Dcsrf.filter.referer={{ $alfUrl }}/.*
-      -Dshare.protocol={{ tpl (.Values.externalProtocol | default "https") $ }}
-      -Dshare.host={{ .Release.Namespace }}.{{ .Values.repository.ingress.hostName }}
-      -Dshare.port=443
+      -Dshare.protocol={{ tpl (.Values.externalProtocol | default "http") $ }}
+      -Dshare.host={{ tpl (.Values.externalHost | default (printf "%s-share" (include "content-services.shortname" .))) $ }}
+      -Dshare.port={{ tpl (.Values.externalPort | default .Values.share.service.externalPort | toString) $ }}
       {{- $subsys := include "repository.indexSubsystem" . }}
       {{- if ne $subsys "none" }}
       {{- include "repository.indexConfig" . | indent 6 }}
@@ -108,15 +108,13 @@ data:
       {{- else }}
       -Devents.subsystem.autoStart=false
       {{- end }}
-      -Dfilecontentstore.subsystem.name=S3
-      -Ds3.flatRoot=false
   CATALINA_OPTS: >-
       $ALFRESCO_OPTS
       -Ddb.driver={{ .Values.database.driver | default "org.postgresql.Driver" }}
       {{- if eq .Values.database.external false }}
       -Ddb.url=jdbc:postgresql://{{ printf "%s-%s" .Release.Name .Values.postgresql.nameOverride }}:{{ .Values.postgresql.primary.service.ports.postgresql }}/{{ .Values.postgresql.auth.database }}
       {{- else }}
-      -Ddb.url=jdbc:postgresql://$RDS_INSTANCE_ENDPOINT/$DATABASE_NAME
+      -Ddb.url={{ .Values.database.url }}
       {{- end }}
       {{- if and .Values.mail.host (or .Values.mail.password .Values.mail.existingSecretName) }}
       -Dmail.password=$MAIL_PASSWORD
@@ -144,4 +142,3 @@ data:
       -Dmessaging.broker.password=$BROKER_PASSWORD
       -Dencryption.ssl.truststore.location=$JAVA_HOME/lib/security/cacerts
       -Dalfresco_user_store.adminpassword=$REPO_ADMIN_PASSWORD
-
