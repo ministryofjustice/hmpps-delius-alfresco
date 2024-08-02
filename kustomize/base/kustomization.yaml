@@ -16,3 +16,8 @@ patches:
   target:
     kind: Job
     name: alfresco-content-services-reindexing
+
+labels:
+- includeSelectors: true
+  pairs:
+    deployment: hmpps-delius-alfresco

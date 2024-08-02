@@ -4,6 +4,6 @@ kind: Kustomization
 resources:
 - ../../base
 
-
 patches:
-- path: repository-ingress.yaml
+- path: ingress-repository.yaml
+- path: ingress-share.yaml

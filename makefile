@@ -35,6 +35,27 @@ helm_upgrade:
 	--set s3connector.config.bucketName=$(BUCKET_NAME) \
     --set global.tracking.sharedsecret=$${SECRET} $${ATOMIC_FLAG} $${DEBUG_FLAG} --wait --timeout=20m
 
+kustomize_apply:
+	@if [ "$(ENV)" = "poc" ]; then \
+		NAMESPACE=hmpps-delius-alfrsco-$(ENV); \
+	else \
+		NAMESPACE=hmpps-delius-alfresco-$(ENV); \
+	fi; \
+	echo "Using namespace: $${NAMESPACE}"; \
+	extracted=$$(yq 'join(",")' ./kustomize/overlays/$(ENV)/allowlist.yaml); \
+	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = env(extracted)' -i ./kustomize/overlays/$(ENV)/ingress-repository.yaml; \
+	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = env(extracted)' -i ./kustomize/overlays/$(ENV)/ingress-share.yaml; \
+	kustomize build --enable-helm ./kustomize/overlays/$(ENV) | kubectl apply -f - --namespace $${NAMESPACE}; \
+	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i ./kustomize/overlays/$(ENV)/ingress-repository.yaml; \
+	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i ./kustomize/overlays/$(ENV)/ingress-share.yaml
+
+kustomize_delete:
+	@if [ "$(ENV)" = "poc" ]; then \
+		NAMESPACE=hmpps-delius-alfrsco-$(ENV); \
+	else \
+		NAMESPACE=hmpps-delius-alfresco-$(ENV); \
+	fi; \
+	kubectl delete all -l deployment=hmpps-delius-alfresco --namespace $${NAMESPACE}
 
 # Default target
 .PHONY: default
@@ -42,3 +63,7 @@ default: helm_upgrade
 
 # Phony targets
 .PHONY: helm_upgrade
+
+.PHONY: kustomize_apply
+
+.PHONY: kustomize_delete
