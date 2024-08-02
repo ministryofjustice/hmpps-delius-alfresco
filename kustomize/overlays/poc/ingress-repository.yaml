@@ -8,23 +8,23 @@ metadata:
 spec:
   ingressClassName: default
   rules:
-  - host: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
-    http:
-      paths:
-      - backend:
-          service:
-            name: alfresco-content-services-alfresco-cs-repository
-            port:
-              number: 80
-        path: /
-        pathType: Prefix
-      - backend:
-          service:
-            name: alfresco-content-services-alfresco-cs-repository
-            port:
-              number: 80
-        path: /api-explorer
-        pathType: Prefix
+    - host: hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+      http:
+        paths:
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-cs-repository
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-cs-repository
+                port:
+                  number: 80
+            path: /api-explorer
+            pathType: Prefix
   tls:
-  - hosts:
-    - hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+    - hosts:
+        - hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
