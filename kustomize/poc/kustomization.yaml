@@ -2,8 +2,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- ../base
+  - ../base
 
 patches:
-- path: ingress-repository.yaml
-- path: ingress-share.yaml
+  - path: patch-ingress-repository.yaml
+  - path: patch-ingress-share.yaml
