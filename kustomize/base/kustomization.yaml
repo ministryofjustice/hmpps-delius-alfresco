@@ -8,9 +8,4 @@ patches:
 - path: patch-reindex-job.yml
   target:
     kind: Job
-    name: alfresco-content-services-reindexing
-
-labels:
-- includeSelectors: true
-  pairs:
-    deployment: hmpps-delius-alfresco
+    name: alfresco-content-services-alfresco-search-enterprise-reindexing

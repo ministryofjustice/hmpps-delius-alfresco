@@ -1,7 +1,7 @@
 # Define the Helm chart name and release name
 CHART_NAME := alfresco-content-services
 VALUES := values.yaml
-VALUES_ENV := values_$(ENV).yaml
+VALUES_ENV := values-$(ENV).yaml
 DEBUG := false
 ATOMIC := true
 
@@ -11,6 +11,7 @@ helm_upgrade:
 	
 	@SECRET=$$(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d | awk '{print substr($$0, 19)}'); \
 	if [ -z "$$SECRET" ]; then \
+		echo "No secret found, generating a new one"; \
 		SECRET=$$(openssl rand -base64 20); \
 	fi; \
 	if [ "$(ENV)" = "poc" ]; then \
@@ -30,10 +31,13 @@ helm_upgrade:
 		ATOMIC_FLAG=""; \
 	fi; \
 	echo "BUCKET_NAME: $(BUCKET_NAME)"; \
-	helm upgrade --install $(CHART_NAME) ./$(CHART_NAME) --namespace $${NAMESPACE} \
-	--values=./$(CHART_NAME)/$(VALUES) --values=./$(CHART_NAME)/$(VALUES_ENV) \
+	cd ./kustomize/$${ENV}; \
+	helm upgrade --install $(CHART_NAME) alfresco/alfresco-content-services --version 6.0.2 --namespace $${NAMESPACE} \
+	--values=../base/$(VALUES) --values=./$(VALUES_ENV) \
 	--set s3connector.config.bucketName=$(BUCKET_NAME) \
-    --set global.tracking.sharedsecret=$${SECRET} $${ATOMIC_FLAG} $${DEBUG_FLAG} --wait --timeout=20m
+    --set global.tracking.sharedsecret=$${SECRET} $${ATOMIC_FLAG} $${DEBUG_FLAG} --wait --timeout=20m \
+	 --post-renderer ../kustomizer.sh;
+
 
 kustomize_apply:
 	@if [ "$(ENV)" = "poc" ]; then \
