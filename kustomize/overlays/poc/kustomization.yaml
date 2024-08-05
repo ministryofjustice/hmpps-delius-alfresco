@@ -4,6 +4,19 @@ kind: Kustomization
 resources:
 - ../../base
 
+helmCharts:
+- name: alfresco-content-services
+  releaseName: alfresco-content-services
+  repo: https://kubernetes-charts.alfresco.com/stable
+  valuesFile: ../../base/values.yaml
+  valuesMerge: merge
+  valuesInline:
+    externalHost: hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+    repository:
+      database:
+        url:
+  version: 6.0.2
+
 patches:
 - path: ingress-repository.yaml
 - path: ingress-share.yaml

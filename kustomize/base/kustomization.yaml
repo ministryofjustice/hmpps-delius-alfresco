@@ -1,13 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-helmCharts:
-- name: alfresco-content-services
-  releaseName: alfresco-content-services
-  repo: https://kubernetes-charts.alfresco.com/stable
-  valuesFile: values.yaml
-  version: 6.0.2
-
 resources:
 - reindex-prefixes-config-map.yaml
 
@@ -16,8 +9,6 @@ patches:
   target:
     kind: Job
     name: alfresco-content-services-reindexing
-- path: ingress-repository.yaml
-- path: ingress-share.yaml
 
 labels:
 - includeSelectors: true

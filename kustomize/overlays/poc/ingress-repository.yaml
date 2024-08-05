@@ -3,6 +3,7 @@ kind: Ingress
 metadata:
   name: alfresco-content-services-alfresco-cs-repository
   annotations:
+    external-dns.alpha.kubernetes.io/aws-weight: "100"
     external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-cs-repository-hmpps-delius-alfrsco-poc-green
     nginx.ingress.kubernetes.io/whitelist-source-range: placeholder # update values in env/allowlist.yaml
 spec:

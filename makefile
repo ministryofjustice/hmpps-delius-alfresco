@@ -45,7 +45,7 @@ kustomize_apply:
 	extracted=$$(yq 'join(",")' ./kustomize/overlays/$(ENV)/allowlist.yaml); \
 	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = env(extracted)' -i ./kustomize/overlays/$(ENV)/ingress-repository.yaml; \
 	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = env(extracted)' -i ./kustomize/overlays/$(ENV)/ingress-share.yaml; \
-	kustomize build --enable-helm ./kustomize/overlays/$(ENV) | kubectl apply -f - --namespace $${NAMESPACE}; \
+	kustomize build --enable-helm --load-restrictor=LoadRestrictionsNone ./kustomize/overlays/$(ENV) | kubectl apply -f - --namespace $${NAMESPACE}; \
 	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i ./kustomize/overlays/$(ENV)/ingress-repository.yaml; \
 	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i ./kustomize/overlays/$(ENV)/ingress-share.yaml
 

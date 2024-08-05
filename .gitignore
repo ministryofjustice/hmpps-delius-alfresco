@@ -3,3 +3,4 @@
 .idea/
 templated/
 kustomize/base/charts/
+kustomize/overlays/**/charts/
