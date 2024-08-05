@@ -75,6 +75,8 @@ repository:
       -Dsystem.prop_table_cleaner.algorithm=V2
       -Dsystem.delete_not_exists.read_only=false
       -Dsystem.delete_not_exists.timeout_seconds=3600
+      -Dfilecontentstore.subsystem.name=S3
+      -Ds3.flatRoot=false
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
