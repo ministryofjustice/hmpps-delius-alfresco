@@ -1,4 +1,4 @@
 #!/bin/bash
-cat > resources.yaml
+cat > ../base/resources.yaml
 kubectl kustomize
-rm resources.yaml
+rm ../base/resources.yaml
