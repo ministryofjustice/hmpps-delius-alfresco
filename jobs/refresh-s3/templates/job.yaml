@@ -66,8 +66,8 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
-      serviceAccount: hmpps-migration-development
-      serviceAccountName: hmpps-migration-development
+      serviceAccount: hmpps-migration-dev
+      serviceAccountName: hmpps-migration-dev
       restartPolicy: OnFailure
       volumes:
       - name: refresh-s3-script
