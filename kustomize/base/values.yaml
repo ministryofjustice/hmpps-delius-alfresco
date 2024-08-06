@@ -563,7 +563,7 @@ aiTransformer:
 # -- Declares the alfresco-shared-file-store used by the content repository
 # and transform service
 filestore:
-  replicaCount: 0
+  replicaCount: 1
   nodeSelector: {}
   image:
     repository: quay.io/alfresco/alfresco-shared-file-store
@@ -699,7 +699,7 @@ activemq:
     user: admin
     # -- Default password for the embedded broker admin user
     password: admin
-# -- external activemq connection setting when activemq.enabled=false
+  # -- external activemq connection setting when activemq.enabled=false
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
@@ -791,7 +791,7 @@ alfresco-search-enterprise:
     # -- The password required to access the service, if any
     password: null
   reindexing:
-    enabled: true
+    enabled: false
     postgresql:
       url:
       hostname:

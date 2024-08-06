@@ -6,6 +6,6 @@ resources:
   - reindex-prefixes-config-map.yaml
 
 patches:
-  - path: patch-job-reindexing.yml
-  - path: patch-ingress-repository.yml
-  - path: patch-ingress-share.yml
+  # - path: patch-job-reindexing.yaml
+  - path: patch-ingress-repository.yaml
+  - path: patch-ingress-share.yaml
