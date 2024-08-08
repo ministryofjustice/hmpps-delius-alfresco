@@ -1,7 +1,5 @@
 # Define the Helm chart name and release name
 CHART_NAME := alfresco-content-services
-VALUES := values.yaml
-VALUES_ENV := values-$(ENV).yaml
 DEBUG := false
 ATOMIC := true
 
@@ -41,7 +39,7 @@ helm_upgrade:
     yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(extracted)' -i ./patch-ingress-share.yaml; \
     helm repo add alfresco https://kubernetes-charts.alfresco.com/stable --force-update; \
 	helm upgrade --install $(CHART_NAME) alfresco/alfresco-content-services --version 6.0.2 --namespace $${NAMESPACE} \
-	--values=../base/$(VALUES) --values=./$(VALUES_ENV) \
+	--values=../base/values.yaml --values=./values.yaml \
 	--set s3connector.config.bucketName=$(BUCKET_NAME) \
     --set global.tracking.sharedsecret=$${SECRET} $${ATOMIC_FLAG} $${DEBUG_FLAG} --wait --timeout=20m \
 	--post-renderer ../kustomizer.sh --post-renderer-args "$${HELM_POST_RENDERER_ARGS}"; \
