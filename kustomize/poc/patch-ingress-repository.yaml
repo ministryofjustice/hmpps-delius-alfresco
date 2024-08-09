@@ -4,7 +4,7 @@ metadata:
   name: delius-alfresco-cs-repository
   annotations:
     external-dns.alpha.kubernetes.io/set-identifier: delius-alfresco-cs-repository-hmpps-delius-alfrsco-poc-green
-    nginx.ingress.kubernetes.io/whitelist-source-range: placeholder
+    nginx.ingress.kubernetes.io/whitelist-source-range: "placeholder"
 spec:
   rules:
     - host: hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
