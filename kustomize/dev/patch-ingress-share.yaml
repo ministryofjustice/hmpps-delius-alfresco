@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delius-alfresco-cs-share
+  annotations:
+    external-dns.alpha.kubernetes.io/set-identifier: delius-alfresco-cs-share-hmpps-delius-alfrsco-poc-green
+    nginx.ingress.kubernetes.io/whitelist-source-range: placeholder
+spec:
+  rules:
+    - host: share.hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+      http:
+        paths:
+          - backend:
+              service:
+                name: delius-alfresco-cs-share
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+          - backend:
+              service:
+                name: delius-alfresco-cs-share
+                port:
+                  number: 80
+            path: /share/page/
+            pathType: Prefix
+  tls:
+    - hosts:
+        - share.hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+      secretName: share-ingress-cert
