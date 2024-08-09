@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: alfresco-content-services-alfresco-search-enterprise-reindexing
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-search-enterprise-reindexing  # Update this with the actual container name
+          volumeMounts:
+            - name: prefixes-file-volume
+              mountPath: /alf/reindex.prefixes-file.json
+              subPath: reindex.prefixes-file.json
+          env:
+            - name: ALFRESCO_REINDEX_PREFIXES_FILE
+              value: file:///alf/reindex.prefixes-file.json
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rds-instance-output
+                  key: RDS_JDBC_URL
+      volumes:
+        - name: prefixes-file-volume
+          configMap:
+            name:  prefixes-file
