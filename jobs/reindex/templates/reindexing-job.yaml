@@ -1,0 +1,89 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delius-alfresco-search-enterprise-reindexing
+spec:
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 33000
+        seccompProfile:
+          type: RuntimeDefault
+        supplementalGroups:
+        - 1
+      imagePullSecrets:
+      - name: {{ .Values.imagePullSecrets }}
+      restartPolicy: Never
+      containers:
+        - name: delius-alfresco-search-enterprise-reindexing
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: delius-alfresco-reindexing-prefixes-file-volume
+              mountPath: /alf/reindex.prefixes-file.json
+              subPath: reindex.prefixes-file.json
+          envFrom:
+            - configMapRef:
+                name: delius-alfresco-search-enterprise-reindexing-configmap
+            - secretRef:
+                name: {{ .Values.messageBroker.existingSecretName }}  # Ensure this value is set correctly
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.existingSecretName }}  # Ensure this value is set correctly
+                  key: DATABASE_PASSWORD
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.existingSecretName }}  # Ensure this value is set correctly
+                  key: DATABASE_USERNAME
+            {{- include "spring.activemq.env" . | nindent 12 }}
+            - name: ALFRESCO_REINDEX_PREFIXES_FILE
+              value: file:///alf/reindex.prefixes-file.json
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rds-instance-output
+                  key: RDS_JDBC_URL
+          ports:
+              - name: http
+                containerPort: 8080
+                protocol: TCP
+      volumes:
+      - name: delius-alfresco-reindexing-prefixes-file-volume
+        configMap:
+          name:  delius-alfresco-reindexing-prefixes-file-configmap
+      initContainers:
+        - name: wait-for-repository
+          image: curlimages/curl:7.79.1
+          securityContext:
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 33000
+            seccompProfile:
+              type: RuntimeDefault
+          resources: {{- toYaml .Values.initcontainers.waitForRepository.resources | nindent 12 }}
+          env:
+            - name: ALFRESCO_REPOSITORY_URL
+              value: http://delius-alfresco-cs-repository/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready-
+          command: [ "/bin/sh","-c" ]
+          # Delay running the reindexing to give Alfresco Repository a chance to fully initialise
+          args: [ "while [ $(curl -sw '%{http_code}' $ALFRESCO_REPOSITORY_URL -o /dev/null) -ne 200 ]; do sleep 5; echo 'Waiting for the Alfresco Repository...'; done; echo 'Alfresco is ready, delay reindexing to give a chance to fully initialise.'; sleep 30; echo 'Reindexing started!'" ]
