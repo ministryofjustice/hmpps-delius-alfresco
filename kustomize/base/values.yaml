@@ -1111,7 +1111,7 @@ global:
   elasticsearch:
     # -- The host where service is available. The provided default is for when
     # elasticsearch.enabled is true
-    host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
+    host: null
     # -- The port where service is available
     port: 8080
     # -- Valid values are http or https

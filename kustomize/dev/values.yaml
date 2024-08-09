@@ -3,8 +3,6 @@ repository:
   replicaCount: 2
 share:
   replicaCount: 1
-database:
-  url: jdbc:postgresql://cloud-platform-9a95f5dfd5d72b23.cdwm328dlye6.eu-west-2.rds.amazonaws.com:5432/alfresco
 externalHost: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
 externalProtocol: https
 externalPort: 443
