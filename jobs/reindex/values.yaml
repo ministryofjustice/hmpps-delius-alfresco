@@ -11,7 +11,7 @@ affinity: {}
 indexName: alfresco
 pathIndexingEnabled: true
 postgresql:
-  url: jdbc:postgresql://cloud-platform-f05612b0b7cdbf33.cdwm328dlye6.eu-west-2.rds.amazonaws.com:5432/alfresco
+  url: null
   hostname:
   database:
   existingSecretName: rds-instance-output
@@ -46,7 +46,7 @@ global:
   # -- Shared connections details for Elasticsearch/Opensearch cluster
   elasticsearch:
     # -- The host where service is available
-    host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
+    host: null
     # -- The port where service is available
     port: 8080
     # -- Valid values are http or https
