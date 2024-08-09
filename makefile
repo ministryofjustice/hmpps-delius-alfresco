@@ -36,8 +36,8 @@ helm_upgrade:
 	--values=../base/values.yaml --values=./values.yaml \
 	--set s3connector.config.bucketName=$(BUCKET_NAME) \
 	--set database.url=$$(kubectl get secrets rds-instance-output -o json | jq -r ".data | map_values(@base64d) | .RDS_JDBC_URL") \
-    --set global.elasticsearch.host=$$(kubectl get svc | grep 'opensearch-proxy-service-cloud-platform' | awk '{print $$1}').$${NAMESPACE}.svc.cluster.local \
-    --wait --timeout=20m \
+        --set global.elasticsearch.host=$$(kubectl get svc | grep 'opensearch-proxy-service-cloud-platform' | awk '{print $$1}').$${NAMESPACE}.svc.cluster.local \
+        --wait --timeout=20m \
 	--post-renderer ../kustomizer.sh --post-renderer-args "$${HELM_POST_RENDERER_ARGS}" \
 	$${DEBUG_FLAG} $${ATOMIC_FLAG}; \
 	yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i ./patch-ingress-repository.yaml; \
