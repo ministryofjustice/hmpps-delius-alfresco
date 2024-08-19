@@ -11,7 +11,7 @@ jobs:
         matrix:
           environment: ["poc", "dev"]
     environment:
-      name: ${{ matrix.environment }}
+      name: ${{ matrix.environment }}-preapproved
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3

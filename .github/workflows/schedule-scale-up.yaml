@@ -2,9 +2,8 @@ name: Schedule Scale Up Environments
 
 on:
   schedule:
-    - cron: '0 6 * * 1-5'  # Schedule for POC environment
-    - cron: '0 3 * * 1-5'  # Schedule for DEV environment
-
+    - cron: '0 6 * * 1-5'  # Scale up POC environment at 6am on weekdays
+    - cron: '0 3 * * 1-5'  # Scale up DEV environment at 3am on weekdays
 jobs:
   scale-up:
     runs-on: ubuntu-latest
@@ -25,6 +24,6 @@ jobs:
 
       - name: Call scale up workflow
         if: env.ENV_TO_SCALE != 'NONE'
-        uses: ./.github/workflows/scale-up.yaml
+        uses: ./.github/workflows/scale.yaml
         with:
-          environment: ${{ env.ENV_TO_SCALE }}
+          environment: ${{ env.ENV_TO_SCALE }}-preapproved
