@@ -3,7 +3,7 @@ name: Scale down Lower Environments
 on:
   schedule:
     - cron: '00 19 * * 1-5'
-  workflow-dispatch:
+  workflow_dispatch:
 
 jobs:
   scale-down:
