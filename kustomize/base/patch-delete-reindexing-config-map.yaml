@@ -2,4 +2,4 @@ $patch: delete
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: delius-alfresco-search-enterprise-reindexing-configmap
+  name: alfresco-content-services-alfresco-search-enterprise-reindexing-configmap

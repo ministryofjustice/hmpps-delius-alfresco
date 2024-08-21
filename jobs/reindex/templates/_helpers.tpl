@@ -17,8 +17,5 @@
 {{- end -}}
 
 {{- define "alfresco-search-enterprise.config.spring" -}}
-{{- if and (not .Values.global.elasticsearch.host) (not .Values.searchIndex.host) }}
-  {{ fail "Please provide external elasticsearch connection details as values under .global.elasticsearch or .searchIndex or enable the embedded elasticsearch via .elasticsearch.enabled" }}
-{{- end }}
   SPRING_ELASTICSEARCH_REST_URIS: "{{ .Values.global.elasticsearch.protocol }}://{{ .Values.global.elasticsearch.host }}:{{ .Values.global.elasticsearch.port }}"
 {{- end -}}

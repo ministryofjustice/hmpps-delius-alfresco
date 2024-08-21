@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: delius-alfresco-search-enterprise-reindexing-configmap
+  name: alfresco-content-services-alfresco-search-enterprise-reindexing-configmap
 data:
   ELASTICSEARCH_INDEXNAME: "{{ .Values.indexName }}"
   {{ template "alfresco-search-enterprise.config.spring" . }}
-  ALFRESCO_SHAREDFILESTORE_BASEURL: http://delius-alfresco-filestore:80/alfresco/api/-default-/private/sfs/versions/1/file/
-  ALFRESCO_ACCEPTEDCONTENTMEDIATYPESCACHE_BASEURL: http://delius-alfresco-router/transform/config
+  ALFRESCO_SHAREDFILESTORE_BASEURL: http://alfresco-content-services-alfresco-filestore:80/alfresco/api/-default-/private/sfs/versions/1/file/
+  ALFRESCO_ACCEPTEDCONTENTMEDIATYPESCACHE_BASEURL: http://alfresco-content-services-alfresco-router/transform/config
   ALFRESCO_REINDEX_PATHINDEXINGENABLED: {{ .Values.pathIndexingEnabled | quote }}
   SPRING_DATASOURCE_URL: {{ .Values.postgresql.url }}
   {{- if .Values.environment }}

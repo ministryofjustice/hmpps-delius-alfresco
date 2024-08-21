@@ -1,9 +1,13 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: delius-alfresco-cs-share
+  name: alfresco-content-services-alfresco-cs-share
   annotations:
     external-dns.alpha.kubernetes.io/aws-weight: "100"
     kubernetes.io/ingress.class: default
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($request_uri = "/") {
+        return 301 /share/page/;
+      }
 spec:
   ingressClassName: default

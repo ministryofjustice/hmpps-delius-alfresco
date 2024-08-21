@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: delius-alfresco-search-enterprise-reindexing
+  name: alfresco-content-services-alfresco-search-enterprise-reindexing
 spec:
   template:
     metadata:
@@ -23,7 +23,7 @@ spec:
       - name: {{ .Values.imagePullSecrets }}
       restartPolicy: Never
       containers:
-        - name: delius-alfresco-search-enterprise-reindexing
+        - name: alfresco-content-services-alfresco-search-enterprise-reindexing
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
@@ -36,12 +36,12 @@ spec:
               type: RuntimeDefault
           resources: {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: delius-alfresco-reindexing-prefixes-file-volume
+            - name: reindexing-prefixes-file-volume
               mountPath: /alf/reindex.prefixes-file.json
               subPath: reindex.prefixes-file.json
           envFrom:
             - configMapRef:
-                name: delius-alfresco-search-enterprise-reindexing-configmap
+                name: alfresco-content-services-alfresco-search-enterprise-reindexing-configmap
             - secretRef:
                 name: {{ .Values.messageBroker.existingSecretName }}  # Ensure this value is set correctly
           env:
@@ -68,9 +68,9 @@ spec:
                 containerPort: 8080
                 protocol: TCP
       volumes:
-      - name: delius-alfresco-reindexing-prefixes-file-volume
+      - name: reindexing-prefixes-file-volume
         configMap:
-          name:  delius-alfresco-reindexing-prefixes-file-configmap
+          name:  reindexing-prefixes-file-configmap
       initContainers:
         - name: wait-for-repository
           image: curlimages/curl:7.79.1
@@ -83,7 +83,7 @@ spec:
           resources: {{- toYaml .Values.initcontainers.waitForRepository.resources | nindent 12 }}
           env:
             - name: ALFRESCO_REPOSITORY_URL
-              value: http://delius-alfresco-cs-repository/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready-
+              value: http://alfresco-content-services-alfresco-cs-repository/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready-
           command: [ "/bin/sh","-c" ]
           # Delay running the reindexing to give Alfresco Repository a chance to fully initialise
           args: [ "while [ $(curl -sw '%{http_code}' $ALFRESCO_REPOSITORY_URL -o /dev/null) -ne 200 ]; do sleep 5; echo 'Waiting for the Alfresco Repository...'; done; echo 'Alfresco is ready, delay reindexing to give a chance to fully initialise.'; sleep 30; echo 'Reindexing started!'" ]

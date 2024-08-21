@@ -1,0 +1,23 @@
+# this file overrides values defined in ./values.yaml
+repository:
+  replicaCount: 2
+  resources: # requests and limits set closer together to ensure CP stability
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 3
+      memory: 4Gi
+  persistence:
+    baseSize: 100Gi
+share:
+  replicaCount: 1
+externalHost: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+externalProtocol: https
+externalPort: 443
+tika:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 2
+      memory: 2Gi

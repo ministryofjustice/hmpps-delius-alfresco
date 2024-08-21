@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: delius-alfresco-cs-repository
+  name: alfresco-content-services-alfresco-cs-repository
   annotations:
     external-dns.alpha.kubernetes.io/aws-weight: "100"
     kubernetes.io/ingress.class: default

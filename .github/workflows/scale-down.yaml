@@ -4,7 +4,6 @@ on:
   schedule:
     - cron: '00 19 * * 1-5'
   workflow_dispatch:
-
 jobs:
   scale-down:
     runs-on: ubuntu-latest

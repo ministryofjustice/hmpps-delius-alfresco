@@ -29,7 +29,7 @@ repository:
     type: Recreate
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: content-9895398808-1
+    tag: release_7.3.2_elasticsearch-r5.0-content-latest
     pullPolicy: IfNotPresent
     internalPort: 8080
     hazelcastPort: 5701
@@ -639,7 +639,7 @@ share:
   image:
     # repository: quay.io/alfresco/alfresco-share
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
-    tag: share-9895398808-1
+    tag: release_7.3.2_elasticsearch-r5.0-share-10369065562-1
     pullPolicy: IfNotPresent
     internalPort: 8080
   service:
@@ -691,6 +691,13 @@ share:
 activemq:
   nameOverride: activemq
   enabled: true
+  resources:
+  requests:
+    cpu: "0.5"
+    memory: "1024Mi"
+  limits:
+    cpu: "2"
+    memory: "4096Mi"
   # -- Possibility to choose Node for pod, with a key-value pair label
   # e.g {"kubernetes.io/hostname": multinode-demo-m02}
   nodeSelector: {}
@@ -781,7 +788,7 @@ alfresco-search-enterprise:
     existingSecretName: *acs_messageBroker_secretName
   searchIndex:
     # -- The host where service is available
-    host: opensearch-proxy-service-cloud-platform-62a206e0.hmpps-delius-alfrsco-poc.svc.cluster.local
+    host: null
     # -- The port where service is available
     port: 8080
     # -- Valid values are http or https
