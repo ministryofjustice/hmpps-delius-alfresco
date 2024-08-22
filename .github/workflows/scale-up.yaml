@@ -60,10 +60,10 @@ jobs:
           kubectl scale deployment alfresco-content-services-alfresco-cs-libreoffice --replicas=$(yq -r '.libreoffice.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-alfresco-cs-pdfrenderer --replicas=$(yq -r '.pdfrenderer.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-alfresco-cs-tika --replicas=$(yq -r '.tika.replicaCount // 1' <<< "$LATEST_VALUES")
-          alfresco-content-services-alfresco-search-enterprise-content --replicas=1
-          alfresco-content-services-alfresco-search-enterprise-mediation --replicas=1
-          alfresco-content-services-alfresco-search-enterprise-metadata --replicas=1
-          alfresco-content-services-alfresco-search-enterprise-path --replicas=1
+          kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-content --replicas=1
+          kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-mediation --replicas=1
+          kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-metadata --replicas=1
+          kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-path --replicas=1
           kubectl scale deployment alfresco-content-services-alfresco-cs-transform-misc --replicas=$(yq -r '.transformmisc.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-alfresco-filestore --replicas=$(yq -r '.filestore.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-alfresco-router --replicas=$(yq -r '.transformrouter.replicaCount // 1' <<< "$LATEST_VALUES")
