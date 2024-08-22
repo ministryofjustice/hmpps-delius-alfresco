@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
         matrix:
-          environment: ["poc", "dev"]
+          environment: ["poc"]
         fail-fast: false
     environment:
       name: ${{ matrix.environment }}-preapproved
