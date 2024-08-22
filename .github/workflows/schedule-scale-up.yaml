@@ -24,6 +24,6 @@ jobs:
 
       - name: Call scale up workflow
         if: env.ENV_TO_SCALE != 'NONE'
-        uses: ./.github/workflows/scale.yaml
+        uses: ./.github/workflows/scale-up.yaml
         with:
           environment: ${{ env.ENV_TO_SCALE }}-preapproved
