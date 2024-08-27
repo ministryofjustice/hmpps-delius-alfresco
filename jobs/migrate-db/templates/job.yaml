@@ -9,12 +9,21 @@ data:
     set -e
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
+    cat ~/.pgpass
     chmod 0600 ~/.pgpass
+    chown job:job ~/.pgpass
     set -x
 
-    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/tmp/db-dump
-    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --clean --if-exists --no-owner --no-privileges --verbose /tmp/db-dump
-    rm -rv /tmp/db-dump ~/.pgpass
+    # Dump the source database
+    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump
+
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;"
+
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "create schema public;"
+
+    # Restore the source database dump to the destination database
+    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump
+    rm -rv /home/job/db-dump ~/.pgpass
 ---
 apiVersion: batch/v1
 kind: Job
@@ -25,7 +34,7 @@ spec:
     spec:
       containers:
       - name: migrate-db
-        image: postgres:14
+        image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest
         imagePullPolicy: IfNotPresent
         resources:
           limits:
