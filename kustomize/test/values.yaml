@@ -2,7 +2,7 @@
 repository:
   replicaCount: 2
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.1-content-latest
+    tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
       cpu: 1
@@ -15,7 +15,7 @@ repository:
 share:
   replicaCount: 1
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.1-share-latest
+    tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
 externalHost: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
 externalProtocol: https
 externalPort: 443
