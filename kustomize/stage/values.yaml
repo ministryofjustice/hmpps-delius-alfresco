@@ -1,0 +1,27 @@
+# this file overrides values defined in ./values.yaml
+repository:
+  replicaCount: 2
+  image:
+    tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
+  resources: # requests and limits set closer together to ensure CP stability
+    requests:
+      cpu: 4
+      memory: 16Gi
+    limits:
+      cpu: 6
+      memory: 24Gi
+  persistence:
+    baseSize: 100Gi
+share:
+  replicaCount: 1
+  image:
+    tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
+externalHost: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+externalProtocol: https
+externalPort: 443
+tika:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 2
+      memory: 2Gi
