@@ -690,7 +690,7 @@ share:
   command: []
 activemq:
   nameOverride: activemq
-  enabled: true
+  enabled: false
   resources:
   requests:
     cpu: "0.5"
@@ -720,10 +720,10 @@ messageBroker: &acs_messageBroker
   user: null
   password: null
   # -- Name of the secret managed by this chart
-  secretName: &acs_messageBroker_secretName acs-alfresco-cs-brokersecret
+  # secretName: &acs_messageBroker_secretName amazon-mq-broker-secret
   # -- Alternatively, provide credentials via an existing secret that contains
   # BROKER_URL, BROKER_USERNAME and BROKER_PASSWORD keys
-  existingSecretName: null
+  existingSecretName: amazon-mq-broker-secret
 alfresco-elasticsearch-connector:
   enabled: false
 alfresco-search:
@@ -785,7 +785,7 @@ alfresco-search-enterprise:
     # -- Enables the embedded elasticsearch cluster
     enabled: false
   messageBroker:
-    existingSecretName: *acs_messageBroker_secretName
+    existingSecretName: amazon-mq-broker-secret
   searchIndex:
     # -- The host where service is available
     host: null
@@ -1076,7 +1076,7 @@ alfresco-sync-service:
           cpu: "4"
           memory: "1500Mi"
   messageBroker:
-    existingSecretName: *acs_messageBroker_secretName
+    existingSecretName: amazon-mq-broker-secret
   repository:
     nameOverride: alfresco-cs-repository
     port: *repositoryExternalPort
