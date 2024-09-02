@@ -1,4 +1,4 @@
-name: Build and push image 
+name: Build and push image [Port Forward Pod]
 
 on:
   push:
