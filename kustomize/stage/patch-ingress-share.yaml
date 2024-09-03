@@ -3,11 +3,11 @@ kind: Ingress
 metadata:
   name: alfresco-content-services-alfresco-cs-share
   annotations:
-    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-cs-share-hmpps-delius-alfresco-test-green
+    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-cs-share-hmpps-delius-alfresco-stage-green
     nginx.ingress.kubernetes.io/whitelist-source-range: "placeholder"
 spec:
   rules:
-    - host: share.hmpps-delius-alfresco-test.apps.live.cloud-platform.service.justice.gov.uk
+    - host: share.hmpps-delius-alfresco-stage.apps.live.cloud-platform.service.justice.gov.uk
       http:
         paths:
           - backend:
@@ -26,5 +26,5 @@ spec:
             pathType: Prefix
   tls:
     - hosts:
-        - share.hmpps-delius-alfresco-test.apps.live.cloud-platform.service.justice.gov.uk
+        - share.hmpps-delius-alfresco-stage.apps.live.cloud-platform.service.justice.gov.uk
       secretName: share-ingress-cert
