@@ -16,7 +16,7 @@
 # for performance tuning.
 repository:
   # -- Administrator password for ACS in NTLM hash format to set at bootstrap time
-  adminPassword: "209c6174da490caeb422f3fa5a7ae634"
+  # adminPassword: "209c6174da490caeb422f3fa5a7ae634"
   # -- The name of the secret holding the ACS repository license if any.
   # it must be contained within a `data['*.lic']` property
   # For details on how to manage license, see:
