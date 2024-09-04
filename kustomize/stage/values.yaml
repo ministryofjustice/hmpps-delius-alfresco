@@ -12,6 +12,21 @@ repository:
       memory: 24Gi
   persistence:
     baseSize: 100Gi
+  # -- The startup probe to cover the worse case startup time for slow clusters
+  startupProbe:
+    periodSeconds: 30
+    failureThreshold: 100
+    # The repository readiness probe is used to check startup only as a failure
+    # of the liveness probe later will result in the pod being restarted.
+  readinessProbe:
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 60
+  livenessProbe:
+    initialDelaySeconds: 130
+    periodSeconds: 20
+    timeoutSeconds: 15
 share:
   replicaCount: 1
   image:
