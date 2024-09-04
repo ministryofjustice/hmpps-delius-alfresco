@@ -1,8 +1,8 @@
 # this file overrides values defined in ./values.yaml
 repository:
-  replicaCount: 1
+  replicaCount: 2
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
+    tag: release_7.3.2_elasticsearch-r5.0.1-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
       cpu: 4
@@ -12,31 +12,16 @@ repository:
       memory: 24Gi
   persistence:
     baseSize: 100Gi
-  # -- The startup probe to cover the worse case startup time for slow clusters
-  startupProbe:
-    periodSeconds: 30
-    failureThreshold: 100
-    # The repository readiness probe is used to check startup only as a failure
-    # of the liveness probe later will result in the pod being restarted.
-  readinessProbe:
-    initialDelaySeconds: 60
-    periodSeconds: 20
-    timeoutSeconds: 10
-    failureThreshold: 60
-  livenessProbe:
-    initialDelaySeconds: 130
-    periodSeconds: 20
-    timeoutSeconds: 15
 share:
   replicaCount: 1
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
+    tag: release_7.3.2_elasticsearch-r5.0.1-share-latest
 externalHost: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
 externalProtocol: https
 externalPort: 443
 tika:
-  replicaCount: 2
+  replicaCount: 4
   resources:
     limits:
       cpu: 2
-      memory: 2Gi
+      memory: 4Gi
