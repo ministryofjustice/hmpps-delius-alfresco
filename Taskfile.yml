@@ -1,0 +1,100 @@
+@ -1,169 +0,0 @@
+version: "3"
+
+vars:
+  ENV: "{{.ENV}}"
+  NAMESPACE:
+    sh: if [ "{{.ENV}}" = "poc" ]; then echo "hmpps-delius-alfrsco-{{.ENV}}"; else echo "hmpps-delius-alfresco-{{.ENV}}"; fi
+  BUCKET_NAME:
+    sh: kubectl get secret s3-bucket-output -n {{.NAMESPACE}} -o jsonpath='{.data.BUCKET_NAME}' | base64 --decode
+  OPEN_SEARCH_PREFIX:
+    sh: kubectl get svc --namespace {{.NAMESPACE}} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }'
+  OPENSEARCH_HOST:
+    sh: echo "{{.OPEN_SEARCH_PREFIX}}.{{.NAMESPACE}}.svc.cluster.local"
+  ALLOWLIST:
+    sh: yq 'join(",")' ./kustomize/{{.ENV}}/allowlist.yaml
+  RDS_JDBC_URL:
+    sh: kubectl get secrets rds-instance-output --namespace {{.NAMESPACE}} -o json | jq -r ".data | map_values(@base64d) | .RDS_JDBC_URL"
+  DEBUG: "false"
+  DEBUG_FLAG:
+    sh: if [ "{{.DEBUG}}" = "true" ]; then echo "--debug"; else echo ""; fi
+  HELM_POST_RENDERER_ARGS:
+    sh: if [ "{{.DEBUG}}" = "true" ]; then echo "-d true"; else echo "-d false"; fi
+  ATOMIC: "true"
+  ATOMIC_FLAG:
+    sh: if [ "{{.ATOMIC}}" = "true" ]; then echo "--atomic"; else echo ""; fi
+  CHART_VERSION: "6.0.2"
+
+tasks:
+  helm_upgrade:
+    cmds:
+      - echo "NAMESPACE set to {{.NAMESPACE}}"
+      - echo "BUCKET_NAME set to {{.BUCKET_NAME}}"
+      - echo "OPEN_SEARCH_PREFIX set to {{.OPEN_SEARCH_PREFIX}}"
+      - echo "OPENSEARCH_HOST set to {{.OPENSEARCH_HOST}}"
+      - echo "RDS_JDBC_URL set to {{.RDS_JDBC_URL}}"
+      - echo "DEBUG set to {{.DEBUG}}"
+      - task: helm_repo_add
+      - task: update_allowlist
+      - task: helm_upgrade_install
+        vars:
+          NAMESPACE: "{{.NAMESPACE}}"
+          BUCKET_NAME: "{{.BUCKET_NAME}}"
+          OPENSEARCH_HOST: "{{.OPENSEARCH_HOST}}"
+          RDS_JDBC_URL: "{{.RDS_JDBC_URL}}"
+          DEBUG_FLAG: "{{.DEBUG_FLAG}}"
+          ATOMIC_FLAG: "{{.ATOMIC_FLAG}}"
+      - task: reset_allowlist
+    silent: true
+
+  prepare_namespace:
+    internal: true
+    cmds:
+      - |
+        export BUCKET_NAME=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+        if [ "${ENV}" = "poc" ]; then
+          export NAMESPACE=hmpps-delius-alfrsco-${ENV}
+        else
+          export NAMESPACE=hmpps-delius-alfresco-${ENV}
+        fi
+        export OPENSEARCH_PREFIX=$(kubectl get svc --namespace ${NAMESPACE} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }')
+        export OPENSEARCH_HOST=${OPENSEARCH_PREFIX}.${NAMESPACE}.svc.cluster.local
+        export RDS_JDBC_URL=$(kubectl get secrets rds-instance-output --namespace ${NAMESPACE} -o json | jq -r ".data | map_values(@base64d) | .RDS_JDBC_URL")
+        export EXTRACTED=$(yq 'join(",")' ./kustomize/${ENV}/allowlist.yaml)
+        echo "Using namespace: ${NAMESPACE}"
+
+  update_allowlist:
+    internal: true
+    dir: ./kustomize/{{.ENV}}
+    cmds:
+      - |
+        export ALLOWLIST={{.ALLOWLIST}}
+        yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-repository.yaml
+        yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-share.yaml
+
+  helm_repo_add:
+    internal: true
+    cmds:
+      - helm repo add alfresco https://kubernetes-charts.alfresco.com/stable --force-update
+
+  helm_upgrade_install:
+    internal: true
+    dir: ./kustomize/{{.ENV}}
+    cmds:
+      - |
+        helm upgrade --install alfresco-content-services alfresco/alfresco-content-services --version {{.CHART_VERSION}} --namespace {{.NAMESPACE}} \
+        --values=../base/values.yaml --values=values.yaml \
+        --set s3connector.config.bucketName={{.BUCKET_NAME}} \
+        --set database.url={{.RDS_JDBC_URL}} \
+        --set global.elasticsearch.host={{.OPENSEARCH_HOST}} \
+        --set alfresco-search-enterprise.searchIndex.host={{.OPENSEARCH_HOST}} \
+        --wait --timeout=20m \
+        --post-renderer ../kustomizer.sh --post-renderer-args "{{.HELM_POST_RENDERER_ARGS}}" \
+        {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}}
+
+  reset_allowlist:
+    internal: true
+    dir: ./kustomize/{{.ENV}}
+    cmds:
+      - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-repository.yaml
+      - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-share.yaml
