@@ -40,7 +40,7 @@ messageBroker:
   # -- Broker password
   password: null
   # -- Provide connection details alternatively via an existing secret that contains BROKER_URL, BROKER_USERNAME and BROKER_PASSWORD keys
-  existingSecretName: acs-alfresco-cs-brokersecret
+  existingSecretName: amazon-mq-broker-secret
 global:
   alfrescoRegistryPullSecrets: quay-registry-secret
   # -- Shared connections details for Elasticsearch/Opensearch cluster
