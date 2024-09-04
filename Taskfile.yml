@@ -3,7 +3,7 @@ version: "3"
 vars:
   ENV: "{{.ENV}}"
   NAMESPACE:
-    sh: echo "hmpps-delius-alfrsco-{{.ENV}}"
+    sh: if [ "{{.ENV}}" = "dev" ]; then echo "hmpps-delius-alfresco-dev"; else echo "hmpps-delius-alfresco-{{.ENV}}"; fi
   BUCKET_NAME:
     sh: kubectl get secret s3-bucket-output -n {{.NAMESPACE}} -o jsonpath='{.data.BUCKET_NAME}' | base64 --decode
   OPEN_SEARCH_PREFIX:
