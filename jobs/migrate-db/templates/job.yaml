@@ -9,7 +9,6 @@ data:
     set -e
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
-    cat ~/.pgpass
     chmod 0600 ~/.pgpass
     chown job:job ~/.pgpass
     set -x
@@ -33,79 +32,78 @@ spec:
   template:
     spec:
       containers:
-      - name: migrate-db
-        image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest
-        imagePullPolicy: IfNotPresent
-        resources:
-          limits:
-            cpu: 4
-            memory: 2Gi
-        command:
-        - /bin/entrypoint.sh
-        env:
-        - name: SRC_DB_NAME
-          valueFrom:
-            secretKeyRef:
-              name: legacy-rds-instance
-              key: DATABASE_NAME
-        - name: SRC_DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: legacy-rds-instance
-              key: DATABASE_USERNAME
-        - name: SRC_DB_PASS
-          valueFrom:
-            secretKeyRef:
-              name: legacy-rds-instance
-              key: DATABASE_PASSWORD
-        - name: SRC_DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: legacy-rds-instance
-              key: RDS_INSTANCE_ADDRESS
-        - name: DST_DB_NAME
-          valueFrom:
-            secretKeyRef:
-              name: rds-instance-output
-              key: DATABASE_NAME
-        - name: DST_DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: rds-instance-output
-              key: DATABASE_USERNAME
-        - name: DST_DB_PASS
-          valueFrom:
-            secretKeyRef:
-              name: rds-instance-output
-              key: DATABASE_PASSWORD
-        - name: DST_DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: rds-instance-output
-              key: RDS_INSTANCE_ADDRESS
-        volumeMounts:
-        - name: migrate-db-script
-          mountPath: /bin/entrypoint.sh
-          readOnly: true
-          subPath: entrypoint.sh
-        securityContext:
-          allowPrivilegeEscalation: false
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsNonRoot: true
-          runAsUser: 999
-          capabilities:
-            drop:
-              - ALL
-          seccompProfile:
-            type: RuntimeDefault
+        - name: migrate-db
+          image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 4
+              memory: 2Gi
+          command:
+            - /bin/entrypoint.sh
+          env:
+            - name: SRC_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: legacy-rds-instance
+                  key: DATABASE_NAME
+            - name: SRC_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: legacy-rds-instance
+                  key: DATABASE_USERNAME
+            - name: SRC_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: legacy-rds-instance
+                  key: DATABASE_PASSWORD
+            - name: SRC_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: legacy-rds-instance
+                  key: RDS_INSTANCE_ADDRESS
+            - name: DST_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: rds-instance-output
+                  key: DATABASE_NAME
+            - name: DST_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rds-instance-output
+                  key: DATABASE_USERNAME
+            - name: DST_DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rds-instance-output
+                  key: DATABASE_PASSWORD
+            - name: DST_DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: rds-instance-output
+                  key: RDS_INSTANCE_ADDRESS
+          volumeMounts:
+            - name: migrate-db-script
+              mountPath: /bin/entrypoint.sh
+              readOnly: true
+              subPath: entrypoint.sh
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
       serviceAccount: hmpps-migration-{{ .Values.environment }}
       serviceAccountName: hmpps-migration-{{ .Values.environment }}
       restartPolicy: Never
       volumes:
-      - name: migrate-db-script
-        configMap:
-          name: migrate-db-script
-          defaultMode: 0755
+        - name: migrate-db-script
+          configMap:
+            name: migrate-db-script
+            defaultMode: 0755
   backoffLimit: 0
-...
