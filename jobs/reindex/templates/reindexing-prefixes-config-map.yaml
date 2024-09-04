@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "{{ .Values.release_name }}-prefixes-configmap"
+  name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}-prefixes-configmap
 data:
   reindex.prefixes-file.json: |
     {

@@ -1,11 +1,10 @@
-{{- range .Values.reindex_batches }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: reindexing-{{.fromId}}-{{.toId}}-{{ $.Values.release_name }}
+  name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}
   labels:
-    reindex-job: {{ $.Values.release_name }}
+    reindex-job: "{{ .Values.fromId }}-{{ .Values.toId }}"
 spec:
   template:
     metadata:
@@ -27,7 +26,7 @@ spec:
       - name: {{ $.Values.imagePullSecrets }}
       restartPolicy: Never
       containers:
-        - name: reindexing-{{.fromId}}-{{.toId}}-{{ $.Values.release_name }}
+        - name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}
           image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           securityContext:
@@ -45,7 +44,7 @@ spec:
               subPath: reindex.prefixes-file.json
           envFrom:
             - configMapRef:
-                name: "{{ $.Values.release_name }}-configmap"
+                name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}-configmap
             - secretRef:
                 name: {{ $.Values.messageBroker.existingSecretName }}  # Ensure this value is set correctly
           env:
@@ -68,7 +67,7 @@ spec:
                   name: rds-instance-output
                   key: RDS_JDBC_URL
             - name: JAVA_OPTS
-              value: "-Dalfresco.reindex.fromId={{.fromId}} -Dalfresco.reindex.toId={{.toId}}"
+              value: "-Dalfresco.reindex.fromId={{ .Values.fromId }} -Dalfresco.reindex.toId={{ .Values.toId }}"
           ports:
               - name: http
                 containerPort: 8080
@@ -76,7 +75,7 @@ spec:
       volumes:
       - name: reindexing-prefixes-file-volume
         configMap:
-          name:  "{{ $.Values.release_name }}-prefixes-configmap"
+          name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}-prefixes-configmap
       initContainers:
         - name: wait-for-repository
           image: curlimages/curl:7.79.1
@@ -93,4 +92,3 @@ spec:
           command: [ "/bin/sh","-c" ]
           # Delay running the reindexing to give Alfresco Repository a chance to fully initialise
           args: [ "while [ $(curl -sw '%{http_code}' $ALFRESCO_REPOSITORY_URL -o /dev/null) -ne 200 ]; do sleep 5; echo 'Waiting for the Alfresco Repository...'; done; echo 'Alfresco is ready, delay reindexing to give a chance to fully initialise.'; sleep 30; echo 'Reindexing started!'" ]
-{{- end }}

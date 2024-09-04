@@ -3,7 +3,7 @@ version: "3"
 vars:
   ENV: "{{.ENV}}"
   NAMESPACE:
-    sh: if [ "{{.ENV}}" = "dev" ]; then echo "hmpps-delius-alfresco-dev"; else echo "hmpps-delius-alfresco-{{.ENV}}"; fi
+    sh: if [ "{{.ENV}}" = "poc" ]; then echo "hmpps-delius-alfrsco-{{.ENV}}"; else echo "hmpps-delius-alfresco-{{.ENV}}"; fi
   BUCKET_NAME:
     sh: kubectl get secret s3-bucket-output -n {{.NAMESPACE}} -o jsonpath='{.data.BUCKET_NAME}' | base64 --decode
   OPEN_SEARCH_PREFIX:
@@ -100,70 +100,106 @@ tasks:
 
   batch_reindex:
     vars:
-      START: 0
-      END: 10050
-      CHUNK: 1000
-      CONCURRENCY: 5
-      HELM_ARRAY:
+      START: "{{.START | default 0}}"
+      END: "{{.END | default 10050}}"
+      CHUNK: "{{.CHUNK | default 1000}}"
+      CONCURRENCY: "{{.CONCURRENCY | default 5}}"
+      ARRAY:
         sh: |
-          yml=$(
-            for i in $(seq {{.START}} {{.CHUNK}} {{.END}}); do
+          arr=$(
+            for i in $(seq -f "%.0f" {{.START}} {{.CHUNK}} {{.END}}); do
               new_start=$i
               end=$((i + {{.CHUNK}} - 1))
               if [ $end -gt {{.END}} ]; then
                 end={{.END}}
               fi
           cat << EOF
-          - fromId: ${new_start}
-            toId: ${end}
+          ${new_start}-${end}
           EOF
             done
           )
-          echo "$yml"
+          echo "$arr"
     cmds:
       - echo "Starting batch reindex from {{.START}} to {{.END}} in chunks of {{.CHUNK}}"
       - task: run_reindex_batches
         vars:
           OPENSEARCH_HOST: "{{.OPENSEARCH_HOST}}"
           NAMESPACE: "{{.NAMESPACE}}"
-          HELM_ARRAY: "{{.HELM_ARRAY}}"
+          ARRAY: "{{.ARRAY}}"
           CONCURRENCY: "{{.CONCURRENCY}}"
+      - task: reindex_helm_cleanup
+        vars:
+          NAMESPACE: "{{.NAMESPACE}}"
 
   run_reindex_batches:
     cmds:
       - |
-        # Get the total number of items
-        export yaml_content="{{.HELM_ARRAY}}"
-        total_items=$(echo "$yaml_content" | yq eval 'length' -)
+        pending="{{.ARRAY}}"
+        # count the number of items
+        total_items=$(echo "$pending" | wc -l)
         echo "Total items: $total_items"
 
-        # Loop through the items in batches of {{.CONCURRENCY}}
-        for ((i=0; i<total_items; i+={{.CONCURRENCY}})); do
-            echo "Batch $((i/{{.CONCURRENCY}} + 1)):"
+        started=()
+        completed=()
 
-            yml_batch=$(echo "$yaml_content" | yq eval ".[$i:$((i+{{.CONCURRENCY}}))]" -)
-            echo "$yml_batch"
+        # while pending is not empty
+        while [ -n "$pending" ]; do
+            # echo "Pending: $pending"
+            # Get the first item
+            item=$(echo "$pending" | head -n 1)
+            echo "Processing item: $item"
 
-            date=$(date '+%Y%m%d-%H%M%S')
-            release_name="reindex-$((i/{{.CONCURRENCY}} + 1))-${date}"
+            # Get the start and end values
+            start=$(echo "$item" | cut -d '-' -f 1)
+            end=$(echo "$item" | cut -d '-' -f 2)
+            echo "Start: $start, End: $end"
 
-            touch ./jobs/reindex/values-${release_name}.yaml
+            # check the number of jobs running
+            running_jobs=$(kubectl get jobs --namespace {{.NAMESPACE}} -l "reindex-job" -o json | jq '.items | length')
+            echo "Running jobs: $running_jobs"
+            if [ $running_jobs -ge {{.CONCURRENCY}} ]; then
+                echo "No available slots, waiting for 5 seconds"
+                sleep 5
+            else 
+              echo "Found at least 1 available slot!"
+              echo "Available slots left: $(({{.CONCURRENCY}} - $running_jobs))"
+              # run the job
+              echo "helm install reindex-${start}-${end} ./jobs/reindex --set global.elasticsearch.host={{.OPENSEARCH_HOST}} --set fromId=${start} --set toId=${end} --namespace {{.NAMESPACE}}"  
+              helm install "reindex-${start}-${end}" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${start}" --set "toId=${end}" --namespace {{.NAMESPACE}}
+              # Remove the item from the list
+              pending=$(echo "$pending" | tail -n +2)
+            fi
 
-            cat << EOF > ./jobs/reindex/values-${release_name}.yaml
-        reindex_batches:
-        $(echo "$yml_batch" | sed 's/^/  /' | sed 's/^  -/  -/')
-        EOF
-
-            cat ./jobs/reindex/values-${release_name}.yaml
-            echo "helm command: helm install $release_name jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "release_name=${release_name}" -f ./jobs/reindex/values.yaml -f ./jobs/reindex/values-${release_name}.yaml --namespace {{.NAMESPACE}}"
-            helm install "$release_name" jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "release_name=${release_name}" -f ./jobs/reindex/values.yaml -f ./jobs/reindex/values-${release_name}.yaml --namespace {{.NAMESPACE}}
-
-            kubectl wait --for=condition=complete jobs --namespace {{.NAMESPACE}} -l "reindex-job=$release_name" --timeout=600s
-
-            echo "Batch $((i/{{.CONCURRENCY}} + 1)) completed"
-            # Uninstall the job and remove the values file
-            helm uninstall "$release_name" --namespace {{.NAMESPACE}}
-            rm -f ./jobs/reindex/values-${release_name}.yaml
+            # check for completed jobs
+            completed_jobs=$(kubectl get jobs --namespace {{.NAMESPACE}} -l "reindex-job" -o json | jq -r '.items[] | select(.status.succeeded == 1) | .metadata.labels["reindex-job"]')
+            if [ -z "$completed_jobs" ]; then
+              echo "No completed jobs"
+            else
+              echo "Completed jobs: $completed_jobs"
+              echo "$completed_jobs" | while IFS= read -r job; do
+                echo "Processing completed job: $job"
+                completed+=("$job")
+                echo "Job $job completed"
+                helm uninstall "reindex-$job" --namespace {{.NAMESPACE}}
+              done
+            fi
         done
 
-        echo "All batches completed"
+  reindex_helm_cleanup:
+    cmds:
+      - |
+        # wait for all jobs to complete
+        kubectl wait --for=condition=complete jobs --namespace {{.NAMESPACE}} -l "reindex-job" --timeout=4h
+
+        completed_jobs=$(kubectl get jobs --namespace {{.NAMESPACE}} -l "reindex-job" -o json | jq -r '.items[] | select(.status.succeeded == 1) | .metadata.labels["reindex-job"]')
+        if [ -z "$completed_jobs" ]; then
+          echo "No completed jobs"
+        else
+          echo "Completed jobs: $completed_jobs"
+          echo "$completed_jobs" | while IFS= read -r job; do
+            echo "Processing completed job: $job"
+            completed+=("$job")
+            echo "Job $job completed"
+            helm uninstall "reindex-$job" --namespace {{.NAMESPACE}}
+          done
+        fi
