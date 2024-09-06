@@ -1,37 +1,34 @@
-name: helm-releases
+name: Deploy Alfresco Content Services
 
 on:
   push:
-    branches:
-      - main
     paths:
       - .github/workflows/cloud-platform-deploy-release.yml
-      - alfresco-content-services/**
-
+      - kustomize/**
   workflow_dispatch:
 
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: read # This is required for actions/checkout
-defaults:
-  run:
-    working-directory: alfresco-content-services
 
 jobs:
   release:
     strategy:
       matrix:
-        include:
-        - environment: poc
-          values: values_poc.yaml
-        - environment: dev
-          values: values_dev.yaml
-        - environment: test
-          values: values_test.yaml
+        environment: [poc, dev, test, stage]
+        ref: 
+          - ${{ contains(github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') }}
+        exclude:
+          - ref: false
+            environment: test
+          - ref: false
+            environment: stage
+    name: Deploy to ${{ matrix.environment }}
     # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at:
     # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments
     environment:
       name: ${{ matrix.environment }}
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
@@ -66,16 +63,20 @@ jobs:
           # For Alfresco, a k8s namespace will be an environment
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
-          # Helm will not deploy unless this secret is present. Create a new one if one does not already exist from env section
-          SECRET=$(awk '{print substr($0, 19)}' <<< $(kubectl get secrets alfresco-content-services-alfresco-repository-properties-secret -o jsonpath='{.data.alfresco-global\.properties}' | base64 -d)) 2> /dev/null
-          if [ -z ${SECRET} ]
-          then
-            SECRET=$(openssl rand -base64 20)
-          fi
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      
+      - name: Run Task
+        run: task helm_upgrade ENV=${{ matrix.environment }}
 
-          # Upgrad an existing release or create a new one if one does not exist
-          BUCKET_NAME=$(awk '{print substr($0, 0)}' <<< $(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d))
-          helm upgrade --install alfresco-content-services . --values=./values.yaml --values=./${{ matrix.values }} \
-          --set s3connector.config.bucketName=$BUCKET_NAME \
-          --set global.tracking.sharedsecret=$SECRET \
-          --atomic
+      - name: Alert Slack failure
+        if: "${{ failure() && github.ref == 'refs/heads/main' }}"
+        run: |
+          curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":fail: Deployment Failed"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment to Alfresco `${{ matrix.environment }}` failed"},	"accessory": {"type": "button","text": {"type": "plain_text","text": ":github: View Job","emoji": true}, "value": "view-job", "url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "action_id": "button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Alert Slack Success
+        if: "${{ success() && github.ref == 'refs/heads/main' }}"
+        run: |
+            curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment Succeeded"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment to Alfresco `${{ matrix.environment }}` succeeded."},	"accessory": {"type": "button","text": {"type": "plain_text","text": ":github: View Job","emoji": true}, "value": "view-job", "url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "action_id": "button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}

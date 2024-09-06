@@ -90,6 +90,12 @@ tasks:
         --wait --timeout=20m \
         --post-renderer ../kustomizer.sh --post-renderer-args "{{.HELM_POST_RENDERER_ARGS}}" \
         {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}}
+        echo " "
+        echo "***** Helm upgrade completed *****"
+        echo "Helm revision: $(helm list -n {{.NAMESPACE}} | grep alfresco-content-services | awk '{print $10}')"
+        echo "Chart version: $(helm list -n {{.NAMESPACE}} | grep alfresco-content-services | awk '{print $9}')"
+        echo "ACS Version: $(helm list -n {{.NAMESPACE}} | grep alfresco-content-services | awk '{print $10}')"
+        echo " "
 
   reset_allowlist:
     internal: true
@@ -214,3 +220,4 @@ tasks:
           echo "Uninstalling release: $release"
           helm uninstall "$release" -n "$NAMESPACE"
         done
+        
