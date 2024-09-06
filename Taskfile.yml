@@ -145,15 +145,17 @@ tasks:
         total_items=$(echo "$pending" | wc -l)
         echo "Total items: $total_items"
 
-        total_items=$(echo "$pending" | wc -l)
-        echo "Total items: $total_items"
-
         previous_completed=$(cat completed.txt)
+
+        echo "Count of previous completed items: $(echo "$previous_completed" | wc -l)"
 
         # remove the completed items from the pending list
         for item in $previous_completed; do
           pending=$(echo "$pending" | grep -v "$item")
         done
+        
+        total_items=$(echo "$pending" | wc -l)
+        echo "Total items: $total_items"
 
 
         started=()
