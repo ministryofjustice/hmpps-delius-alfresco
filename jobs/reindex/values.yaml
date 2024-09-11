@@ -8,7 +8,7 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 # -- Name of the existing search index, usually created by repo
-indexName: alfresco
+indexName: alfresconew
 pathIndexingEnabled: true
 postgresql:
   url: null

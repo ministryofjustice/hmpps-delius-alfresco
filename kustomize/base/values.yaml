@@ -61,7 +61,7 @@ repository:
   environment:
     JAVA_OPTS: >-
       -Dindex.subsystem.name=elasticsearch
-      -Delasticsearch.indexName=alfresco
+      -Delasticsearch.indexName=alfresconew
       -Delasticsearch.createIndexIfNotExists=true
       -Dtransform.service.enabled=true
       -XX:MinRAMPercentage=50
@@ -780,7 +780,7 @@ database:
   # When using embedded postgres you need to also set `postgresql.existingSecret`.
   existingSecretName: rds-instance-output
 alfresco-search-enterprise:
-  indexName: alfresco
+  indexName: alfresconew
   enabled: true
   elasticsearch:
     # -- Enables the embedded elasticsearch cluster
