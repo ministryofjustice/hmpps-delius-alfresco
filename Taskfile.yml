@@ -103,6 +103,12 @@ tasks:
     cmds:
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-repository.yaml
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-share.yaml
+  
+  simple_reindex:
+    cmds:
+      - | 
+        helm install "reindex-default" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=0" --set "toId=20000" --namespace {{.NAMESPACE}}
+        
 
   batch_reindex:
     vars:
@@ -145,9 +151,12 @@ tasks:
         total_items=$(echo "$pending" | wc -l)
         echo "Total items: $total_items"
 
-        previous_completed=$(cat completed.txt)
-
-        echo "Count of previous completed items: $(echo "$previous_completed" | wc -l)"
+        previous_completed=$(cat completed.txt) || true
+        if [ -z "$previous_completed" ]; then
+          echo "No previous completed items"
+        else
+          echo "Count of previous completed items: $(echo "$previous_completed" | wc -l)"
+        fi
 
         # remove the completed items from the pending list
         for item in $previous_completed; do
@@ -219,6 +228,7 @@ tasks:
           echo "$completed_jobs" | while IFS= read -r job; do
             echo "Processing completed job: $job"
             completed+=("$job")
+            echo "$job" >> completed.txt
             echo "Job $job completed"
             helm uninstall "reindex-$job" --namespace {{.NAMESPACE}}
           done
