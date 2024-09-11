@@ -5,12 +5,12 @@ trap ctrl_c INT
 # trap fail and call fail()
 trap fail ERR
 
-main() {        
+main() {
     env=$1
 
     if [ "$env" == "poc" ]; then
         namespace="hmpps-delius-alfrsco-${env}"
-    else 
+    else
         namespace="hmpps-delius-alfresco-${env}"
     fi
     echo "Connecting to Opensearch in namespace $namespace"
@@ -22,7 +22,7 @@ main() {
     fi
 
     # get opensearch proxy pod name
-    OPENSEARCH_PROXY_POD=$(kubectl get pods | grep 'opensearch-proxy-cloud-platform' | awk '{print $1}')
+    OPENSEARCH_PROXY_POD=$(kubectl get pods --namespace ${namespace} | grep 'opensearch-proxy-cloud-platform' | awk '{print $1}')
     printf "\n****************************************************\n"
     printf "Connect to http://localhost:$PORT locally\n"
     printf "Press Ctrl+C to stop port forwarding \n"
