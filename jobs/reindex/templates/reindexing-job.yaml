@@ -66,8 +66,19 @@ spec:
                 secretKeyRef:
                   name: rds-instance-output
                   key: RDS_JDBC_URL
+            - name: ACTIVEMQ_POOL_ENABLED
+              value: true
+            - name: ACTIVEMQ_POOL_SIZE
+              value: 100
             - name: JAVA_OPTS
-              value: "-Dalfresco.reindex.fromId={{ .Values.fromId }} -Dalfresco.reindex.toId={{ .Values.toId }}"
+              value: >-
+                -Dalfresco.reindex.fromId={{ .Values.fromId }} -Dalfresco.reindex.toId={{ .Values.toId }}
+                -Dalfresco.reindex.multithreadedStepEnabled=true
+                -Dalfresco.reindex.concurrentProcessors=30
+                -Dalfresco.reindex.batchSize=1000
+                -Dalfresco.reindex.pageSize=10000
+                -Dalfresco.reindex.contentIndexingEnabled=true
+                -Dalfresco.reindex.metadataIndexingEnabled=true
           ports:
               - name: http
                 containerPort: 8080

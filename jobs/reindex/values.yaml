@@ -16,15 +16,15 @@ postgresql:
   database:
   existingSecretName: rds-instance-output
 image:
-  tag: 4.0.1
+  tag: 3.2.0
   repository: quay.io/alfresco/alfresco-elasticsearch-reindexing
 resources:
   requests:
     cpu: "0.5"
-    memory: "256Mi"
+    memory: "1024Mi"
   limits:
-    cpu: "2"
-    memory: "2048Mi"
+    cpu: "4"
+    memory: "4096Mi"
 initcontainers:
   waitForRepository:
     resources:

@@ -7,3 +7,4 @@ kustomize/**/charts/
 kustomize/**/output.yaml
 kustomize/base/resources.yaml
 jobs/reindex/values-reindex-*.yaml
+completed.txt

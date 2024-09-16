@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-alfresco-search-enterprise-path
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-search-enterprise-path
+          env:
+            - name: ENABLE_CONTENT_INDEXING
+              value: "true"
+            - name: ACTIVEMQ_POOL_SIZE
+              value: "100"
