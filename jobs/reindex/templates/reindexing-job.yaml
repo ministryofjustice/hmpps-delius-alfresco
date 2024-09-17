@@ -67,9 +67,9 @@ spec:
                   name: rds-instance-output
                   key: RDS_JDBC_URL
             - name: ACTIVEMQ_POOL_ENABLED
-              value: true
+              value: "true"
             - name: ACTIVEMQ_POOL_SIZE
-              value: 100
+              value: "100"
             - name: JAVA_OPTS
               value: >-
                 -Dalfresco.reindex.fromId={{ .Values.fromId }} -Dalfresco.reindex.toId={{ .Values.toId }}
