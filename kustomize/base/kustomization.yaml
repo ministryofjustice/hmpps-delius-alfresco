@@ -12,3 +12,4 @@ patches:
   - path: patch-live-metadata-indexing.yaml
   - path: patch-live-content-indexing.yaml
   - path: patch-live-mediation-indexing.yaml
+  - path: patch-shared-filestore.yaml

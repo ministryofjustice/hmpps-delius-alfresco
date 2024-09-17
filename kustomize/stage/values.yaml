@@ -1,29 +1,29 @@
 # this file overrides values defined in ./values.yaml
 repository:
     # -- The startup probe to cover the worse case startup time for slow clusters
-  startupProbe:
-    periodSeconds: 30
-    failureThreshold: 40
-  readinessProbe:
-    initialDelaySeconds: 60
-    periodSeconds: 30
-    timeoutSeconds: 15
-    failureThreshold: 40  # Increased from 6 to 12
-  livenessProbe:
-    initialDelaySeconds: 260  # Increased from 130 to 260
-    periodSeconds: 20
-    timeoutSeconds: 15
-    failureThreshold: 40
-  replicaCount: 1
+  # startupProbe:
+  #   periodSeconds: 30
+  #   failureThreshold: 40
+  # readinessProbe:
+  #   initialDelaySeconds: 60
+  #   periodSeconds: 30
+  #   timeoutSeconds: 15
+  #   failureThreshold: 40  # Increased from 6 to 12
+  # livenessProbe:
+  #   initialDelaySeconds: 260  # Increased from 130 to 260
+  #   periodSeconds: 20
+  #   timeoutSeconds: 15
+  #   failureThreshold: 40
+  replicaCount: 6
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
+      cpu: 2
+      memory: 8Gi
+    limits:
       cpu: 4
       memory: 16Gi
-    limits:
-      cpu: 6
-      memory: 24Gi
   persistence:
     baseSize: 100Gi
 share:
@@ -38,6 +38,6 @@ tika:
   resources:
     limits:
       cpu: 2
-      memory: 2Gi
+      memory: 4Gi
 transformrouter:
-  replicaCount: 2
+  replicaCount: 1

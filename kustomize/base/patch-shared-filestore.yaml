@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-alfresco-filestore
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-content-services
+          env:
+            - name: scheduler.content.age.millis
+              value: "3600000"
+            - name: scheduler.cleanup.interval
+              value: "1800000"
+

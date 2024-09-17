@@ -238,7 +238,7 @@ transformrouter:
   nodeSelector: {}
   image:
     repository: quay.io/alfresco/alfresco-transform-router
-    tag: 2.1.2
+    tag: 2.0.0
     pullPolicy: IfNotPresent
     internalPort: 8095
   service:
@@ -282,7 +282,7 @@ pdfrenderer:
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-pdf-renderer
-    tag: 3.1.2
+    tag: 3.0.0
     pullPolicy: IfNotPresent
     internalPort: 8090
   service:
@@ -330,7 +330,7 @@ imagemagick:
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-imagemagick
-    tag: 3.1.2
+    tag: 3.0.0
     pullPolicy: IfNotPresent
     internalPort: 8090
   service:
@@ -378,7 +378,7 @@ libreoffice:
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-libreoffice
-    tag: 3.1.2
+    tag: 3.0.0
     pullPolicy: IfNotPresent
     internalPort: 8090
   service:
@@ -426,7 +426,7 @@ tika:
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-tika
-    tag: 3.1.2
+    tag: 3.0.0
     pullPolicy: IfNotPresent
     internalPort: 8090
   service:
@@ -475,7 +475,7 @@ transformmisc:
   nodeSelector: {}
   image:
     repository: alfresco/alfresco-transform-misc
-    tag: 3.1.2
+    tag: 3.0.0
     pullPolicy: IfNotPresent
     internalPort: 8090
   service:
@@ -823,7 +823,6 @@ alfresco-search-enterprise:
 alfresco-digital-workspace:
   nodeSelector: {}
   enabled: false
-  nameOverride: "alfresco-dw"
   service:
     envType: frontend
   ingress:
