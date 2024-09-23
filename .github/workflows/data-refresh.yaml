@@ -139,7 +139,7 @@ jobs:
           helm install refresh-s3 . \
             --set sourceEnvironment=${{ github.event.inputs.source_env }} \
             --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-            --set directories="{${DIRS:0:-1}}"
+            --set directories="${DIRS}"
 
           kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
 
