@@ -42,7 +42,11 @@ jobs:
       run: |
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
         kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0        
-        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-liveindexing --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-content --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-metadata --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-path --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-mediation --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-router --replicas=0
 
   refresh-db:
     name: Refresh DB
@@ -197,4 +201,8 @@ jobs:
 
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=$(echo $HELM_VALUES | jq '.repository.replicaCount')
         kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=$(echo $HELM_VALUES | jq '.share.replicaCount')
-        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-liveindexing --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-content --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-metadata --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-path --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-mediation --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-router --replicas=1

@@ -9,14 +9,14 @@ tolerations: []
 affinity: {}
 # -- Name of the existing search index, usually created by repo
 indexName: alfresco
-pathIndexingEnabled: true
+pathIndexingEnabled: false
 postgresql:
   url: null
   hostname:
   database:
   existingSecretName: rds-instance-output
 image:
-  tag: 3.2.0
+  tag: 3.2.1
   repository: quay.io/alfresco/alfresco-elasticsearch-reindexing
 resources:
   requests:

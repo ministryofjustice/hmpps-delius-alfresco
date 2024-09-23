@@ -8,7 +8,9 @@ spec:
       containers:
         - name: alfresco-search-enterprise-content
           env:
-            - name: ENABLE_CONTENT_INDEXING
-              value: "true"
-            - name: ACTIVEMQ_POOL_SIZE
-              value: "100"
+            # - name: SPRING_ACTIVEMQ_POOL_ENABLED
+            #   value: "true"
+            # - name: SPRING_ACTIVEMQ_POOL_MAXCONNECTIONS
+            #   value: "100"
+            - name: JAVA_OPTS
+              value: "-Dspring.activemq.packages.trustAll=true"

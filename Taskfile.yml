@@ -87,7 +87,7 @@ tasks:
         --set database.url={{.RDS_JDBC_URL}} \
         --set global.elasticsearch.host={{.OPENSEARCH_HOST}} \
         --set alfresco-search-enterprise.searchIndex.host={{.OPENSEARCH_HOST}} \
-        --wait --timeout=20m \
+        --wait --timeout=60m \
         --post-renderer ../kustomizer.sh --post-renderer-args "{{.HELM_POST_RENDERER_ARGS}}" \
         {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}}
         echo " "
