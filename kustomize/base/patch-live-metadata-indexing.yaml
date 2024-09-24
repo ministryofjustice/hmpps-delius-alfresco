@@ -8,9 +8,11 @@ spec:
       containers:
         - name: alfresco-search-enterprise-metadata
           env:
-            # - name: SPRING_ACTIVEMQ_POOL_ENABLED
-            #   value: "true"
-            # - name: SPRING_ACTIVEMQ_POOL_MAXCONNECTIONS
-            #   value: "100"
+            - name: SPRING_ACTIVEMQ_POOL_ENABLED
+              value: "true"
+            - name: SPRING_ACTIVEMQ_POOL_MAXCONNECTIONS
+              value: "100"
             - name: JAVA_OPTS
               value: "-Dspring.activemq.packages.trustAll=true"
+            - name: INPUT_ALFRESCO_METADATA_BATCH_EVENT_CHANNEL
+              value: sjms-batch:metadata.event?completionTimeout=1000&completionSize=10&aggregationStrategy=#eventAggregator&?consumerCount=20
