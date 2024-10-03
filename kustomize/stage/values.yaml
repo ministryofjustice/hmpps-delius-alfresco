@@ -14,7 +14,7 @@ repository:
   #   periodSeconds: 20
   #   timeoutSeconds: 15
   #   failureThreshold: 40
-  replicaCount: 4
+  replicaCount: 12
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
