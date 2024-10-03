@@ -13,3 +13,4 @@ patches:
   - path: patch-live-content-indexing.yaml
   - path: patch-live-mediation-indexing.yaml
   - path: patch-shared-filestore.yaml
+  - path: patch-router.yaml

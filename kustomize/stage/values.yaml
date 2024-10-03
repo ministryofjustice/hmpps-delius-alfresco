@@ -14,16 +14,16 @@ repository:
   #   periodSeconds: 20
   #   timeoutSeconds: 15
   #   failureThreshold: 40
-  replicaCount: 6
+  replicaCount: 4
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
-      cpu: 2
-      memory: 8Gi
+      cpu: 1
+      memory: 6Gi
     limits:
       cpu: 4
-      memory: 16Gi
+      memory: 10Gi
   persistence:
     baseSize: 100Gi
 share:
@@ -40,4 +40,15 @@ tika:
       cpu: 2
       memory: 4Gi
 transformrouter:
-  replicaCount: 1
+  replicaCount: 4
+  resources:
+    requests:
+      cpu: "0.75"
+      memory: "300Mi"
+    limits:
+      cpu: "2"
+      memory: "756Mi"
+alfresco-search-enterprise:
+  liveIndexing:
+    content:
+      replicaCount: 4
