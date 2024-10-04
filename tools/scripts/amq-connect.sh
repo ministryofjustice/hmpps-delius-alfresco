@@ -36,9 +36,9 @@ main() {
     PROTOCOL_1=$(echo $URL1 | awk -F'://' '{print $1}')
     REMOTE_PORT_1=$(echo $URL1 | cut -d '/' -f 3 | cut -d ':' -f 2)
 
-    HOST_2=$(echo $URL1 | cut -d '/' -f 3 | cut -d ':' -f 1)
-    PROTOCOL_2=$(echo $URL1 | awk -F'://' '{print $1}')
-    REMOTE_PORT_2=$(echo $URL1 | cut -d '/' -f 3 | cut -d ':' -f 2)
+    HOST_2=$(echo $URL2 | cut -d '/' -f 3 | cut -d ':' -f 1)
+    PROTOCOL_2=$(echo $URL2 | awk -F'://' '{print $1}')
+    REMOTE_PORT_2=$(echo $URL2 | cut -d '/' -f 3 | cut -d ':' -f 2)
 
     # generate random hex string
     RANDOM_HEX=$(openssl rand -hex 4)
