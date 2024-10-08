@@ -1,13 +1,15 @@
 #!/bin/bash
 
-if [ "$2" == "" ]; then
+if [ "$3" == "" ]; then
     NAMESPACE=""
 else
-    NAMESPACE="--namespace $2"
+    NAMESPACE="--namespace $3"
 fi
 
 # Queue name to check
 QUEUE_NAME=$1
+
+STAT=$2
 
 echo "Queue name: $QUEUE_NAME"
 
@@ -31,7 +33,7 @@ get_queue_size() {
     xml_data=$(curl -s -k --user "$USER:$PASSWORD" "$xml_url")
 
     # Parse the XML to extract the size of the specified queue using xmllint
-    queue_size=$(echo "$xml_data" | xmllint --xpath "string(//queue[@name='$QUEUE_NAME']/stats/@size)" -)
+    queue_size=$(echo "$xml_data" | xmllint --xpath "string(//queue[@name='$QUEUE_NAME']/stats/@${STAT})" -)
     # echo "Queue size: $queue_size"
 
     # Return the queue size (default to 0 if null)
@@ -44,10 +46,10 @@ total_queue_size=0
 # Loop over each broker and sum the queue sizes
 for broker in "${BROKERS[@]}"; do
     queue_size=$(get_queue_size "$broker")
-    echo "Queue size at $broker: $queue_size"
+    echo "Count for stat ${STAT} on $broker: $queue_size"
     total_queue_size=$((total_queue_size + queue_size))
 done
 
 # Print the total queue size
 echo "---------------------------------"
-echo "Total messages in queue '$QUEUE_NAME': $total_queue_size"
+echo "Total messages in stat ${STAT} '$QUEUE_NAME': $total_queue_size"

@@ -107,9 +107,8 @@ tasks:
   simple_reindex:
     cmds:
       - | 
-        helm install "reindex-default" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=2000000" --set "toId=10000000" --namespace {{.NAMESPACE}}
+        helm install "reindex-default" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=20000000" --set "toId=100000000" --namespace {{.NAMESPACE}}
         
-
   batch_reindex:
     vars:
       START: "{{.START | default 0}}"
