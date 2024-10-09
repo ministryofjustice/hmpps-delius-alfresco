@@ -72,6 +72,7 @@ jobs:
               DIR=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
               #append to DIRS comma separated
               if [ -n "$DIR" ]; then
+                  DIR=$(echo $DIR | tr ' ' ',')
                   DIRS="${DIRS}${DIR},"
               fi
           done
