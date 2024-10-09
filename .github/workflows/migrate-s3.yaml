@@ -63,12 +63,12 @@ jobs:
 
           SRC_BUCKET="${{ vars.MIGRATION_SRC_BUCKET }}"
 
-          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
-
-          prefixes=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)        
+          prefixes=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
+          # remove all spaces and put one comma between prefixes
+          cleaned_prefixes=$(echo $prefixes | tr ' ' ',')
           DIRS=""
           IFS=' '
-          for prefix in $prefixes; do
+          for prefix in $cleaned_prefixes; do
               DIR=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
               #append to DIRS comma separated
               if [ -n "$DIR" ]; then
