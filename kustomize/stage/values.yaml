@@ -40,7 +40,7 @@ tika:
       cpu: 2
       memory: 4Gi
 transformrouter:
-  replicaCount: 4
+  replicaCount: 8
   resources:
     requests:
       cpu: "0.75"
