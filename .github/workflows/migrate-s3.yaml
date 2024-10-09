@@ -1,0 +1,84 @@
+---
+name: Alfresco s3 Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to copy data to
+        required: true
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-s3:
+    name: Refresh S3
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4.1.1
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: 'v1.26.0' # default is latest stable
+        id: kubectl_install
+
+      - uses: azure/setup-helm@v4.2.0
+        with:
+           version: 'v3.15.3' # default is latest (stable)
+        id: install
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+      
+      - name: Uninstall S3 Refresh chart
+        run: helm uninstall refresh-s3 --ignore-not-found
+
+      - name: S3 migration
+        working-directory: jobs/migrate-s3
+        run: |
+          set -xeo pipefail
+
+          SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
+          SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+
+          SRC_BUCKET=${{ vars.MIGRATION_SRC_BUCKET }}
+          
+          DIRS=""
+          for prefix in $(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text); do
+              DIR=$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
+              #append to DIRS comma separated
+              DIRS+="${DIR},"
+          done
+          DIRS=${DIRS%,}
+
+
+          echo "DIRS: $DIRS"
+
+          # helm install migrate-s3 . \
+          #   --set environment=${{ github.event.inputs.environment }} \
+          #   --set directories="{${DIRS}}"
+
+          # kubectl wait jobs -l name-prefix=migrate-s3 --for=condition=complete --timeout 10h
+
+      - name: Uninstall S3 Refresh chart
+        run: helm uninstall refresh-s3 --ignore-not-found
