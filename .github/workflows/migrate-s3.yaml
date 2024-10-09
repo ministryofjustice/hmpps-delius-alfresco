@@ -64,12 +64,15 @@ jobs:
           SRC_BUCKET="s3://${{ vars.MIGRATION_SRC_BUCKET }}"
           
           DIRS=""
-          echo "$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)"
-          for prefix in $(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text); do
+          IFS=' '
+          prefixes=$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
+          for prefix in $prefixes; do
               echo "$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)"
               DIR=$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
               #append to DIRS comma separated
-              DIRS+="${DIR},"
+              if [ -n "$DIR" ]; then
+                  DIRS="${DIRS}${DIR},"
+              fi
           done
           DIRS=${DIRS%,}
 
