@@ -67,7 +67,7 @@ jobs:
           # remove all spaces and put one comma between prefixes
           cleaned_prefixes=$(echo $prefixes | tr ' ' ',')
           DIRS=""
-          IFS=' '
+          IFS=','
           for prefix in $cleaned_prefixes; do
               DIR=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
               #append to DIRS comma separated
