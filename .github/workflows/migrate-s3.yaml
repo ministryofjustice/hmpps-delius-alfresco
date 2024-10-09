@@ -61,11 +61,12 @@ jobs:
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
 
-          SRC_BUCKET=${{ vars.MIGRATION_SRC_BUCKET }}
+          SRC_BUCKET="s3://${{ vars.MIGRATION_SRC_BUCKET }}"
           
           DIRS=""
+          echo "$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)"
           for prefix in $(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text); do
-              aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text
+              echo "$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)"
               DIR=$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
               #append to DIRS comma separated
               DIRS+="${DIR},"
