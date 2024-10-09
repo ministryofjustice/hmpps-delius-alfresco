@@ -99,7 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.1
 
-      - name: Install kubectl
+      - name: Install k
         uses: azure/setup-kubectl@v3.2
         with:
           version: 'v1.26.0' # default is latest stable
@@ -134,12 +134,7 @@ jobs:
 
           SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
-          DIRS=""
-          for prefix in $(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text); do
-              DIR=$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
-              #append to DIRS comma separated
-              DIRS+="${DIR},"
-          done
+          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
 
           helm install refresh-s3 . \
             --set sourceEnvironment=${{ github.event.inputs.source_env }} \
