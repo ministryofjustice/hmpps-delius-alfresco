@@ -567,8 +567,8 @@ filestore:
   replicaCount: 1
   nodeSelector: {}
   image:
-    repository: quay.io/alfresco/alfresco-shared-file-store
-    tag: 2.1.2
+    repository: ghcr.io/ministryofjustice/hmpps-delius-alfresco-shared-file-store
+    tag: 2.1.2-4
     pullPolicy: IfNotPresent
     internalPort: 8099
   initContainer:

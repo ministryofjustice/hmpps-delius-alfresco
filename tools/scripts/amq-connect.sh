@@ -47,9 +47,9 @@ main() {
     kubectl run port-forward-pod-${RANDOM_HEX}-1 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_1} --env="REMOTE_HOST=$HOST_1" --env="LOCAL_PORT=$LOCAL_PORT_1" --env="REMOTE_PORT=$REMOTE_PORT_1" --namespace ${namespace};
     kubectl run port-forward-pod-${RANDOM_HEX}-2 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_2} --env="REMOTE_HOST=$HOST_2" --env="LOCAL_PORT=$LOCAL_PORT_2" --env="REMOTE_PORT=$REMOTE_PORT_2" --namespace ${namespace};
     # wait for pod to start
-    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-0 --timeout=30s --namespace ${namespace}
-    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-1 --timeout=30s --namespace ${namespace}
-    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-2 --timeout=30s --namespace ${namespace}
+    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-0 --timeout=60s --namespace ${namespace}
+    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-1 --timeout=60s --namespace ${namespace}
+    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-2 --timeout=60s --namespace ${namespace}
     printf "\nPort forwarding started, connecting to $HOST:$REMOTE_PORT \n"
     printf "\n****************************************************\n"
     printf "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT locally\n"
