@@ -42,7 +42,11 @@ jobs:
       run: |
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=0
         kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=0        
-        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-liveindexing --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-content --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-metadata --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-path --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-mediation --replicas=0
+        kubectl scale deployment alfresco-content-services-alfresco-router --replicas=0
 
   refresh-db:
     name: Refresh DB
@@ -53,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.1
 
-      - name: Install Kubernetes
+      - name: Install kubectl
         uses: azure/setup-kubectl@v3.2
         with:
           version: 'v1.26.0' # default is latest stable
@@ -95,7 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.1
 
-      - name: Install Kubernetes
+      - name: Install k
         uses: azure/setup-kubectl@v3.2
         with:
           version: 'v1.26.0' # default is latest stable
@@ -130,12 +134,12 @@ jobs:
 
           SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
-          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk -F ' ' '{print $2}' | tr -d '/' | tr '\n' ',')
+          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
 
           helm install refresh-s3 . \
             --set sourceEnvironment=${{ github.event.inputs.source_env }} \
             --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-            --set directories="{${DIRS:0:-1}}"
+            --set directories="{${DIRS}}"
 
           kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
 
@@ -197,4 +201,8 @@ jobs:
 
         kubectl scale deployment alfresco-content-services-alfresco-cs-repository --replicas=$(echo $HELM_VALUES | jq '.repository.replicaCount')
         kubectl scale deployment alfresco-content-services-alfresco-cs-share --replicas=$(echo $HELM_VALUES | jq '.share.replicaCount')
-        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-liveindexing --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-content --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-metadata --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-path --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-mediation --replicas=1
+        kubectl scale deployment alfresco-content-services-alfresco-router --replicas=1
