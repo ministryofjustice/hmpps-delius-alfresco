@@ -17,4 +17,3 @@ spec:
               value: "518400000" # 6 days
             - name: scheduler.cleanup.interval
               value: "259200000" # 3 days
-

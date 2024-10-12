@@ -34,7 +34,7 @@ externalHost: hmpps-delius-alfresco-stage.apps.live.cloud-platform.service.justi
 externalProtocol: https
 externalPort: 443
 tika:
-  replicaCount: 6
+  replicaCount: 8
   resources:
     limits:
       cpu: 2
@@ -52,3 +52,7 @@ alfresco-search-enterprise:
   liveIndexing:
     content:
       replicaCount: 8
+    mediation:
+      replicaCount: 4
+    metadata:
+      replicaCount: 4
