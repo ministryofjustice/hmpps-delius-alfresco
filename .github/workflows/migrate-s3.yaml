@@ -51,7 +51,7 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       
       - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
+        run: helm uninstall migrate-s3 --ignore-not-found
 
       - name: S3 migration
         working-directory: jobs/migrate-s3
@@ -65,7 +65,7 @@ jobs:
 
           prefixes=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
           # remove all spaces and put one comma between prefixes
-          cleaned_prefixes=$(echo $prefixes | tr -s '[:space:]' ',')
+          cleaned_prefixes=$(echo $prefixes | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
           DIRS=""
           IFS=','
           for prefix in $cleaned_prefixes; do
@@ -87,4 +87,4 @@ jobs:
           # kubectl wait jobs -l name-prefix=migrate-s3 --for=condition=complete --timeout 10h
 
       - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
+        run: helm uninstall migrate-s3 --ignore-not-found
