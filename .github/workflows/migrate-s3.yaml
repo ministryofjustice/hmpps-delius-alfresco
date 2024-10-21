@@ -84,7 +84,8 @@ jobs:
 
           helm install migrate-s3 . \
             --set environment=${{ github.event.inputs.environment }} \
-            --set directories="{${DIRS}}"
+            --set srcBucket=$SRC_BUCKET \
+            --set "directories={${DIRS}}"
 
           kubectl wait jobs -l name-prefix=migrate-s3 --for=condition=complete --timeout 10h
 
