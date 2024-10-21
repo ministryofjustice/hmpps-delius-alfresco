@@ -20,8 +20,8 @@ permissions:
   contents: read
 
 jobs:
-  refresh-s3:
-    name: Refresh S3
+  migrate-s3:
+    name: Migrate S3
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.environment }}
@@ -71,7 +71,7 @@ jobs:
           for prefix in $cleaned_prefixes; do
               DIR=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
               if [ -n "$DIR" ]; then
-                  DIR=$(echo $DIR | tr -s '[:space:]' ',')
+                  DIR=$(echo $DIR | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
                   DIRS="${DIRS}${DIR},"
               fi
           done
