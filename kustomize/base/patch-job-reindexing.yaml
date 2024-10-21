@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-        - name: alfresco-search-enterprise-reindexing  # Update this with the actual container name
+        - name: alfresco-search-enterprise-reindexing # Update this with the actual container name
           volumeMounts:
             - name: prefixes-file-volume
               mountPath: /alf/reindex.prefixes-file.json
@@ -22,4 +22,4 @@ spec:
       volumes:
         - name: prefixes-file-volume
           configMap:
-            name:  prefixes-file
+            name: prefixes-file

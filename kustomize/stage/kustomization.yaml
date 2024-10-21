@@ -7,3 +7,4 @@ resources:
 patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
+  - path: patch-filestore-pvc.yaml

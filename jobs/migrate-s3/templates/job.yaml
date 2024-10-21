@@ -14,12 +14,12 @@ data:
     aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2
 
     echo sync of $DIR directory completed
-{{- range .Values.dirs }}
+{{- range .Values.directories }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: migrate-s3-{{ . | toString | replace "/" "-" }}
+  name: migrate-s3-{{ . | toString | replace "/" "-" | replace "."  "" | trimSuffix "-" }}
 spec:
   template:
     spec:
@@ -29,8 +29,8 @@ spec:
         imagePullPolicy: IfNotPresent
         resources:
           limits:
-            cpu: 2
-            memory: 4Gi
+            cpu: 1
+            memory: 2Gi
         command:
         - /bin/entrypoint.sh
         env:

@@ -19,9 +19,11 @@ on:
 permissions:
   contents: read
 
+run-name: Migrate S3 - ${{ github.event.inputs.environment }}
+
 jobs:
-  refresh-s3:
-    name: Refresh S3
+  migrate-s3:
+    name: Migrate S3
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.environment }}
@@ -51,7 +53,7 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       
       - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
+        run: helm uninstall migrate-s3 --ignore-not-found
 
       - name: S3 migration
         working-directory: jobs/migrate-s3
@@ -61,24 +63,31 @@ jobs:
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
 
-          SRC_BUCKET=${{ vars.MIGRATION_SRC_BUCKET }}
-          
+          SRC_BUCKET="${{ vars.MIGRATION_SRC_BUCKET }}"
+
+          prefixes=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
+          # remove all spaces and put one comma between prefixes
+          cleaned_prefixes=$(echo $prefixes | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
           DIRS=""
-          for prefix in $(aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text); do
-              DIR=$(aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
-              #append to DIRS comma separated
-              DIRS+="${DIR},"
+          IFS=','
+          for prefix in $cleaned_prefixes; do
+              DIR=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
+              if [ -n "$DIR" ]; then
+                  DIR=$(echo $DIR | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
+                  DIRS="${DIRS}${DIR},"
+              fi
           done
           DIRS=${DIRS%,}
 
 
           echo "DIRS: $DIRS"
 
-          # helm install migrate-s3 . \
-          #   --set environment=${{ github.event.inputs.environment }} \
-          #   --set directories="{${DIRS}}"
+          helm install migrate-s3 . \
+            --set environment=${{ github.event.inputs.environment }} \
+            --set srcBucket=$SRC_BUCKET \
+            --set "directories={${DIRS}}"
 
-          # kubectl wait jobs -l name-prefix=migrate-s3 --for=condition=complete --timeout 10h
+          kubectl wait jobs -l name-prefix=migrate-s3 --for=condition=complete --timeout 10h
 
       - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
+        run: helm uninstall migrate-s3 --ignore-not-found
