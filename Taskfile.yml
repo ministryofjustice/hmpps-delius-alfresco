@@ -107,8 +107,96 @@ tasks:
   simple_reindex:
     cmds:
       - | 
-        helm install "reindex-default" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=350000000" --set "toId=400000000" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=27451380" --set "toId=27908429" --namespace {{.NAMESPACE}}  
+
+  reindex_list:
+    cmds:
+      - | 
+        # Set your batch size (you can adjust this number as needed)
+        BATCH_SIZE=40
+
+        # Path to your JSON file containing the list of IDs
+        JSON_FILE="ids.json"
+
+        RANDOM_ID=$(openssl rand -hex 4)
+
+        # Function to create Helm job for a given batch of IDs
+        create_helm_job() {
+            # Concatenate the batch of IDs into a comma-separated string
+            # $1, $2, ... represent individual IDs
+            local idList=""
+            for id in "$@"; do
+                if [ -z "$idList" ]; then
+                    idList="$id"
+                else
+                    idList="$idList,$id"
+                fi
+            done
+
+            # Debugging: print the batch being passed
+            echo "Creating job for IDs: $idList"  # This will show only the batch, not the whole list
+
+            # Run Helm command to create the job with the current batch of IDs
+            helm upgrade --install "reindex-list-${RANDOM_ID}" \
+                --set "idList={${idList}}" \
+                --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" \
+                --set "global.namespace={{.NAMESPACE}}" \
+                ./jobs/reindex-list \
+                --namespace "{{.NAMESPACE}}"
+            echo "Waiting for the jobs to complete..."
+            kubectl wait --for=condition=complete job --namespace {{.NAMESPACE}} -l "reindex-type=list" --timeout=10h || echo "Jobs completed!"
+            echo "Jobs completed!"
+        }
+
+        # Parse the list of IDs from the JSON file using jq
+        # The IDs will be saved as a space-separated list into the 'ids' variable
+        ids=$(jq -r '.list[]' "$JSON_FILE")
+
+        # Initialize the index for processing
+        index=0
+
+        # Loop over the IDs and create jobs in batches
+        for id in $ids; do
+            # Add the current ID to the current batch
+            batch[$index]="$id"
+            index=$((index + 1))
+
+            # If the batch reaches the specified batch size, process it
+            if [ "$index" -ge "$BATCH_SIZE" ]; then
+                # Create the Helm job for the current batch
+                create_helm_job "${batch[@]}"
+
+                # Reset the batch for the next set of IDs
+                index=0
+                unset batch
+                # kubectl wait --for=condition=complete job --namespace {{.NAMESPACE}} -l "reindex-type=list" --timeout=10h || echo "Jobs completed!"
+                helm uninstall "reindex-list-${RANDOM_ID}" --namespace {{.NAMESPACE}}
+            fi
+        done
+
+        # If there are any remaining IDs (less than BATCH_SIZE), create the last job
+        if [ "$index" -gt 0 ]; then
+            create_helm_job "${batch[@]}"
+        fi
         
+        echo "All jobs have been created!"
+        echo "Cleaning up..."
+        helm uninstall "reindex-list-${RANDOM_ID}" --namespace {{.NAMESPACE}}
+        echo "Cleanup complete!"
+
+
+
+
+  simple_reindex_date:
+    cmds:
+      - | 
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201707060001" --set "toTime=201707070001" --namespace {{.NAMESPACE}}
+
+  simple_reindex_date_metadata-only:
+    cmds:
+      - | 
+        helm install "reindex-default-date-meta" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=202402010100" --set "toTime=202402100100" --set "content=false" --namespace {{.NAMESPACE}}
+
   batch_reindex:
     vars:
       START: "{{.START | default 0}}"

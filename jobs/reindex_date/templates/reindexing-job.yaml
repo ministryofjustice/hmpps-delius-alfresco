@@ -2,9 +2,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}
+  name: reindexing-{{ .Values.fromTime }}-{{ .Values.toTime }}
   labels:
-    reindex-job: "{{ .Values.fromId }}-{{ .Values.toId }}"
+    reindex-job: "{{ .Values.fromTime }}-{{ .Values.toTime }}"
 spec:
   template:
     metadata:
@@ -26,7 +26,7 @@ spec:
       - name: {{ $.Values.imagePullSecrets }}
       restartPolicy: Never
       containers:
-        - name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}
+        - name: reindexing-{{ .Values.fromTime }}-{{ .Values.toTime }}
           image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           securityContext:
@@ -44,7 +44,7 @@ spec:
               subPath: reindex.prefixes-file.json
           envFrom:
             - configMapRef:
-                name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}-configmap
+                name: reindexing-{{ .Values.fromTime }}-{{ .Values.toTime }}-configmap
             - secretRef:
                 name: {{ $.Values.messageBroker.existingSecretName }}  # Ensure this value is set correctly
           env:
@@ -72,9 +72,10 @@ spec:
               value: "200"
             - name: JAVA_OPTS
               value: >-
-                -Dalfresco.reindex.fromId={{ .Values.fromId }}
-                -Dalfresco.reindex.toId={{ .Values.toId }}
-                -Dalfresco.reindex.contentIndexingEnabled=true
+                -Dalfresco.reindex.jobName=reindexByDate
+                -Dalfresco.reindex.fromTime={{ .Values.fromTime }}
+                -Dalfresco.reindex.toTime={{ .Values.toTime }}
+                -Dalfresco.reindex.contentIndexingEnabled={{ .Values.content }}
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
                 -Dalfresco.reindex.concurrentProcessors=30
@@ -87,5 +88,4 @@ spec:
       volumes:
       - name: reindexing-prefixes-file-volume
         configMap:
-          name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}-prefixes-configmap
-
+          name: reindexing-{{ .Values.fromTime }}-{{ .Values.toTime }}-prefixes-configmap

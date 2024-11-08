@@ -1,10 +1,13 @@
+{{- $index := 0 }}
+{{- range $item := .Values.idList }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}
+  name: "reindexing-{{ $item | toString }}-{{ add (int  $item) 1 }}-{{ $index }}"
   labels:
-    reindex-job: "{{ .Values.fromId }}-{{ .Values.toId }}"
+    reindex-job: "{{ $item | toString }}-{{ add (int  $item) 1 }}-{{ $index }}"
+    reindex-type: "list"
 spec:
   template:
     metadata:
@@ -26,7 +29,7 @@ spec:
       - name: {{ $.Values.imagePullSecrets }}
       restartPolicy: Never
       containers:
-        - name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}
+        - name: "reindexing-{{ $item | toString }}-{{ add (int $item) 1 }}"
           image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           securityContext:
@@ -44,21 +47,21 @@ spec:
               subPath: reindex.prefixes-file.json
           envFrom:
             - configMapRef:
-                name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}-configmap
+                name: reindexing-list-configmap
             - secretRef:
-                name: {{ $.Values.messageBroker.existingSecretName }}  # Ensure this value is set correctly
+                name: {{ $.Values.messageBroker.existingSecretName }}
           env:
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ $.Values.postgresql.existingSecretName }}  # Ensure this value is set correctly
+                  name: {{ $.Values.postgresql.existingSecretName }}
                   key: DATABASE_PASSWORD
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ $.Values.postgresql.existingSecretName }}  # Ensure this value is set correctly
+                  name: {{ $.Values.postgresql.existingSecretName }}
                   key: DATABASE_USERNAME
-            {{- include "spring.activemq.env" . | nindent 12 }}
+            {{- include "spring.activemq.env" $ | nindent 12 }}
             - name: ALFRESCO_REINDEX_PREFIXES_FILE
               value: file:///alf/reindex.prefixes-file.json
             - name: SPRING_DATASOURCE_URL
@@ -72,8 +75,8 @@ spec:
               value: "200"
             - name: JAVA_OPTS
               value: >-
-                -Dalfresco.reindex.fromId={{ .Values.fromId }}
-                -Dalfresco.reindex.toId={{ .Values.toId }}
+                -Dalfresco.reindex.fromId={{ . }}
+                -Dalfresco.reindex.toId={{ add . 1 }}
                 -Dalfresco.reindex.contentIndexingEnabled=true
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
@@ -87,5 +90,6 @@ spec:
       volumes:
       - name: reindexing-prefixes-file-volume
         configMap:
-          name: reindexing-{{ .Values.fromId }}-{{ .Values.toId }}-prefixes-configmap
-
+          name: reindexing-list-prefixes-configmap
+{{- $index = add $index 1 }}
+{{- end }}

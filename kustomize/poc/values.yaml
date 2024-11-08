@@ -12,3 +12,11 @@ filestore:
 externalHost: hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
 externalProtocol: https
 externalPort: 443
+activemq:
+  enabled: true
+messageBroker:
+  existingSecretName: null
+  secretName: acs-alfresco-cs-brokersecret
+alfresco-search-enterprise:
+  messageBroker:
+    existingSecretName: acs-alfresco-cs-brokersecret

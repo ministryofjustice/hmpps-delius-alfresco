@@ -602,7 +602,7 @@ filestore:
       memory: "200Mi"
     limits:
       cpu: "2"
-      memory: "1000Mi"
+      memory: "2000Mi"
   environment:
     scheduler.content.age.millis: "86400000"
     scheduler.cleanup.interval: "86400000"
@@ -721,7 +721,7 @@ messageBroker: &acs_messageBroker
   user: null
   password: null
   # -- Name of the secret managed by this chart
-  # secretName: &acs_messageBroker_secretName amazon-mq-broker-secret
+  # secretName: &acs_messageBroker_secretName acs-alfresco-cs-brokersecret
   # -- Alternatively, provide credentials via an existing secret that contains
   # BROKER_URL, BROKER_USERNAME and BROKER_PASSWORD keys
   existingSecretName: amazon-mq-broker-secret
