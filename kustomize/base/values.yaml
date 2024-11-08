@@ -170,7 +170,7 @@ ooiService:
       cpu: "2"
       memory: "1000Mi"
   environment:
-    JAVA_OPTS: " -Dalfresco.base-url=http://acs-alfresco-cs-repository:80"
+    JAVA_OPTS: "-Dalfresco.base-url=http://acs-alfresco-cs-repository:80"
   readinessProbe:
     initialDelaySeconds: 20
     periodSeconds: 60
@@ -567,8 +567,8 @@ filestore:
   replicaCount: 1
   nodeSelector: {}
   image:
-    repository: quay.io/alfresco/alfresco-shared-file-store
-    tag: 2.0.2
+    repository: ghcr.io/ministryofjustice/hmpps-delius-alfresco-shared-file-store
+    tag: 2.1.2-4
     pullPolicy: IfNotPresent
     internalPort: 8099
   initContainer:
@@ -602,7 +602,7 @@ filestore:
       memory: "200Mi"
     limits:
       cpu: "2"
-      memory: "1000Mi"
+      memory: "2000Mi"
   environment:
     scheduler.content.age.millis: "86400000"
     scheduler.cleanup.interval: "86400000"
@@ -721,7 +721,7 @@ messageBroker: &acs_messageBroker
   user: null
   password: null
   # -- Name of the secret managed by this chart
-  # secretName: &acs_messageBroker_secretName amazon-mq-broker-secret
+  # secretName: &acs_messageBroker_secretName acs-alfresco-cs-brokersecret
   # -- Alternatively, provide credentials via an existing secret that contains
   # BROKER_URL, BROKER_USERNAME and BROKER_PASSWORD keys
   existingSecretName: amazon-mq-broker-secret
@@ -806,24 +806,23 @@ alfresco-search-enterprise:
       database:
       existingSecretName: rds-instance-output
     image:
-      tag: 4.0.1
-    liveIndexing:
-      mediation:
-        image:
-          tag: 4.0.1
-      content:
-        image:
-          tag: 4.0.1
-      metadata:
-        image:
-          tag: 4.0.1
-      path:
-        image:
-          tag: 4.0.1
+      tag: 3.2.1
+  liveIndexing:
+    mediation:
+      image:
+        tag: 3.2.1
+    content:
+      image:
+        tag: 3.2.1
+    metadata:
+      image:
+        tag: 3.2.1
+    path:
+      image:
+        tag: 3.2.1
 alfresco-digital-workspace:
   nodeSelector: {}
   enabled: false
-  nameOverride: "alfresco-dw"
   service:
     envType: frontend
   ingress:

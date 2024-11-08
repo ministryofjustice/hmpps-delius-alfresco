@@ -1,0 +1,95 @@
+{{- $index := 0 }}
+{{- range $item := .Values.idList }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "reindexing-{{ $item | toString }}-{{ add (int  $item) 1 }}-{{ $index }}"
+  labels:
+    reindex-job: "{{ $item | toString }}-{{ add (int  $item) 1 }}-{{ $index }}"
+    reindex-type: "list"
+spec:
+  template:
+    metadata:
+      {{- with $.Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 33000
+        seccompProfile:
+          type: RuntimeDefault
+        supplementalGroups:
+        - 1
+      imagePullSecrets:
+      - name: {{ $.Values.imagePullSecrets }}
+      restartPolicy: Never
+      containers:
+        - name: "reindexing-{{ $item | toString }}-{{ add (int $item) 1 }}"
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources: {{- toYaml $.Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: reindexing-prefixes-file-volume
+              mountPath: /alf/reindex.prefixes-file.json
+              subPath: reindex.prefixes-file.json
+          envFrom:
+            - configMapRef:
+                name: reindexing-list-configmap
+            - secretRef:
+                name: {{ $.Values.messageBroker.existingSecretName }}
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.postgresql.existingSecretName }}
+                  key: DATABASE_PASSWORD
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.postgresql.existingSecretName }}
+                  key: DATABASE_USERNAME
+            {{- include "spring.activemq.env" $ | nindent 12 }}
+            - name: ALFRESCO_REINDEX_PREFIXES_FILE
+              value: file:///alf/reindex.prefixes-file.json
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rds-instance-output
+                  key: RDS_JDBC_URL
+            - name: ACTIVEMQ_POOL_ENABLED
+              value: "true"
+            - name: ACTIVEMQ_POOL_SIZE
+              value: "200"
+            - name: JAVA_OPTS
+              value: >-
+                -Dalfresco.reindex.fromId={{ . }}
+                -Dalfresco.reindex.toId={{ add . 1 }}
+                -Dalfresco.reindex.contentIndexingEnabled=true
+                -Dalfresco.reindex.metadataIndexingEnabled=true
+                -Dalfresco.reindex.multithreadedStepEnabled=true
+                -Dalfresco.reindex.concurrentProcessors=30
+                -Dalfresco.reindex.batchSize=1000
+                -Dalfresco.reindex.pageSize=10000
+          ports:
+              - name: http
+                containerPort: 8080
+                protocol: TCP
+      volumes:
+      - name: reindexing-prefixes-file-volume
+        configMap:
+          name: reindexing-list-prefixes-configmap
+{{- $index = add $index 1 }}
+{{- end }}

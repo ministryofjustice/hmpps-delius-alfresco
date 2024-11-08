@@ -11,7 +11,7 @@ data:
     aws configure set default.s3.max_concurrent_requests 2000
     # aws configure set default.s3.use_accelerate_endpoint true
 
-    aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors
+    aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2
 
     set +x
     echo sync of $DIR directory completed
@@ -66,8 +66,8 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
-      serviceAccount: hmpps-migration-dev
-      serviceAccountName: hmpps-migration-dev
+      serviceAccount: hmpps-migration-{{ $.Values.sourceEnvironment }}
+      serviceAccountName: hmpps-migration-{{ $.Values.sourceEnvironment }}
       restartPolicy: OnFailure
       volumes:
       - name: refresh-s3-script

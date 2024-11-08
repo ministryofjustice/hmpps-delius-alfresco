@@ -5,5 +5,7 @@ metadata:
   annotations:
     external-dns.alpha.kubernetes.io/aws-weight: "100"
     kubernetes.io/ingress.class: default
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "200"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "200"
 spec:
   ingressClassName: default

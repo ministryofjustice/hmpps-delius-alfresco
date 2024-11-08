@@ -7,6 +7,16 @@ share:
   replicaCount: 1
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
+filestore:
+  replicaCount: 1
 externalHost: hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
 externalProtocol: https
 externalPort: 443
+activemq:
+  enabled: true
+messageBroker:
+  existingSecretName: null
+  secretName: acs-alfresco-cs-brokersecret
+alfresco-search-enterprise:
+  messageBroker:
+    existingSecretName: acs-alfresco-cs-brokersecret
