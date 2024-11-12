@@ -190,7 +190,8 @@ tasks:
   simple_reindex_date:
     cmds:
       - | 
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201707060001" --set "toTime=201707070001" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201707311201" --set "toTime=201708311201" --namespace {{.NAMESPACE}} 
+        # change
 
   simple_reindex_date_metadata-only:
     cmds:

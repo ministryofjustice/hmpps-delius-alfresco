@@ -76,6 +76,7 @@ spec:
                 -Dalfresco.reindex.fromTime={{ .Values.fromTime }}
                 -Dalfresco.reindex.toTime={{ .Values.toTime }}
                 -Dalfresco.reindex.contentIndexingEnabled={{ .Values.content }}
+                -Dalfresco.reindex.retryingEnabled=false
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
                 -Dalfresco.reindex.concurrentProcessors=30
