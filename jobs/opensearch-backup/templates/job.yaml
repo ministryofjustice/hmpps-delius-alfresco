@@ -7,12 +7,6 @@ spec:
   template:
     spec:
       serviceAccountName: "{{ $.Values.opensearch.serviceAccountPrefix }}-{{ $.Values.opensearch.environment }}"
-      securityContext:
-        allowPrivilegeEscalation: false
-        privileged: false
-        readOnlyRootFilesystem: false
-        runAsNonRoot: true
-        runAsUser: 999
       containers:
         - name: opensearch-backup
           image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-utils:latest
@@ -48,6 +42,17 @@ spec:
           volumeMounts:
             - name: script
               mountPath: /scripts
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
       volumes:
         - name: script
           configMap:
