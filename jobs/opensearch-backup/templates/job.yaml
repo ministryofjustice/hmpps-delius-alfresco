@@ -2,48 +2,55 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "opensearch-backup.fullname" . }}
+  name: opensearch-backup
 spec:
   template:
     spec:
       serviceAccountName: "{{ $.Values.opensearch.serviceAccountPrefix }}-{{ $.Values.opensearch.environment }}"
-      containers: opensearch-backup
-      image: alpine/curl:latest
-      command:
-        - /bin/sh
-        - /scripts/backup.sh
-      env:
-        - name: OPENSEARCH_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              name: {{ $.Values.opensearch.endpointSecretName }}
-              key: {{ $.Values.opensearch.endpointSecretKey }}
-        - name: SNAPSHOT_ROLE_ARN
-          valueFrom:
-            secretKeyRef:
-              name: {{ $.Values.opensearch.endpointSecretName }}
-              key: {{ $.Values.opensearch.snapshotRoleArnKey }}
-        - name: S3_BUCKET_NAME
-          valueFrom:
-            secretKeyRef:
-              name: {{ $.Values.opensearch.s3BucketSecretName }}
-              key: {{ $.Values.opensearch.s3BucketNameKey }}
-        - name: SNAPSHOT_REPOSITORY
-          value: {{ $.Values.opensearch.repository }}
-        - name: INDICES
-          value: {{ $.Values.opensearch.indices }}
-        - name: SNAPSHOT_PREFIX
-          value: {{ $.Values.opensearch.snapshotPrefix }}
-        - name: ENVIRONMENT
-          value: {{ $.Values.opensearch.environment }}
-        - name: REGION
-          value: {{ $.Values.opensearch.region }}
-      volumeMounts:
-        - name: script
-          mountPath: /scripts
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        readOnlyRootFilesystem: false
+        runAsNonRoot: true
+        runAsUser: 999
+      containers:
+        - name: opensearch-backup
+          image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-utils:latest
+          command:
+            - /bin/sh
+            - /scripts/backup.sh
+          env:
+            - name: OPENSEARCH_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.opensearch.endpointSecretName }}
+                  key: {{ $.Values.opensearch.endpointSecretKey }}
+            - name: S3_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.opensearch.s3BucketSecretName }}
+                  key: {{ $.Values.opensearch.s3BucketNameKey }}
+            - name: SNAPSHOT_ROLE_ARN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.opensearch.endpointSecretName }}
+                  key: {{ $.Values.opensearch.snapshotRoleArnKey }}
+            - name: SNAPSHOT_REPOSITORY
+              value: "{{ $.Values.opensearch.repository }}"
+            - name: INDICES
+              value: "{{ $.Values.opensearch.indices }}"
+            - name: SNAPSHOT_PREFIX
+              value: "{{ $.Values.opensearch.snapshotPrefix }}"
+            - name: ENVIRONMENT
+              value: "{{ $.Values.opensearch.environment }}"
+            - name: REGION
+              value: "{{ $.Values.opensearch.region }}"
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
       volumes:
         - name: script
           configMap:
-            name: '{{ include "opensearch-backup.fullname" . }}-script'
+            name: opensearch-backup-script
             defaultMode: 0755
       restartPolicy: Never

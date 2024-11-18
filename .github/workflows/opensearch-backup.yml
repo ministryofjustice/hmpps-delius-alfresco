@@ -1,0 +1,61 @@
+---
+name: OpenSearch Backup
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # Run at 1am UTC daily
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to backup'
+        required: true
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          
+jobs:
+  backup:
+    name: Backup OpenSearch
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        environment: 
+          - poc
+          - dev
+          - test
+          - stage
+          # - preprod
+        exclude:
+          - ${{ github.event_name == 'workflow_dispatch' && environment != github.event.inputs.environment }}
+
+    environment: ${{ matrix.environment || github.event.inputs.environment }}-preapproved
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+      - name: Backup OpenSearch
+        working-directory: jobs/opensearch-backup
+        run: |
+          set -xeo pipefail
+          
+          helm install opensearch-backup . \
+            --set opensearch.environment=${{ matrix.environment || github.event.inputs.environment }}
+          
+          kubectl wait jobs -l name-prefix=opensearch-backup --for=condition=complete --timeout=1h
+      - name: Cleanup
+        run: helm uninstall opensearch-backup --ignore-not-found

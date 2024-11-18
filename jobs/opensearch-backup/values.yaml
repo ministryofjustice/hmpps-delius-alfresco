@@ -1,7 +1,7 @@
 ---
 opensearch:
   repository: "daily-backups"
-  indices: "*" # Backup all indices by default
+  indices: "alfresco"
   snapshotPrefix: "backup"
   serviceAccountPrefix: "hmpps-migration"
   endpointSecretName: "opensearch-output"
@@ -10,4 +10,4 @@ opensearch:
   s3BucketSecretName: "s3-opensearch-snapshots-bucket-output"
   s3BucketNameKey: "BUCKET_NAME"
   region: "eu-west-2"
-  envrionment: "" # Default empty, will be set by GitHub Action
+  environment: "" # Default empty, will be set by GitHub Action
