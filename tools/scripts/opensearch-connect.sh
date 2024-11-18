@@ -22,7 +22,7 @@ main() {
     fi
 
     # get opensearch proxy pod name
-    OPENSEARCH_PROXY_POD=$(kubectl get pods --namespace ${namespace} | grep 'opensearch-proxy-cloud-platform' | awk '{print $1}')
+    OPENSEARCH_PROXY_POD=$(kubectl get pods --namespace ${namespace} | grep 'opensearch-proxy-cloud-platform' | awk '{print $1}' | head -n 1)
     printf "\n****************************************************\n"
     printf "Connect to http://localhost:$PORT locally\n"
     printf "Press Ctrl+C to stop port forwarding \n"
