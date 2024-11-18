@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: '{{ include "opensearch-backup.fullname" . }}-script'
+data:
+  backup.sh: |
+    #!/bin/sh
+    set -e
+    echo "Starting OpenSearch backup process..."
+    
+    # Set timestamp for snapshot name
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    SNAPSHOT_NAME="${ENVIRONMENT}-${SNAPSHOT_PREFIX}-${TIMESTAMP}"
+    
+    echo "Creating snapshot: ${SNAPSHOT_NAME}"
+    echo "Repository: ${SNAPSHOT_REPOSITORY}"
+    echo "Indices to backup: ${INDICES}"
+    
+    # Check if repository exists
+    REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY")
+    
+    if [ "$REPO_CHECK" = "404" ]; then
+      echo "Repository does not exist. Creating snapshot repository..."
+      curl -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY" -H 'Content-Type: application/json' -d "{
+        \"type\": \"s3\",
+        \"settings\": {
+          \"bucket\": \"$S3_BUCKET_NAME\",
+          \"region\": \"$REGION\",
+          \"role_arn\": \"$SNAPSHOT_ROLE_ARN\"
+        }
+      }"
+      # Wait a moment for repository creation
+      sleep 5
+    else
+      echo "Repository already exists. Proceeding with backup..."
+    fi
+    
+    # Create the snapshot
+    echo "Creating snapshot..."
+    curl -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME" -H 'Content-Type: application/json' -d "{
+        \"indices\": \"$INDICES\",
+        \"include_global_state\": false
+    }"
+    
+    # Monitor snapshot progress
+    echo "Monitoring snapshot progress..."
+    while true; do
+        STATUS=$(curl -s "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME/_status" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
+    
+        if [ "$STATUS" = "SUCCESS" ]; then
+        echo "Snapshot completed successfully"
+        break
+        elif [ "$STATUS" = "FAILED" ]; then
+        echo "Snapshot failed"
+        exit 1
+        else
+        echo "Snapshot in progress... (Status: $STATUS)"
+        sleep 10
+        fi
+    done
+    
+    # List snapshots to verify
+    echo "Listing snapshots in repository..."
+    curl -XGET "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/_all"
+    
+    echo "Backup process completed successfully"
