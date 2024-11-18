@@ -68,6 +68,12 @@ jobs:
           prefixes=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
           # remove all spaces and put one comma between prefixes
           cleaned_prefixes=$(echo $prefixes | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
+
+          # remove `contentstore.deleted/` from cleaned_prefixes with comma if in list
+          cleaned_prefixes=$(echo $cleaned_prefixes | sed 's/contentstore.deleted,//')\
+          # remove `contentstore.deleted` from cleaned_prefixes if at the end of the list
+          cleaned_prefixes=$(echo $cleaned_prefixes | sed 's/contentstore.deleted//')
+
           DIRS=""
           IFS=','
           for prefix in $cleaned_prefixes; do
