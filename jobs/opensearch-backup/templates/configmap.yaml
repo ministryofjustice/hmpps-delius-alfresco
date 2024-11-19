@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opensearch-backup-script
+data:
+  backup.sh: |
+    #!/bin/sh
+    set -e
+
+    echo "Starting OpenSearch backup process..."
+
+    # Validate required environment variables
+    if [ -z "$OPENSEARCH_ENDPOINT" ] || [ -z "$S3_BUCKET_NAME" ] || [ -z "$SNAPSHOT_REPOSITORY" ] || [ -z "$INDICES" ] || [ -z "$REGION" ]; then
+      echo "Error: Required environment variables are not set"
+      echo "Required variables: OPENSEARCH_ENDPOINT, S3_BUCKET_NAME, SNAPSHOT_REPOSITORY, INDICES, REGION"
+      exit 1
+    fi
+
+    # Set timestamp for snapshot name
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    SNAPSHOT_NAME="${SNAPSHOT_PREFIX:-backup}-${ENVIRONMENT:-default}-${TIMESTAMP}"
+
+    echo "Creating snapshot: $SNAPSHOT_NAME"
+    echo "Repository: $SNAPSHOT_REPOSITORY"
+    echo "Indices to backup: $INDICES"
+    echo "---"
+
+    # Check if repository exists
+    REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY")
+
+    if [ "$REPO_CHECK" = "404" ]; then
+      echo "Repository does not exist. Creating snapshot repository..."
+      RESPONSE=$(curl -s -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY" -H 'Content-Type: application/json' -d "{
+        \"type\": \"s3\",
+        \"settings\": {
+          \"bucket\": \"$S3_BUCKET_NAME\",
+          \"region\": \"$REGION\",
+          \"role_arn\": \"$SNAPSHOT_ROLE_ARN\"
+        }
+      }")
+      if echo "$RESPONSE" | grep -q '"acknowledged":true'; then
+        echo "Repository created successfully"
+      else
+        echo "Failed to create repository: $RESPONSE"
+        exit 1
+      fi
+      echo "---"
+    else
+      echo "Repository already exists"
+      echo "---"
+    fi
+
+    # Create the snapshot
+    echo "Creating snapshot..."
+    RESPONSE=$(curl -s -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME" -H 'Content-Type: application/json' -d "{
+      \"indices\": \"$INDICES\",
+      \"include_global_state\": false
+    }")
+
+    if ! echo "$RESPONSE" | grep -q '"accepted":true'; then
+      echo "Failed to create snapshot: $RESPONSE"
+      exit 1
+    fi
+
+    # Monitor snapshot progress
+    echo "Monitoring snapshot progress..."
+    while true; do
+      CURRENT_TIME=$(date "+%Y-%m-%d %H:%M:%S")
+      SNAPSHOT_STATUS=$(curl -s "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME/_status")
+      STATE=$(echo "$SNAPSHOT_STATUS" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
+      
+      if [ "$STATE" = "SUCCESS" ]; then
+        echo "[$CURRENT_TIME] Snapshot completed successfully"
+        break
+      elif [ "$STATE" = "FAILED" ]; then
+        echo "[$CURRENT_TIME] Snapshot failed"
+        exit 1
+      else
+        echo "[$CURRENT_TIME] Snapshot in progress... (Status: $STATE)"
+        sleep 10
+      fi
+    done
+    echo "---"
+
+    # Get final snapshot details
+    echo "Snapshot Details:"
+    SNAPSHOT_INFO=$(curl -s "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME")
+
+    # Parse and display relevant information
+    INDICES_COUNT=$(echo "$SNAPSHOT_INFO" | grep -o '"indices":\[[^]]*\]' | grep -o ',' | wc -l)
+    INDICES_COUNT=$((INDICES_COUNT + 1))
+    START_TIME=$(echo "$SNAPSHOT_INFO" | grep -o '"start_time":"[^"]*"' | cut -d'"' -f4)
+
+    echo "- Name: $SNAPSHOT_NAME"
+    echo "- Start Time: $START_TIME"
+    echo "- Indices Backed Up: $INDICES_COUNT"
+    echo "---"
+
+    echo "Backup process completed successfully"

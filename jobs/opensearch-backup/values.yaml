@@ -1,0 +1,13 @@
+---
+opensearch:
+  repository: "daily-backups"
+  indices: "alfresco"
+  snapshotPrefix: "backup"
+  serviceAccountPrefix: "hmpps-migration"
+  endpointSecretName: "opensearch-output"
+  endpointSecretKey: "PROXY_URL"
+  snapshotRoleArnKey: "SNAPSHOT_ROLE_ARN"
+  s3BucketSecretName: "s3-opensearch-snapshots-bucket-output"
+  s3BucketNameKey: "BUCKET_NAME"
+  region: "eu-west-2"
+  environment: "" # Default empty, will be set by GitHub Action
