@@ -1,5 +1,5 @@
 ---
-name: OpenSearch Backup
+name: "Alfresco: OpenSearch Backup"
 
 on:
   schedule:
@@ -24,16 +24,9 @@ jobs:
     
     strategy:
       matrix:
-        environment: 
-          - poc
-          - dev
-          - test
-          - stage
-          # - preprod
-        exclude:
-          - ${{ github.event_name == 'workflow_dispatch' && environment != github.event.inputs.environment }}
+        environment: ${{ github.event_name == 'schedule' && fromJson('["poc," "dev", "test", "stage"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
 
-    environment: ${{ matrix.environment || github.event.inputs.environment }}-preapproved
+    environment: ${{ matrix.environment }}-preapproved
     
     steps:
       - name: Checkout code
@@ -56,6 +49,14 @@ jobs:
           helm install opensearch-backup . \
             --set opensearch.environment=${{ matrix.environment || github.event.inputs.environment }}
           
-          kubectl wait jobs -l name-prefix=opensearch-backup --for=condition=complete --timeout=1h
+          kubectl wait job/opensearch-backup --for=condition=complete --timeout=1h
+      - name: Output job logs
+        run: |
+          # Get the pod name from the job
+          POD_NAME=$(kubectl get pods --selector=job-name=opensearch-backup -o jsonpath='{.items[0].metadata.name}')
+          # Output the logs
+          echo "=== Backup Job Logs ==="
+          kubectl logs $POD_NAME
       - name: Cleanup
+        if: always()
         run: helm uninstall opensearch-backup --ignore-not-found
