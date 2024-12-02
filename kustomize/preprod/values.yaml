@@ -1,6 +1,6 @@
 # this file overrides values defined in ./values.yaml
 repository:
-    # -- The startup probe to cover the worse case startup time for slow clusters
+  # -- The startup probe to cover the worse case startup time for slow clusters
   # startupProbe:
   #   periodSeconds: 30
   #   failureThreshold: 40
@@ -14,7 +14,7 @@ repository:
   #   periodSeconds: 20
   #   timeoutSeconds: 15
   #   failureThreshold: 40
-  replicaCount: 10
+  replicaCount: 1
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
@@ -30,29 +30,33 @@ share:
   replicaCount: 1
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
-externalHost: hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
 externalProtocol: https
 externalPort: 443
-tika:
-  replicaCount: 8
-  resources:
-    limits:
-      cpu: 2
-      memory: 4Gi
-transformrouter:
-  replicaCount: 12
-  resources:
-    requests:
-      cpu: "0.75"
-      memory: "300Mi"
-    limits:
-      cpu: "2"
-      memory: "756Mi"
+alfresco-transform-service:
+  tika:
+    replicaCount: 1
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+  transformrouter:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: "0.75"
+        memory: "300Mi"
+      limits:
+        cpu: "2"
+        memory: "756Mi"
 alfresco-search-enterprise:
   liveIndexing:
     content:
-      replicaCount: 8
+      replicaCount: 1
     mediation:
-      replicaCount: 4
+      replicaCount: 1
     metadata:
-      replicaCount: 4
+      replicaCount: 1
+
+global:
+  known_urls:
+   - https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
