@@ -78,7 +78,7 @@ repository:
       -Dsystem.delete_not_exists.timeout_seconds=3600
       -Dfilecontentstore.subsystem.name=S3
       -Ds3.flatRoot=false
-      -Dsfs.url=https://alf-sfs.preprod.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk
+      -Dsfs.url=https://alf-sfs.preprod.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk/
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true

@@ -113,7 +113,7 @@ tasks:
   simple_reindex:
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=52000100" --set "toId=52001000" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=52000000" --set "toId=53000000" --namespace {{.NAMESPACE}}
 
   reindex_list:
     cmds:

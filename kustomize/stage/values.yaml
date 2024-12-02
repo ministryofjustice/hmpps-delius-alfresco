@@ -24,8 +24,6 @@ repository:
     limits:
       cpu: 4
       memory: 10Gi
-  persistence:
-    baseSize: 100Gi
 share:
   replicaCount: 1
   image:
