@@ -1,7 +1,7 @@
 FROM debian:bookworm-slim
 
 # Install utils
-RUN apt-get update && apt-get install -y curl jq
+RUN apt-get update && apt-get install -y curl jq awscli
 
 # Create a non-root user and set the home directory
 RUN useradd -u 999 -ms /bin/bash job
