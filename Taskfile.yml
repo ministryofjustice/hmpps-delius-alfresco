@@ -10,6 +10,11 @@ vars:
     sh: kubectl get svc --namespace {{.NAMESPACE}} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }'
   OPENSEARCH_HOST:
     sh: echo "{{.OPEN_SEARCH_PREFIX}}.{{.NAMESPACE}}.svc.cluster.local"
+  MESSAGEBROKER_URL:
+    sh: |
+      kubectl get secrets amazon-mq-broker-secret -o json | \
+      jq -r ".data | map_values(@base64d) | .BROKER_URL" | \
+      sed -e 's/(/\\(/g' -e 's/)/\\)/g' -e 's/,/\\,/g'
   ALLOWLIST:
     sh: yq 'join(",")' ./kustomize/{{.ENV}}/allowlist.yaml
   RDS_JDBC_URL:
@@ -22,7 +27,7 @@ vars:
   ATOMIC: "true"
   ATOMIC_FLAG:
     sh: if [ "{{.ATOMIC}}" = "true" ]; then echo "--atomic"; else echo ""; fi
-  CHART_VERSION: "6.0.2"
+  CHART_VERSION: "7.0.3"
 
 tasks:
   helm_upgrade:
@@ -82,11 +87,12 @@ tasks:
     cmds:
       - |
         helm upgrade --install alfresco-content-services alfresco/alfresco-content-services --version {{.CHART_VERSION}} --namespace {{.NAMESPACE}} \
-        --values=../base/values.yaml --values=values.yaml \
+        --values=../base/values703.yaml --values=../base/values-versions.yaml --values=values.yaml \
         --set s3connector.config.bucketName={{.BUCKET_NAME}} \
         --set database.url={{.RDS_JDBC_URL}} \
-        --set global.elasticsearch.host={{.OPENSEARCH_HOST}} \
-        --set alfresco-search-enterprise.searchIndex.host={{.OPENSEARCH_HOST}} \
+        --set-string messageBroker.url="{{.MESSAGEBROKER_URL}}" \
+        --set global.search.url=http://{{.OPENSEARCH_HOST}}:8080 \
+        --set global.search.host={{.OPENSEARCH_HOST}} \
         --wait --timeout=60m \
         --post-renderer ../kustomizer.sh --post-renderer-args "{{.HELM_POST_RENDERER_ARGS}}" \
         {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}}
@@ -103,15 +109,15 @@ tasks:
     cmds:
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-repository.yaml
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-share.yaml
-  
+
   simple_reindex:
     cmds:
-      - | 
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=27451380" --set "toId=27908429" --namespace {{.NAMESPACE}}  
+      - |
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=52000100" --set "toId=52001000" --namespace {{.NAMESPACE}}
 
   reindex_list:
     cmds:
-      - | 
+      - |
         # Set your batch size (you can adjust this number as needed)
         BATCH_SIZE=40
 
@@ -178,23 +184,20 @@ tasks:
         if [ "$index" -gt 0 ]; then
             create_helm_job "${batch[@]}"
         fi
-        
+
         echo "All jobs have been created!"
         echo "Cleaning up..."
         helm uninstall "reindex-list-${RANDOM_ID}" --namespace {{.NAMESPACE}}
         echo "Cleanup complete!"
 
-
-
-
   simple_reindex_date:
     cmds:
-      - | 
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201707060001" --set "toTime=201707070001" --namespace {{.NAMESPACE}}
+      - |
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201711280001" --set "toTime=201712280001" --namespace {{.NAMESPACE}}
 
   simple_reindex_date_metadata-only:
     cmds:
-      - | 
+      - |
         helm install "reindex-default-date-meta" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=202402010100" --set "toTime=202402100100" --set "content=false" --namespace {{.NAMESPACE}}
 
   batch_reindex:
@@ -249,7 +252,7 @@ tasks:
         for item in $previous_completed; do
           pending=$(echo "$pending" | grep -v "$item")
         done
-        
+
         total_items=$(echo "$pending" | wc -l)
         echo "Total items: $total_items"
 
@@ -275,11 +278,11 @@ tasks:
             if [ $running_jobs -ge {{.CONCURRENCY}} ]; then
                 echo "No available slots, waiting for 5 seconds"
                 sleep 5
-            else 
+            else
               echo "Found at least 1 available slot!"
               echo "Available slots left: $(({{.CONCURRENCY}} - $running_jobs))"
               # run the job
-              echo "helm install reindex-${start}-${end} ./jobs/reindex --set global.elasticsearch.host={{.OPENSEARCH_HOST}} --set fromId=${start} --set toId=${end} --namespace {{.NAMESPACE}}"  
+              echo "helm install reindex-${start}-${end} ./jobs/reindex --set global.elasticsearch.host={{.OPENSEARCH_HOST}} --set fromId=${start} --set toId=${end} --namespace {{.NAMESPACE}}"
               helm install "reindex-${start}-${end}" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${start}" --set "toId=${end}" --namespace {{.NAMESPACE}}
               # Remove the item from the list
               pending=$(echo "$pending" | tail -n +2)
@@ -330,4 +333,3 @@ tasks:
           echo "Uninstalling release: $release"
           helm uninstall "$release" -n "$NAMESPACE"
         done
-        
