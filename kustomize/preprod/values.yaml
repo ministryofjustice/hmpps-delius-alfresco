@@ -1,5 +1,5 @@
 # this file overrides values defined in ./values.yaml
-repository:
+alfresco-repository:
   # -- The startup probe to cover the worse case startup time for slow clusters
   # startupProbe:
   #   periodSeconds: 30
@@ -16,6 +16,7 @@ repository:
   #   failureThreshold: 40
   replicaCount: 1
   image:
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
@@ -29,6 +30,7 @@ repository:
 share:
   replicaCount: 1
   image:
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
     tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
 externalProtocol: https
 externalPort: 443
@@ -48,15 +50,6 @@ alfresco-transform-service:
       limits:
         cpu: "2"
         memory: "756Mi"
-alfresco-search-enterprise:
-  liveIndexing:
-    content:
-      replicaCount: 1
-    mediation:
-      replicaCount: 1
-    metadata:
-      replicaCount: 1
-
 global:
   known_urls:
    - https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
