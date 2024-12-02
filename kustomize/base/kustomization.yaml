@@ -7,9 +7,7 @@ resources:
 patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
-  # - path: patch-delete-reindexing-config-map.yaml
-  # - path: patch-live-path-indexing.yaml
-  # - path: patch-live-metadata-indexing.yaml
-  # - path: patch-live-content-indexing.yaml
-  # - path: patch-live-mediation-indexing.yaml
+  - path: patch-live-path-indexing.yaml
+  - path: patch-live-metadata-indexing.yaml
+  - path: patch-live-content-indexing.yaml
   - path: patch-router.yaml
