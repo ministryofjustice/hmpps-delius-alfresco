@@ -9,4 +9,7 @@ spec:
         - name: alfresco-transform-service
           env:
             - name: FILE_STORE_URL
-              value: https://alf-sfs.preprod.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk/alfresco/api/-default-/private/sfs/versions/1/file
+              valueFrom:
+                configMapKeyRef:
+                  name: alfresco-infrastructure
+                  key: SFS_URL_API

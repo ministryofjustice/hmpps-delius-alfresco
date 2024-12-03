@@ -7,14 +7,5 @@ resources:
 patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
-  # - path: patch-live-indexing-path.yaml
-  # - path: patch-live-indexing-content.yaml
-  # - path: patch-live-indexing-mediation.yaml
-  # - path: patch-live-indexing-metadata.yaml
-  - path: patch-router.yaml
-  - path: patch-tika.yaml
-  - path: patch-transform-misc.yaml
-  - path: patch-transform-libreoffice.yaml
-  - path: patch-transform-imagemagick.yaml
   - path: patch-infra-config-map.yaml
 

@@ -1,23 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name:  alfresco-content-services-transform-router
+  name: alfresco-content-services-alfresco-search-enterprise-content
 spec:
   template:
     spec:
       containers:
-        - name: alfresco-transform-service
+        - name: alfresco-search-enterprise-content
           env:
             - name: SPRING_ACTIVEMQ_POOL_ENABLED
               value: "true"
             - name: SPRING_ACTIVEMQ_POOL_MAXCONNECTIONS
-              value: "100"
+              value: "200"
             - name: SPRING_ACTIVEMQ_POOL_IDLE_TIMEOUT
               value: "30000"          # 30 seconds idle timeout
             - name: SPRING_ACTIVEMQ_POOL_EXPIRY_TIMEOUT
               value: "60000"          # 60 seconds expiry timeout
-            - name: FILE_STORE_URL
+            - name: JAVA_OPTS
+              value: "-Dspring.activemq.packages.trustAll=true"
+            - name: ALFRESCO_SHAREDFILESTORE_BASEURL
               valueFrom:
                 configMapKeyRef:
                   name: alfresco-infrastructure
                   key: SFS_URL_API
+

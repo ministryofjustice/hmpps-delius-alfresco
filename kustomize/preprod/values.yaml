@@ -40,13 +40,18 @@ alfresco-search-enterprise:
       replicaCount: 4
     metadata:
       replicaCount: 2
+    mediation:
+      replicaCount: 2
 alfresco-transform-service:
   tika:
-    replicaCount: 4
+    replicaCount: 6
     resources:
+      requests:
+        cpu: "0.5"
+        memory: "2048Mi"
       limits:
-        cpu: 2
-        memory: 4Gi
+        cpu: "2"
+        memory: "4096Mi"
   transformrouter:
     replicaCount: 8
     resources:
