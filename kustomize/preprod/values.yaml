@@ -32,6 +32,14 @@ share:
     tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
 externalProtocol: https
 externalPort: 443
+alfresco-search-enterprise:
+
+  liveIndexing:
+  # set in value-versions yaml
+    content:
+      replicaCount: 4
+    metadata:
+      replicaCount: 2
 alfresco-transform-service:
   tika:
     replicaCount: 4
