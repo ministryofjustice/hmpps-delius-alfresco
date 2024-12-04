@@ -1,0 +1,37 @@
+---
+jobType: "" # create, copy, or restore
+sourceEnv: ""
+destEnv: ""
+
+# Job settings
+job:
+  image: "ghcr.io/ministryofjustice/hmpps-delius-alfresco-utils:latest"
+  serviceAccountPrefix: "hmpps-migration"
+  securityContext:
+    allowPrivilegeEscalation: false
+    privileged: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+    type: RuntimeDefault
+
+# OpenSearch settings
+opensearch:
+  snapshotPrefix: "snapshot"
+  snapshotRepository: "refresh-snapshots"
+  endpointSecretName: "opensearch-output"
+  endpointSecretKey: "PROXY_URL"
+  snapshotRoleArnKey: "SNAPSHOT_ROLE_ARN"
+  indices: "alfresco"
+  snapshotName: ""
+  
+# S3 settings
+s3:
+  snapshotRoleArnKey: "SNAPSHOT_ROLE_ARN"
+  s3BucketSecretName: "s3-opensearch-snapshots-bucket-output"
+  s3BucketNameKey: "BUCKET_NAME"
+  region: "eu-west-2"
