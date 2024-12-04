@@ -52,6 +52,7 @@ jobs:
           
           kubectl wait job/opensearch-backup --for=condition=complete --timeout=3h
       - name: Output job logs
+        if: always()
         run: |
           # Get the pod name from the job
           POD_NAME=$(kubectl get pods --selector=job-name=opensearch-backup -o jsonpath='{.items[0].metadata.name}')
