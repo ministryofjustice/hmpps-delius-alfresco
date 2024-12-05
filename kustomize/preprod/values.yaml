@@ -43,14 +43,14 @@ alfresco-search-enterprise:
       replicaCount: 2
 alfresco-transform-service:
   tika:
-    replicaCount: 6
+    replicaCount: 8
     resources:
       requests:
         cpu: "0.5"
         memory: "2048Mi"
       limits:
         cpu: "2"
-        memory: "4096Mi"
+        memory: 6Gi
   transformrouter:
     replicaCount: 8
     resources:
@@ -59,7 +59,7 @@ alfresco-transform-service:
         memory: "512Mi"
       limits:
         cpu: "2"
-        memory: "1024Mi"
+        memory: 2Gi
 global:
   known_urls:
    - https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
