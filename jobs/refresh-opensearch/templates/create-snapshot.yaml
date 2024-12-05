@@ -77,7 +77,8 @@ spec:
                 \"settings\": {
                   \"bucket\": \"$S3_BUCKET_NAME\",
                   \"region\": \"$REGION\",
-                  \"role_arn\": \"$SNAPSHOT_ROLE_ARN\"
+                  \"role_arn\": \"$SNAPSHOT_ROLE_ARN\",
+                  \"base_path\": \"$SNAPSHOT_REPOSITORY\"
                 }
               }")
               if echo "$RESPONSE" | grep -q '"acknowledged":true'; then
