@@ -142,7 +142,7 @@ alfresco-repository:
   # image: set by environment values file
   configuration:
     repository:
-      existingConfigMap: repository
+      existingConfigMap: alf-prop-config-map
       existingSecrets:
         - name: alfresco-license
           key: Alfresco-ent73-NOMSNationalOffenderManagementService-Expires10.03.2025.lic
@@ -181,7 +181,7 @@ alfresco-repository:
   persistence:
     # -- Persist repository data
     enabled: false
-    baseSize: 20Gi
+    baseSize: 100Gi
     # -- Specify a storageClass for dynamic provisioning
     accessModes:
       - ReadWriteOnce
