@@ -18,5 +18,8 @@ spec:
               value: "60000"          # 60 seconds expiry timeout
             - name: JAVA_OPTS
               value: "-Dspring.activemq.packages.trustAll=true"
-            # - name: INPUT_ALFRESCO_METADATA_BATCH_EVENT_CHANNEL
-            #   value: sjms-batch:metadata.event?completionTimeout=1000&completionSize=10&aggregationStrategy=#eventAggregator&?consumerCount=20
+            - name: ALFRESCO_SHAREDFILESTORE_BASEURL
+              valueFrom:
+                configMapKeyRef:
+                  name: alfresco-infrastructure
+                  key: SFS_URL_API

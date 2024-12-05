@@ -9,3 +9,5 @@ kustomize/base/resources.yaml
 jobs/reindex/values-reindex-*.yaml
 completed.txt
 ids.json
+alfresco-content-services/
+s3-config/
