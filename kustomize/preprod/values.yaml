@@ -29,16 +29,28 @@ share:
   replicaCount: 1
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
-    tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
+    tag: release_7.3.2_elasticsearch-r5.0.2-chart-7.0.3-share-latest
 externalProtocol: https
 externalPort: 443
+alfresco-search-enterprise:
+  liveIndexing:
+  # set in value-versions yaml
+    content:
+      replicaCount: 4
+    metadata:
+      replicaCount: 2
+    mediation:
+      replicaCount: 2
 alfresco-transform-service:
   tika:
-    replicaCount: 4
+    replicaCount: 6
     resources:
+      requests:
+        cpu: "0.5"
+        memory: "2048Mi"
       limits:
-        cpu: 2
-        memory: 4Gi
+        cpu: "2"
+        memory: "4096Mi"
   transformrouter:
     replicaCount: 8
     resources:

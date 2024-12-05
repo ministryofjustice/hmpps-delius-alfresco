@@ -113,7 +113,7 @@ tasks:
   simple_reindex:
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=52000000" --set "toId=53000000" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=150000000" --set "toId=200000000" --namespace {{.NAMESPACE}}
 
   reindex_list:
     cmds:
@@ -193,7 +193,7 @@ tasks:
   simple_reindex_date:
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201711280001" --set "toTime=201712280001" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201707030001" --set "toTime=201707121301" --namespace {{.NAMESPACE}}
 
   simple_reindex_date_metadata-only:
     cmds:
