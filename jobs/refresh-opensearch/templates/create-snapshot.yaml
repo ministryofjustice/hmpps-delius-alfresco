@@ -1,0 +1,126 @@
+{{- if eq .Values.jobType "create" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-opensearch-snapshot
+spec:
+  restartPolicy: Never
+  serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.sourceEnv }}"
+  template:
+    spec:
+      containers:
+        - name: create-opensearch-snapshot
+          image: {{ .Values.job.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+            type: RuntimeDefault
+          env:
+            - name: OPENSEARCH_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.opensearch.endpointSecretName }}
+                  key: {{ $.Values.opensearch.endpointSecretKey }}
+            - name: S3_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.s3.s3BucketSecretName }}
+                  key: {{ $.Values.s3.s3BucketNameKey }}
+            - name: SNAPSHOT_ROLE_ARN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.opensearch.endpointSecretName }}
+                  key: {{ $.Values.opensearch.snapshotRoleArnKey }}
+            - name: SNAPSHOT_PREFIX
+              value: "{{ $.Values.opensearch.snapshotPrefix }}"
+            - name: SNAPSHOT_REPOSITORY
+              value: "{{ $.Values.opensearch.snapshotRepository }}"
+            - name: REGION
+              value: "{{ $.Values.s3.region }}"
+            - name: SOURCE_ENV
+              value: "{{ $.Values.sourceEnv }}"
+            - name: DEST_ENV
+              value: "{{ $.Values.destEnv }}"
+            - name: INDICES
+              value: "{{ $.Values.opensearch.indices }}"
+          command:
+          - /bin/sh
+          - -c
+          - |
+            TIMESTAMP=$(date "+%Y%m%d%H%M%S")
+            SNAPSHOT_NAME=${SNAPSHOT_PREFIX}-${SOURCE_ENV}-to-${DEST_ENV}-${TIMESTAMP}
+
+            echo "OPENSEARCH_ENDPOINT: ${OPENSEARCH_ENDPOINT}"
+            echo "S3_BUCKET_NAME: ${S3_BUCKET_NAME}"
+            echo "SNAPSHOT_ROLE_ARN: ${SNAPSHOT_ROLE_ARN}"
+            echo "SNAPSHOT_PREFIX: ${SNAPSHOT_PREFIX}"
+            echo "SNAPSHOT_REPOSITORY: ${SNAPSHOT_REPOSITORY}"
+            echo "REGION: ${REGION}"
+            echo "SOURCE_ENV: ${SOURCE_ENV}"
+            echo "DEST_ENV: ${DEST_ENV}"
+            echo "INDICES: ${INDICES}"
+
+            # Check if repository exists
+            REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY")
+
+            if [ "$REPO_CHECK" = "404" ]; then
+              echo "Repository does not exist. Creating snapshot repository..."
+              RESPONSE=$(curl -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY" -H 'Content-Type: application/json' -d "{
+                \"type\": \"s3\",
+                \"settings\": {
+                  \"bucket\": \"$S3_BUCKET_NAME\",
+                  \"region\": \"$REGION\",
+                  \"role_arn\": \"$SNAPSHOT_ROLE_ARN\"
+                }
+              }")
+              if echo "$RESPONSE" | grep -q '"acknowledged":true'; then
+                echo "Repository created successfully"
+              else
+                echo "Failed to create repository: $RESPONSE"
+                exit 1
+              fi
+            else
+              echo "Repository already exists"
+            fi
+
+            # Create snapshot
+            echo "Creating snapshot..."
+            RESPONSE=$(curl -s -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME" -H 'Content-Type: application/json' -d "{
+              \"indices\": \"$INDICES\",
+              \"include_global_state\": false
+            }")
+
+            if ! echo "$RESPONSE" | grep -q '"accepted":true'; then
+              echo "Failed to create snapshot: $RESPONSE"
+              exit 1
+            fi
+
+            # Monitor snapshot progress
+            echo "Monitoring snapshot progress..."
+            while true; do
+              CURRENT_TIME=$(date "+%Y-%m-%d %H:%M:%S")
+              SNAPSHOT_STATUS=$(curl -s "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME/_status")
+              STATE=$(echo "$SNAPSHOT_STATUS" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
+
+              if [ "$STATE" = "SUCCESS" ]; then
+                echo "[$CURRENT_TIME] Snapshot completed successfully"
+                break
+              elif [ "$STATE" = "FAILED" ]; then
+                echo "[$CURRENT_TIME] Snapshot failed"
+                exit 1
+              else
+                echo "[$CURRENT_TIME] Snapshot in progress... (Status: $STATE)"
+                sleep 10
+              fi
+            done
+
+            echo "${SNAPSHOT_NAME}"
+
+{{- end }}
