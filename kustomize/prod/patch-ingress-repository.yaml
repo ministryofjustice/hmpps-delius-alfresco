@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alfresco-content-services-alfresco-cs-repository
+  annotations:
+    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-cs-repository-hmpps-delius-alfresco-prod-green
+    nginx.ingress.kubernetes.io/whitelist-source-range: "placeholder"
+spec:
+  rules:
+    - host: hmpps-delius-alfresco-prod.apps.live.cloud-platform.service.justice.gov.uk
+      http:
+        paths:
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-cs-repository
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-cs-repository
+                port:
+                  number: 80
+            path: /api-explorer
+            pathType: Prefix
+  tls:
+    - hosts:
+        - hmpps-delius-alfresco-prod.apps.live.cloud-platform.service.justice.gov.uk
