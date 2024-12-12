@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-alfresco-search-enterprise-path
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-search-enterprise-path
+          env:
+            - name: JAVA_OPTS
+              value: "-Dspring.activemq.packages.trustAll=true"
+            - name: ALFRESCO_SHAREDFILESTORE_BASEURL
+              valueFrom:
+                configMapKeyRef:
+                  name: alfresco-infrastructure
+                  key: SFS_URL_API

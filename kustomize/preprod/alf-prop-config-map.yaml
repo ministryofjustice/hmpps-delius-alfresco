@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alf-prop-config-map
+data: 
+ alfresco-global.properties: |
+    deployment.method=HELM_CHART
+    alfresco.cluster.enabled=true
+    alfresco.host=hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
+    alfresco.protocol=https
+    alfresco.port=443
+    aos.baseUrlOverwrite=https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk/alfresco/aos
+    csrf.filter.origin=https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
+    csrf.filter.referer=https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk/.*
+    share.protocol=https
+    share.host=hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
+    share.port=443
+    local.transform.service.enabled=true
+    transform.service.enabled=false
+    localTransform.core-aio.url=
+    localTransform.pdfrenderer.url=http://alfresco-content-services-pdfrenderer
+    localTransform.imagemagick.url=http://alfresco-content-services-imagemagick
+    localTransform.libreoffice.url=http://alfresco-content-services-libreoffice
+    localTransform.tika.url=http://alfresco-content-services-tika
+    localTransform.misc.url=http://alfresco-content-services-transform-misc
+    events.subsystem.autoStart=false
+    
+    #Zaizi additions
+    zaizi.noms.root.folder=NOMS
+    zaizi.noms.crn.pattern=([A-Z])([0-9]{3})([0-9]{3})
+    zaizi.noms.invalidCharacters=\\/:*\"\"<>|?!$#%^&
+
+    spg.ndelius.users=N00
+    spg.crc.users=C01,C02,C03,C04,C05,C06,C07,C08,C09,C10,C11,C12,C13,C14,C15,C16,C17,C18,C19,C20,C21,C22,C23
+
+    # The User to Schema Cache
+    cache.spgUserToSchemaVersionCache.tx.maxItems=100
+    cache.spgUserToSchemaVersionCache.tx.statsEnabled=${caches.tx.statsEnabled}
+    cache.spgUserToSchemaVersionCache.maxItems=500
+    cache.spgUserToSchemaVersionCache.timeToLiveSeconds=0
+    cache.spgUserToSchemaVersionCache.maxIdleSeconds=0
+    cache.spgUserToSchemaVersionCache.cluster.type=local
+    cache.spgUserToSchemaVersionCache.backup-count=1
+    cache.spgUserToSchemaVersionCache.eviction-policy=LRU
+    cache.spgUserToSchemaVersionCache.eviction-percentage=25
+    cache.spgUserToSchemaVersionCache.merge-policy=hz.ADD_NEW_ENTRY
+    cache.spgUserToSchemaVersionCache.readBackupData=false
+    cache.spgUserToSchemaVersionCache.cluster.type=invalidating
+
+    # Notify when a messaging to be sent to MPX taking morethan specified time. Value is in milliseconds.
+    message.mpx.log.messageSendingTakenMorethan=1000
+
+    zaizi.noms.mpx.schema.version=0-9-9
+    zaizi.noms.mpx.schema.date=2016-09-05
+    messaging.events.nspg.schema=classpath:SPG-XML_Message_Root-V0-9-9.xsd
+
+    zaizi.noms.mpx.schema2.version=0-9-10
+    zaizi.noms.mpx.schema2.date=2017-03-30
+    messaging.events.nspg2.schema=classpath:SPG-XML_Message_Root-V0-9-10-2.xsd
+
+    zaizi.noms.mpx.schema.911.version=0-9-11
+    zaizi.noms.mpx.schema.911.date=2017-09-04
+    messaging.events.nspg.911.schema=classpath:SPG-XML_Message_Root-V0-9-11.xsd
+
+    zaizi.noms.mpx.schema.912.version=0-9-12
+    zaizi.noms.mpx.schema.912.date=2017-12-05
+    messaging.events.nspg.912.schema=classpath:SPG-XML_Message_Root-V0-9-12.xsd
+
+    zaizi.noms.mpx.schema.913.version=0-9-13
+    zaizi.noms.mpx.schema.913.date=2018-02-08
+    messaging.events.nspg.913.schema=classpath:SPG-XML_Message_Root-V0-9-13.xsd
+
+    zaizi.noms.mpx.schema.914.version=0-9-14
+    zaizi.noms.mpx.schema.914.date=2019-10-21
+    messaging.events.nspg.914.schema=classpath:SPG-XML_Message_Root-V0-9-14.xsd
+
+    # NSPG Administration Groups Patch
+    patch.nspg.administration.deferred=false
+    patch.nspg.administration.roles.cronExpression=0 0 0 ? 1 1 2030
+    patch.nspg.administration.roles.startDelay=0
