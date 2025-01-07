@@ -193,9 +193,9 @@ activemq:
   nodeSelector: {}
   adminUser:
     # -- Default username for the embedded broker admin user
-    user: admin
+    user: null
     # -- Default password for the embedded broker admin user
-    password: admin
+    password: null
     existingSecretName: amazon-mq-broker-secret
   existingSecretName: null
 alfresco-connector-ms365:

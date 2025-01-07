@@ -2,6 +2,10 @@ version: "3"
 
 vars:
   ENV: "{{.ENV}}"
+  FROM_ID: "{{.FROM_ID}}"
+  TO_ID: "{{.TO_ID}}"
+  FROM_DATE: "{{.FROM_DATE}}"
+  TO_DATE: "{{.TO_DATE}}"
   NAMESPACE:
     sh: if [ "{{.ENV}}" = "poc" ]; then echo "hmpps-delius-alfrsco-{{.ENV}}"; else echo "hmpps-delius-alfresco-{{.ENV}}"; fi
   BUCKET_NAME:
@@ -30,6 +34,7 @@ vars:
   CHART_VERSION: "7.0.3"
 
 tasks:
+  # Perform a helm upgrade on the alfresco-content-services chart
   helm_upgrade:
     cmds:
       - echo "NAMESPACE set to {{.NAMESPACE}}"
@@ -110,221 +115,27 @@ tasks:
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-repository.yaml
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-share.yaml
 
-  simple_reindex:
+  # reindexes by id from the FROM_ID to the TO_ID
+  # ID FORMAT: alf-node id
+  reindex_by_id:
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=350000000" --set "toId=400000000" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId={{.FROM_ID}}" --set "toId={{.TO_ID}}" --namespace {{.NAMESPACE}}
 
-  reindex_list:
+  # reindexes by date from the FROM_DATE to the TO_DATE
+  # DATE FORMAT: YYYYMMDDHHMM
+  reindex_by_date:
     cmds:
       - |
-        # Set your batch size (you can adjust this number as needed)
-        BATCH_SIZE=40
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime={{.FROM_DATE}}" --set "toTime={{.TO_DATE}}" --namespace {{.NAMESPACE}}
 
-        # Path to your JSON file containing the list of IDs
-        JSON_FILE="ids.json"
+  # reindex_by_date_metadata-only:
+  #   cmds:
+  #     - |
+  #       helm install "reindex-default-date-meta" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=202402010100" --set "toTime=202402100100" --set "content=false" --namespace {{.NAMESPACE}}
 
-        RANDOM_ID=$(openssl rand -hex 4)
-
-        # Function to create Helm job for a given batch of IDs
-        create_helm_job() {
-            # Concatenate the batch of IDs into a comma-separated string
-            # $1, $2, ... represent individual IDs
-            local idList=""
-            for id in "$@"; do
-                if [ -z "$idList" ]; then
-                    idList="$id"
-                else
-                    idList="$idList,$id"
-                fi
-            done
-
-            # Debugging: print the batch being passed
-            echo "Creating job for IDs: $idList"  # This will show only the batch, not the whole list
-
-            # Run Helm command to create the job with the current batch of IDs
-            helm upgrade --install "reindex-list-${RANDOM_ID}" \
-                --set "idList={${idList}}" \
-                --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" \
-                --set "global.namespace={{.NAMESPACE}}" \
-                ./jobs/reindex-list \
-                --namespace "{{.NAMESPACE}}"
-            echo "Waiting for the jobs to complete..."
-            kubectl wait --for=condition=complete job --namespace {{.NAMESPACE}} -l "reindex-type=list" --timeout=10h || echo "Jobs completed!"
-            echo "Jobs completed!"
-        }
-
-        # Parse the list of IDs from the JSON file using jq
-        # The IDs will be saved as a space-separated list into the 'ids' variable
-        ids=$(jq -r '.list[]' "$JSON_FILE")
-
-        # Initialize the index for processing
-        index=0
-
-        # Loop over the IDs and create jobs in batches
-        for id in $ids; do
-            # Add the current ID to the current batch
-            batch[$index]="$id"
-            index=$((index + 1))
-
-            # If the batch reaches the specified batch size, process it
-            if [ "$index" -ge "$BATCH_SIZE" ]; then
-                # Create the Helm job for the current batch
-                create_helm_job "${batch[@]}"
-
-                # Reset the batch for the next set of IDs
-                index=0
-                unset batch
-                # kubectl wait --for=condition=complete job --namespace {{.NAMESPACE}} -l "reindex-type=list" --timeout=10h || echo "Jobs completed!"
-                helm uninstall "reindex-list-${RANDOM_ID}" --namespace {{.NAMESPACE}}
-            fi
-        done
-
-        # If there are any remaining IDs (less than BATCH_SIZE), create the last job
-        if [ "$index" -gt 0 ]; then
-            create_helm_job "${batch[@]}"
-        fi
-
-        echo "All jobs have been created!"
-        echo "Cleaning up..."
-        helm uninstall "reindex-list-${RANDOM_ID}" --namespace {{.NAMESPACE}}
-        echo "Cleanup complete!"
-
-  simple_reindex_date:
-    cmds:
-      - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=201707030001" --set "toTime=201707121301" --namespace {{.NAMESPACE}}
-
-  simple_reindex_date_metadata-only:
-    cmds:
-      - |
-        helm install "reindex-default-date-meta" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=202402010100" --set "toTime=202402100100" --set "content=false" --namespace {{.NAMESPACE}}
-
-  batch_reindex:
-    vars:
-      START: "{{.START | default 0}}"
-      END: "{{.END | default 10050}}"
-      CHUNK: "{{.CHUNK | default 1000}}"
-      CONCURRENCY: "{{.CONCURRENCY | default 5}}"
-      ARRAY:
-        sh: |
-          arr=$(
-            for i in $(seq -f "%.0f" {{.START}} {{.CHUNK}} {{.END}}); do
-              new_start=$i
-              end=$((i + {{.CHUNK}} - 1))
-              if [ $end -gt {{.END}} ]; then
-                end={{.END}}
-              fi
-          cat << EOF
-          ${new_start}-${end}
-          EOF
-            done
-          )
-          echo "$arr"
-    cmds:
-      - echo "Starting batch reindex from {{.START}} to {{.END}} in chunks of {{.CHUNK}}"
-      - task: run_reindex_batches
-        vars:
-          OPENSEARCH_HOST: "{{.OPENSEARCH_HOST}}"
-          NAMESPACE: "{{.NAMESPACE}}"
-          ARRAY: "{{.ARRAY}}"
-          CONCURRENCY: "{{.CONCURRENCY}}"
-      - task: reindex_helm_cleanup
-        vars:
-          NAMESPACE: "{{.NAMESPACE}}"
-
-  run_reindex_batches:
-    cmds:
-      - |
-        pending="{{.ARRAY}}"
-        # count the number of items
-        total_items=$(echo "$pending" | wc -l)
-        echo "Total items: $total_items"
-
-        previous_completed=$(cat completed.txt) || true
-        if [ -z "$previous_completed" ]; then
-          echo "No previous completed items"
-        else
-          echo "Count of previous completed items: $(echo "$previous_completed" | wc -l)"
-        fi
-
-        # remove the completed items from the pending list
-        for item in $previous_completed; do
-          pending=$(echo "$pending" | grep -v "$item")
-        done
-
-        total_items=$(echo "$pending" | wc -l)
-        echo "Total items: $total_items"
-
-
-        started=()
-        completed=()
-
-        # while pending is not empty
-        while [ -n "$pending" ]; do
-            # echo "Pending: $pending"
-            # Get the first item
-            item=$(echo "$pending" | head -n 1)
-            echo "Processing item: $item"
-
-            # Get the start and end values
-            start=$(echo "$item" | cut -d '-' -f 1)
-            end=$(echo "$item" | cut -d '-' -f 2)
-            echo "Start: $start, End: $end"
-
-            # check the number of jobs running
-            running_jobs=$(kubectl get jobs --namespace {{.NAMESPACE}} -l "reindex-job" -o json | jq '.items | length')
-            echo "Running jobs: $running_jobs"
-            if [ $running_jobs -ge {{.CONCURRENCY}} ]; then
-                echo "No available slots, waiting for 5 seconds"
-                sleep 5
-            else
-              echo "Found at least 1 available slot!"
-              echo "Available slots left: $(({{.CONCURRENCY}} - $running_jobs))"
-              # run the job
-              echo "helm install reindex-${start}-${end} ./jobs/reindex --set global.elasticsearch.host={{.OPENSEARCH_HOST}} --set fromId=${start} --set toId=${end} --namespace {{.NAMESPACE}}"
-              helm install "reindex-${start}-${end}" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${start}" --set "toId=${end}" --namespace {{.NAMESPACE}}
-              # Remove the item from the list
-              pending=$(echo "$pending" | tail -n +2)
-            fi
-
-            # check for completed jobs
-            completed_jobs=$(kubectl get jobs --namespace {{.NAMESPACE}} -l "reindex-job" -o json | jq -r '.items[] | select(.status.succeeded == 1) | .metadata.labels["reindex-job"]')
-            if [ -z "$completed_jobs" ]; then
-              echo "No completed jobs"
-            else
-              echo "Completed jobs: $completed_jobs"
-              echo "$completed_jobs" | while IFS= read -r job; do
-                echo "Processing completed job: $job"
-                completed+=("$job")
-                echo "$job" >> completed.txt
-                echo "Job $job completed"
-                helm uninstall "reindex-$job" --namespace {{.NAMESPACE}}
-              done
-            fi
-        done
-
-  reindex_helm_cleanup:
-    cmds:
-      - |
-        # wait for all jobs to complete
-        kubectl wait --for=condition=complete jobs --namespace {{.NAMESPACE}} -l "reindex-job" --timeout=4h
-
-        completed_jobs=$(kubectl get jobs --namespace {{.NAMESPACE}} -l "reindex-job" -o json | jq -r '.items[] | select(.status.succeeded == 1) | .metadata.labels["reindex-job"]')
-        if [ -z "$completed_jobs" ]; then
-          echo "No completed jobs"
-        else
-          echo "Completed jobs: $completed_jobs"
-          echo "$completed_jobs" | while IFS= read -r job; do
-            echo "Processing completed job: $job"
-            completed+=("$job")
-            echo "$job" >> completed.txt
-            echo "Job $job completed"
-            helm uninstall "reindex-$job" --namespace {{.NAMESPACE}}
-          done
-        fi
-
-  helm_bulk_uninstall:
+  # uninstalls all helm releases with the prefix
+  helm_uninstall_prefix:
     vars:
       PREFIX: "{{.PREFIX}}"
     cmds:

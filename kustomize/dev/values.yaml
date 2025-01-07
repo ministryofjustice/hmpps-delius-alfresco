@@ -1,5 +1,5 @@
 # this file overrides values defined in ./values.yaml
-repository:
+alfresco-repository:
   replicaCount: 2
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
@@ -7,6 +7,9 @@ share:
   replicaCount: 1
   image:
     tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
-externalHost: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
-externalProtocol: https
 externalPort: 443
+global:
+  known_urls:
+   - https://hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+   - https://share.hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+   - https://alf-sfs.dev.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk
