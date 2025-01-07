@@ -70,7 +70,7 @@ jobs:
           cleaned_prefixes=$(echo $prefixes | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
 
           # remove `contentstore.deleted/` from cleaned_prefixes with comma if in list
-          cleaned_prefixes=$(echo $cleaned_prefixes | sed 's/contentstore.deleted,//')\
+          cleaned_prefixes=$(echo $cleaned_prefixes | sed 's/contentstore.deleted,//')
           # remove `contentstore.deleted` from cleaned_prefixes if at the end of the list
           cleaned_prefixes=$(echo $cleaned_prefixes | sed 's/contentstore.deleted//')
           # None occurs when a file is at the root of the bucket or level 1 directory
