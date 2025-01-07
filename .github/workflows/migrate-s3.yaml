@@ -95,7 +95,4 @@ jobs:
             --set srcBucket=$SRC_BUCKET \
             --set "directories={${DIRS}}"
 
-          kubectl wait jobs -l name-prefix=migrate-s3 --for=condition=complete --timeout 10h
-
-      - name: Uninstall S3 Refresh chart
-        run: helm uninstall migrate-s3 --ignore-not-found
+          kubectl wait jobs -l name-prefix=migrate-s3 --for=condition=ready --timeout 10m
