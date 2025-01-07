@@ -43,6 +43,8 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: refresh-db
+  labels:
+    name-prefix: refresh-db
 spec:
   template:
     spec:

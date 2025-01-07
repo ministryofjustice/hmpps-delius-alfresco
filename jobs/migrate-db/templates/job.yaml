@@ -28,6 +28,8 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: migrate-db
+  labels:
+    name-prefix: migrate-db
 spec:
   template:
     spec:
