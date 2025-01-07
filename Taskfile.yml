@@ -2,10 +2,8 @@ version: "3"
 
 vars:
   ENV: "{{.ENV}}"
-  FROM_ID: "{{.FROM_ID}}"
-  TO_ID: "{{.TO_ID}}"
-  FROM_DATE: "{{.FROM_DATE}}"
-  TO_DATE: "{{.TO_DATE}}"
+  FROM: "{{.FROM}}"
+  TO: "{{.TO}}"
   NAMESPACE:
     sh: if [ "{{.ENV}}" = "poc" ]; then echo "hmpps-delius-alfrsco-{{.ENV}}"; else echo "hmpps-delius-alfresco-{{.ENV}}"; fi
   BUCKET_NAME:
@@ -120,14 +118,14 @@ tasks:
   reindex_by_id:
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId={{.FROM_ID}}" --set "toId={{.TO_ID}}" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId={{.FROM}}" --set "toId={{.TO}}" --namespace {{.NAMESPACE}}
 
   # reindexes by date from the FROM_DATE to the TO_DATE
   # DATE FORMAT: YYYYMMDDHHMM
   reindex_by_date:
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime={{.FROM_DATE}}" --set "toTime={{.TO_DATE}}" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime={{.FROM}}" --set "toTime={{.TO}}" --namespace {{.NAMESPACE}}
 
   # reindex_by_date_metadata-only:
   #   cmds:
