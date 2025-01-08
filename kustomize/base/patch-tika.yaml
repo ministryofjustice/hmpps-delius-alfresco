@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-tika
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-transform-service
+          env:
+            - name: FILE_STORE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: alfresco-infrastructure
+                  key: SFS_URL_API

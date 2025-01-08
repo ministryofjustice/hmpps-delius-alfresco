@@ -3,8 +3,10 @@ kind: Kustomization
 
 resources:
   - ../base
+  - alf-prop-config-map.yaml
 
 patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
-  - path: patch-filestore-pvc.yaml
+  - path: patch-infra-config-map.yaml
+

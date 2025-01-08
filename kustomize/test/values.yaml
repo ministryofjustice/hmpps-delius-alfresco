@@ -1,27 +1,53 @@
 # this file overrides values defined in ./values.yaml
-repository:
+alfresco-repository:
+  # -- The startup probe to cover the worse case startup time for slow clusters
+  # startupProbe:
+  #   periodSeconds: 30
+  #   failureThreshold: 40
+  # readinessProbe:
+  #   initialDelaySeconds: 60
+  #   periodSeconds: 30
+  #   timeoutSeconds: 15
+  #   failureThreshold: 40  # Increased from 6 to 12
+  # livenessProbe:
+  #   initialDelaySeconds: 260  # Increased from 130 to 260
+  #   periodSeconds: 20
+  #   timeoutSeconds: 15
+  #   failureThreshold: 40
   replicaCount: 2
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.1-content-latest
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
+    tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
       cpu: 1
       memory: 2Gi
     limits:
-      cpu: 3
+      cpu: 2
       memory: 4Gi
-  persistence:
-    baseSize: 100Gi
 share:
   replicaCount: 1
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.1-share-latest
-externalHost: hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
+    tag: release_7.3.2_elasticsearch-r5.0.2-chart-7.0.3-share-latest
 externalProtocol: https
 externalPort: 443
-tika:
-  replicaCount: 2
-  resources:
-    limits:
-      cpu: 2
-      memory: 2Gi
+alfresco-search-enterprise:
+  liveIndexing:
+    # set in value-versions yaml
+    content:
+      replicaCount: 4
+    metadata:
+      replicaCount: 2
+    mediation:
+      replicaCount: 2
+alfresco-transform-service:
+  tika:
+    replicaCount: 2
+  transformrouter:
+    replicaCount: 2
+global:
+  known_urls:
+    - https://hmpps-delius-alfresco-test.apps.live.cloud-platform.service.justice.gov.uk
+    - https://share.hmpps-delius-alfresco-test.apps.live.cloud-platform.service.justice.gov.uk
+    - https://alf-sfs.test.delius-core.hmpps-testuction.modernisation-platform.service.justice.gov.uk

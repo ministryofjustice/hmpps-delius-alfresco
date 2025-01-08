@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: alfresco-content-services-alfresco-router
+  name:  alfresco-content-services-transform-router
 spec:
   template:
     spec:
       containers:
-        - name: alfresco-content-services
+        - name: alfresco-transform-service
           env:
             - name: SPRING_ACTIVEMQ_POOL_ENABLED
               value: "true"
@@ -16,3 +16,8 @@ spec:
               value: "30000"          # 30 seconds idle timeout
             - name: SPRING_ACTIVEMQ_POOL_EXPIRY_TIMEOUT
               value: "60000"          # 60 seconds expiry timeout
+            - name: FILE_STORE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: alfresco-infrastructure
+                  key: SFS_URL_API

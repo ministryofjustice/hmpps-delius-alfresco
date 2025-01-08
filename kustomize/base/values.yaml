@@ -14,50 +14,81 @@
 # max heap to 1/4th of container's memory which may not be ideal. Hence, setting
 # up explicit Container memory and then assigning a percentage of it to the JVM
 # for performance tuning.
-repository:
-  # -- Administrator password for ACS in NTLM hash format to set at bootstrap time
-  # will only work on completely fresh database
-  # adminPassword: "209c6174da490caeb422f3fa5a7ae634"
-  # -- The name of the secret holding the ACS repository license if any.
-  # it must be contained within a `data['*.lic']` property
-  # For details on how to manage license, see:
-  # https://github.com/Alfresco/acs-deployment/blob/master/docs/helm/examples/alf_license.md
-  licenseSecret: alfresco-license
-  edition: Enterprise
-  replicaCount: 1
-  nodeSelector: {}
+infrastructure:
+  configMapName: &infrastructure_cmName alfresco-infrastructure
+global:
+  # -- list of trusted URLs.
+  # URLs a re used to configure Cross-origin protections
+  # Also the first entry is considered the main hosting domain of the platform.
+  known_urls: null # added to each environment values file
+  # -- For a full information of configuring the outbound email system, see
+  # https://docs.alfresco.com/content-services/latest/config/email/#manage-outbound-emails
+  mail:
+    # -- SMTP server to use for the system to send outgoing email
+    host: null
+    # -- SMTP server port
+    port: 587
+    # -- SMTP protocol to use. Either smtp or smtps
+    protocol: smtp
+    username: anonymous
+    password: null
+    smtp:
+      auth: true
+      starttls:
+        enable: true
+    smtps:
+      auth: true
+  search:
+    # -- set this URL if you have an external search service
+    url: null # set by helm install task as inline value
+    # -- set the type of search service used externally (solr6 or elasticsearch)
+    flavor: elasticsearch
+    # -- set the security level used with the external search service (secret, none or https)
+    securecomms: none
+    # -- Mandatory secret to provide when using Solr search with 'secret' security level
+    sharedSecret: null
+    # -- Name of the secret managed by this chart
+    secretName: &acs_search_secretName alfresco-search-secret
+  # -- If a private image registry a secret can be defined and passed to
+  # kubernetes, see:
+  # https://github.com/Alfresco/acs-deployment/blob/a924ad6670911f64f1bba680682d266dd4ea27fb/docs/helm/eks-deployment.md#docker-registry-secret
+  alfrescoRegistryPullSecrets: quay-registry-secret
   strategy:
-    type: Recreate
-  image:
-    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: release_7.3.2_elasticsearch-r5.0.1-content-latest
-    pullPolicy: IfNotPresent
-    internalPort: 8080
-    hazelcastPort: 5701
-  initContainers:
-    db:
-      image:
-        repository: busybox
-        tag: 1.35.0
-        pullPolicy: IfNotPresent
-      resources:
-        limits:
-          cpu: "0.25"
-          memory: "10Mi"
-  service:
-    name: alfresco
-    type: ClusterIP
-    externalPort: &repositoryExternalPort 80
-  ingress:
-    path: /
-    maxUploadSize: "5g"
-    annotations: {}
-    #   nginx.ingress.kubernetes.io/enable-cors: "true"
-    tls: []
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
-    hostName: apps.live.cloud-platform.service.justice.gov.uk
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  registryPullSecrets:
+    - quay-registry-secret
+  ai:
+    # -- Enable AI capabilities in ADW AI plugin
+    enabled: false
+database:
+  # -- Enable using an external database for Alfresco Content Services. Must disable `postgresql.enabled` when true.
+  external: true
+  # -- Postgresql jdbc driver name ex: org.postgresql.Driver. It should be available in the container image.
+  driver: null
+  # -- External Postgresql database user
+  user: null
+  # -- External Postgresql database password
+  password: null
+  # -- External Postgresql jdbc url ex: `jdbc:postgresql://oldfashioned-mule-postgresql-acs:5432/alfresco`
+  url: null
+  # -- Name of the secret managed by this chart
+  configMapName: *infrastructure_cmName
+  # -- Name of the secret managed by this chart
+  # secretName: &acs_database_secretName alfresco-cs-database
+  # -- An existing secret that contains DATABASE_USERNAME and DATABASE_PASSWORD keys.
+  # When using embedded postgres you need to also set `postgresql.existingSecret`.
+  existingSecretName: rds-instance-output
+# -- Activemq connection details (activemq.enabled must also be set to false)
+messageBroker:
+  url: null
+  user: null
+  password: null
+  # -- Name of the secret managed by this chart
+  # secretName: &acs_messageBroker_secretName acs-alfresco-cs-brokersecret
+  existingSecretName: amazon-mq-broker-secret
+alfresco-repository:
   environment:
     JAVA_OPTS: >-
       -Dindex.subsystem.name=elasticsearch
@@ -77,7 +108,9 @@ repository:
       -Dsystem.delete_not_exists.read_only=false
       -Dsystem.delete_not_exists.timeout_seconds=3600
       -Dfilecontentstore.subsystem.name=S3
-      -Ds3.flatRoot=false
+    CATALINA_OPTS: >-
+      -Ds3.bucketLocation=eu-west-2
+  nameOverride: alfresco-repository
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
@@ -91,13 +124,6 @@ repository:
     runAsUser: 33000
     runAsGroup: 1000
     fsGroup: 1000
-  resources:
-    requests:
-      cpu: "1"
-      memory: "1500Mi"
-    limits:
-      cpu: "4"
-      memory: "3000Mi"
   # -- The startup probe to cover the worse case startup time for slow clusters
   startupProbe:
     periodSeconds: 30
@@ -113,547 +139,156 @@ repository:
     initialDelaySeconds: 130
     periodSeconds: 20
     timeoutSeconds: 15
+  # image: set by environment values file
+  configuration:
+    repository:
+      existingConfigMap: alf-prop-config-map
+      existingSecrets:
+        - name: alfresco-license
+          key: Alfresco-ent73-NOMSNationalOffenderManagementService-Expires10.03.2025.lic
+          purpose: acs-license
+        - name: s3-bucket-output
+          key: ACCESSKEY
+          purpose: property:s3.accessKey
+        - name: s3-bucket-output
+          key: SECRETKEY
+          purpose: property:s3.secretKey
+        - name: s3-bucket-output
+          key: BUCKET_NAME
+          purpose: property:s3.bucketName
+        - name: sfs-url
+          key: SFS_URL
+          purpose: property:sfs.url
+    db:
+      existingConfigMap:
+        name: *infrastructure_cmName
+      existingSecret:
+        name: rds-instance-output
+    messageBroker:
+      existingConfigMap:
+        name: *infrastructure_cmName
+      existingSecret:
+        name: amazon-mq-broker-secret
+    search:
+      flavor: elasticsearch
+      # existingConfigMap:
+      #   name: *infrastructure_cmName
+      # existingSecret:
+      #   name: *acs_search_secretName
+      #   keys:
+      #     username: SEARCH_USERNAME
+      #     password: SEARCH_PASSWORD
   persistence:
     # -- Persist repository data
     enabled: false
-    baseSize: 20Gi
+    baseSize: 100Gi
     # -- Specify a storageClass for dynamic provisioning
     accessModes:
       - ReadWriteOnce
-    # -- Bind PVC based on storageClass (e.g. dynamic provisioning)
-    storageClass:
-    # -- Use pre-provisioned pv through its claim (e.g. static provisioning)
-    existingClaim:
-    data:
-      mountPath: /usr/local/tomcat/alf_data
-      subPath: alfresco-content-services/repository-data
-  extraVolumes: []
-  extraVolumeMounts: []
-  extraSideContainers: []
-  extraInitContainers: []
-  command: []
-  # -- Provide additional log statements by adding classes and/or packages in a
-  # key:value maner org.alfresco.repo.content.transform.TransformerDebug: debug
-  extraLogStatements: {}
-  # -- An existing secret that contains REPO_ADMIN_PASSWORD as an alternative for `repository.adminPassword` value
-  existingSecretName:
-# -- Declares the api-explorer service used by the content repository
-apiexplorer:
-  ingress:
-    path: /api-explorer
-ooiService:
-  replicaCount: 2
+activemq:
+  nameOverride: activemq
+  enabled: false
+  # -- Possibility to choose Node for pod, with a key-value pair label
+  # e.g {"kubernetes.io/hostname": multinode-demo-m02}
   nodeSelector: {}
+  adminUser:
+    # -- Default username for the embedded broker admin user
+    user: admin
+    # -- Default password for the embedded broker admin user
+    password: admin
+    existingSecretName: amazon-mq-broker-secret
+  existingSecretName: null
+alfresco-connector-ms365:
+  # -- Enable/Disable Alfresco Content Connector for Microsoft 365
+  enabled: false
   image:
     repository: quay.io/alfresco/alfresco-ooi-service
-    tag: 1.1.3.1
-    pullPolicy: IfNotPresent
-    internalPort: 9095
-  service:
-    name: ooi-service
-    type: ClusterIP
-    externalPort: 80
-  ingress:
-    path: /ooi-service
-    tls: []
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33006
-  resources:
-    requests:
-      cpu: "0.25"
-      memory: "1000Mi"
-    limits:
-      cpu: "2"
-      memory: "1000Mi"
-  environment:
-    JAVA_OPTS: "-Dalfresco.base-url=http://acs-alfresco-cs-repository:80"
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-# -- Enable/Disable Alfresco Content Connector for Microsoft Teams
-msTeams:
+    tag: 2.0.0
+  repository:
+    existingConfigMap:
+      # -- Name of the configmap which hold the repository connection details
+      name: *infrastructure_cmName
+      keys:
+        # -- Name of the key in the configmap which points to the repository
+        # service hostname
+        host: repo_svc_name
+        # -- Name of the key in the configmap which points to the repository
+        # service port
+        port: repo_svc_port
+alfresco-connector-msteams:
+  # -- Enable/Disable Alfresco Content Connector for Microsoft Teams
   enabled: false
-msTeamsService:
-  replicaCount: 2
-  nodeSelector: {}
   image:
     repository: quay.io/alfresco/alfresco-ms-teams-service
-    tag: 1.1.0
-    pullPolicy: IfNotPresent
-    internalPort: 3978
-  service:
-    name: ms-teams-service
-    type: ClusterIP
-    externalPort: 80
-  ingress:
-    path: /ms-teams-service
-    tls: []
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33041
-  resources:
-    requests:
-      cpu: "0.5"
-      memory: "1000Mi"
-    limits:
-      cpu: "1"
-      memory: "1000Mi"
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-  alfresco:
-    baseUrl: change_me_alf_base_url
-    digitalWorkspace:
-      contextPath: /workspace/
-  microsoft:
-    app:
-      id: change_me_app_id
-      password: change_me_app_pwd
-      oauth:
-        connectionName: alfresco
-  teams:
-    chat:
-      filenameEnabled: true
-      metadataEnabled: true
-      imageEnabled: true
-transformrouter:
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    repository: quay.io/alfresco/alfresco-transform-router
     tag: 2.0.0
-    pullPolicy: IfNotPresent
-    internalPort: 8095
-  service:
-    name: transform-router
-    type: ClusterIP
-    externalPort: 80
-  environment:
-    JAVA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 140
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 140
-    periodSeconds: 120
-    timeoutSeconds: 60
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33016
-  resources:
-    requests:
-      cpu: "0.25"
-      memory: "300Mi"
-    limits:
-      cpu: "1"
-      memory: "512Mi"
-# -- Declares the alfresco-pdf-renderer service used by the content repository
-# to transform pdf files
-pdfrenderer:
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    repository: alfresco/alfresco-pdf-renderer
-    tag: 3.0.0
-    pullPolicy: IfNotPresent
-    internalPort: 8090
-  service:
-    name: pdfrenderer
-    type: ClusterIP
-    externalPort: 80
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33001
-  resources:
-    requests:
-      cpu: "0.25"
-      memory: "300Mi"
-    limits:
-      cpu: "2"
-      memory: "1000Mi"
-  environment:
-    JAVA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-    livenessPercent: 150
-    livenessTransformPeriodSeconds: 600
-    maxTransforms: 10000
-    maxTransformSeconds: 1200
-# -- Declares the alfresco-imagemagick service used by the content repository
-# to transform image files
-imagemagick:
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    repository: alfresco/alfresco-imagemagick
-    tag: 3.0.0
-    pullPolicy: IfNotPresent
-    internalPort: 8090
-  service:
-    name: imagemagick
-    type: ClusterIP
-    externalPort: 80
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33002
-  resources:
-    requests:
-      cpu: "0.5"
-      memory: "300Mi"
-    limits:
-      cpu: "4"
-      memory: "1000Mi"
-  environment:
-    JAVA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-    livenessPercent: 150
-    livenessTransformPeriodSeconds: 600
-    maxTransforms: 10000
-    maxTransformSeconds: 900
-# -- Declares the alfresco-libreoffice service used by the content repository
-# to transform office files
-libreoffice:
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    repository: alfresco/alfresco-libreoffice
-    tag: 3.0.0
-    pullPolicy: IfNotPresent
-    internalPort: 8090
-  service:
-    name: libreoffice
-    type: ClusterIP
-    externalPort: 80
-  resources:
-    requests:
-      cpu: "0.5"
-      memory: "400Mi"
-    limits:
-      cpu: "4"
-      memory: "1000Mi"
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33003
-  environment:
-    JAVA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-    livenessPercent: 250
-    livenessTransformPeriodSeconds: 600
-    maxTransforms: 99999
-    maxTransformSeconds: 1800
-# -- Declares the alfresco-tika service used by the content repository
-# to transform office files
-tika:
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    repository: alfresco/alfresco-tika
-    tag: 3.0.0
-    pullPolicy: IfNotPresent
-    internalPort: 8090
-  service:
-    name: tika
-    type: ClusterIP
-    externalPort: 80
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33004
-  resources:
-    requests:
-      cpu: "0.25"
-      memory: "600Mi"
-    limits:
-      cpu: "2"
-      memory: "2Gi"
-  environment:
-    JAVA_OPTS: >-
-      -Xms1024M
-      -Xmx1638M
-  readinessProbe:
-    initialDelaySeconds: 60
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 60
-    periodSeconds: 20
-    timeoutSeconds: 10
-    livenessPercent: 400
-    livenessTransformPeriodSeconds: 600
-    maxTransforms: 10000
-    maxTransformSeconds: 1800
-# -- Declares the alfresco-tika service used by the content repository
-# to transform office files
-transformmisc:
+alfresco-transform-service:
   enabled: true
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    repository: alfresco/alfresco-transform-misc
-    tag: 3.0.0
-    pullPolicy: IfNotPresent
-    internalPort: 8090
-  service:
-    name: transformmisc
-    type: ClusterIP
-    externalPort: 80
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 33006
-  resources:
-    requests:
-      cpu: "0.25"
-      memory: "300Mi"
-    limits:
-      cpu: "2"
-      memory: "1000Mi"
-  environment:
-    JAVA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-    livenessPercent: 400
-    livenessTransformPeriodSeconds: 600
-    maxTransforms: 10000
-    maxTransformSeconds: 1800
-aiTransformer:
-  replicaCount: 2
-  nodeSelector: {}
-  image:
-    repository: quay.io/alfresco/alfresco-ai-docker-engine
-    tag: 1.5.0
-    pullPolicy: IfNotPresent
-    internalPort: 8090
-  service:
-    name: ai-transformer
-    type: ClusterIP
-    externalPort: 80
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsUser: 33015
-  resources:
-    requests:
-      cpu: "0.25"
-      memory: "1000Mi"
-    limits:
-      cpu: "2"
-      memory: "1000Mi"
-  environment:
-    JAVA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-    livenessPercent: 400
-    livenessTransformPeriodSeconds: 600
-    maxTransforms: 10000
-    maxTransformSeconds: 1800
-# -- Declares the alfresco-shared-file-store used by the content repository
-# and transform service
-filestore:
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    repository: ghcr.io/ministryofjustice/hmpps-delius-alfresco-shared-file-store
-    tag: 2.1.2-4
-    pullPolicy: IfNotPresent
-    internalPort: 8099
-  initContainer:
-    image:
-      repository: busybox
-      tag: 1.35.0
-      pullPolicy: IfNotPresent
-    resources:
-      limits:
-        cpu: "0.50"
-        memory: "10Mi"
-  service:
-    name: filestore
-    type: ClusterIP
-    externalPort: 80
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  podSecurityContext:
-    runAsUser: 33030
-    runAsGroup: 1000
-    fsGroup: 1000
-  resources:
-    requests:
-      cpu: "0.25"
-      memory: "200Mi"
-    limits:
-      cpu: "2"
-      memory: "2000Mi"
-  environment:
-    scheduler.content.age.millis: "86400000"
-    scheduler.cleanup.interval: "86400000"
-    JAVA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 20
-    periodSeconds: 60
-    timeoutSeconds: 10
-  livenessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 10
-    livenessPercent: 150
-    livenessSavePeriodSeconds: 600
-  persistence:
-    # -- Persist filestore data
+  messageBroker:
+    existingSecretName: amazon-mq-broker-secret
+  transformrouter:
+    # -- Declares the alfresco-transform-router service used by the content repository
+    # to route transformation requests
     enabled: true
-    # -- Specify a storageClass for dynamic provisioning
-    accessModes:
-      - ReadWriteOnce
-    # -- Bind PVC based on storageClass (e.g. dynamic provisionning)
-    storageClass:
-    # -- Use pre-provisioned pv through its claim (e.g. static provisionning)
-    existingClaim: null
-    data:
-      mountPath: "/tmp/Alfresco"
-      subPath: "alfresco-content-services/filestore-data"
-# -- Define the alfresco-share properties to use in the k8s cluster
-# This is the default presentation layer(UI) of Alfresco Content Services
+    replicaCount: 2
+    # image: # set by environment values file
+  pdfrenderer:
+    # -- Declares the alfresco-pdf-renderer service used by the content repository
+    # to transform pdf files
+    enabled: true
+    # image: set by environment values file
+  imagemagick:
+    # -- Declares the alfresco-imagemagick service used by the content repository
+    # to transform image files
+    enabled: true
+    # image: set by environment values file
+  libreoffice:
+    # -- Declares the alfresco-libreoffice service used by the content repository
+    # to transform office files
+    enabled: true
+    # image: set by environment values file
+  tika:
+    # -- Declares the alfresco-tika service used by the content repository
+    # to transform office files
+    enabled: true
+    # image: set by environment values file
+  transformmisc:
+    # -- Declares the alfresco-tika service used by the content repository
+    # to transform office files
+    enabled: true
+    image:
+      repository: alfresco/alfresco-transform-misc
+      tag: 5.0.1
+  filestore:
+    # -- Declares the alfresco-shared-file-store used by the content repository
+    # and transform service
+    # due to platform constraints, the filestore is in MP
+    enabled: false
+    replicaCount: 0
+    image:
+      repository: quay.io/alfresco/alfresco-shared-file-store
+      tag: 4.0.1
+    persistence:
+      # -- Persist filestore data
+      enabled: true
+      data:
+        mountPath: "/tmp/Alfresco"
+        subPath: "alfresco-content-services/filestore-data"
 share:
-  replicaCount: 1
-  nodeSelector: {}
-  image:
-    # repository: quay.io/alfresco/alfresco-share
-    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
-    tag: release_7.3.2_elasticsearch-r5.0.1-share-latest
-    pullPolicy: IfNotPresent
-    internalPort: 8080
-  service:
-    name: share
-    type: ClusterIP
-    externalPort: 80
-  ingress:
-    path: /
-    annotations: {}
-    tls: []
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
+  # -- toggle deploying Alfresco Share UI
+  enabled: true
+  # image: set by environment values file
+  nameOverride: share
+  repository:
+    existingConfigMap:
+      # -- Name of the configmap which hold the repository connection details
+      name: *infrastructure_cmName
+      keys:
+        # -- Name of the key in the configmap which points to the repository
+        # service hostname
+        host: repo_svc_name
+        # -- Name of the key in the configmap which points to the repository
+        # service port
+        port: repo_svc_port
   securityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
@@ -672,67 +307,26 @@ share:
     limits:
       cpu: "4"
       memory: "2000Mi"
-  environment:
-    CATALINA_OPTS: >-
-      -XX:MinRAMPercentage=50
-      -XX:MaxRAMPercentage=80
-  readinessProbe:
-    initialDelaySeconds: 60
-    periodSeconds: 20
-    timeoutSeconds: 15
-  livenessProbe:
-    initialDelaySeconds: 200
-    periodSeconds: 20
-    timeoutSeconds: 10
-  extraVolumeMounts: []
-  extraVolumes: []
-  extraSideContainers: []
-  extraInitContainers: []
-  command: []
-activemq:
-  nameOverride: activemq
-  enabled: false
-  resources:
-  requests:
-    cpu: "0.5"
-    memory: "1024Mi"
-  limits:
-    cpu: "2"
-    memory: "4096Mi"
-  # -- Possibility to choose Node for pod, with a key-value pair label
-  # e.g {"kubernetes.io/hostname": multinode-demo-m02}
-  nodeSelector: {}
-  adminUser:
-    # -- Default username for the embedded broker admin user
-    user: admin
-    # -- Default password for the embedded broker admin user
-    password: admin
-  # -- external activemq connection setting when activemq.enabled=false
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-messageBroker: &acs_messageBroker
-  url: null
-  user: null
-  password: null
-  # -- Name of the secret managed by this chart
-  # secretName: &acs_messageBroker_secretName acs-alfresco-cs-brokersecret
-  # -- Alternatively, provide credentials via an existing secret that contains
-  # BROKER_URL, BROKER_USERNAME and BROKER_PASSWORD keys
-  existingSecretName: amazon-mq-broker-secret
-alfresco-elasticsearch-connector:
-  enabled: false
 alfresco-search:
-  searchServicesImage:
-    repository: alfresco/alfresco-search-services
-    tag: 2.0.7
-  nodeSelector: {}
   enabled: false
+  repository:
+    existingConfigMap:
+      name: *infrastructure_cmName
+      keys:
+        host: repo_svc_name
+        port: repo_svc_port
+        securecomms: SEARCH_SECURECOMMS
+    existingSecret:
+      name: *acs_search_secretName
+      keys:
+        sharedSecret: SOLR_SECRET
+  searchServicesImage:
+    repository: quay.io/alfresco/search-services
+    tag: 2.0.8.2
+  insightEngineImage:
+    repository: quay.io/alfresco/insight-engine
+    tag: 2.0.8.2
+  nameOverride: alfresco-search
   # If an external Solr service is to be used then enabled must be set to false
   # and external has to be configured accordingly.
   external:
@@ -746,83 +340,66 @@ alfresco-search:
     # -- Alfresco Search services endpoint ('/solr')
     enabled: false
     # -- Default solr basic auth user/password: admin / admin
-    # You can create your own with htpasswd utilility & encode it with base64.
+    # You can create your own with htpasswd utility & encode it with base64.
     # Example: `echo -n "$(htpasswd -nbm admin admin)" | base64 | tr -d '\n'`
     # basicAuth: YWRtaW46JGFwcjEkVVJqb29uS00kSEMuS1EwVkRScFpwSHB2a3JwTDd1Lg==
-    basicAuth:
+    basicAuth: null
     tls: []
     #  - secretName: chart-example-tls
     #    hosts:
     #      - chart-example.local
-  securityContext:
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-database:
-  # -- Enable using an external database for Alfresco Content Services. Must disable `postgresql.enabled` when true.
-  external: true
-  # -- Postgresql jdbc driver name ex: org.postgresql.Driver. It should be available in the container image.
-  driver:
-  # -- External Postgresql database user
-  user:
-  # -- External Postgresql database password
-  password:
-  # -- External Postgresql jdbc url ex: `jdbc:postgresql://oldfashioned-mule-postgresql-acs:5432/alfresco`
-  url:
-  # -- Name of the secret managed by this chart
-  # secretName: &acs_database_secretName acs-alfresco-cs-dbsecret
-  secretName:
-  # -- An existing secret that contains DATABASE_USERNAME and DATABASE_PASSWORD keys.
-  # When using embedded postgres you need to also set `postgresql.existingSecret`.
-  existingSecretName: rds-instance-output
 alfresco-search-enterprise:
-  indexName: alfresco
   enabled: true
-  elasticsearch:
-    # -- Enables the embedded elasticsearch cluster
-    enabled: false
+  search:
+    existingConfigMap:
+      name: *infrastructure_cmName
+    existingSecret:
+      name: *acs_search_secretName
+  ats:
+    existingConfigMap:
+      name: *infrastructure_cmName
   messageBroker:
-    existingSecretName: amazon-mq-broker-secret
-  searchIndex:
-    # -- The host where service is available
-    host: null
-    # -- The port where service is available
-    port: 8080
-    # -- Valid values are http or https
-    protocol: http
-    # -- The username required to access the service, if any
-    user: null
-    # -- The password required to access the service, if any
-    password: null
-  reindexing:
-    enabled: false # leave as false - reindexing job is now standalone
-    postgresql:
-      url:
-      hostname:
-      database:
-      existingSecretName: rds-instance-output
-    image:
-      tag: 3.2.1
+    existingConfigMap:
+      name: *infrastructure_cmName
+    existingSecret:
+      name: amazon-mq-broker-secret
+      keys:
+        username: BROKER_USERNAME
+        password: BROKER_PASSWORD
   liveIndexing:
+    # set in value-versions yaml
     mediation:
       image:
-        tag: 3.2.1
+        tag: 4.0.0.1
+      replicaCount: 1
     content:
       image:
-        tag: 3.2.1
+        tag: 4.0.0.1
+      replicaCount: 1
     metadata:
       image:
-        tag: 3.2.1
+        tag: 4.0.0.1
+      replicaCount: 1
     path:
       image:
-        tag: 3.2.1
+        tag: 4.0.0.1
+      replicaCount: 1
+  reindexing:
+    enabled: false # leave as false - reindexing job is now standalone
+    repository:
+      existingConfigMap:
+        name: *infrastructure_cmName
+    db:
+      existingSecret:
+        name: rds-instance-output
+      existingConfigMap:
+        name: *infrastructure_cmName
+    image:
+      tag: 4.0.0.1
 alfresco-digital-workspace:
   nodeSelector: {}
   enabled: false
+  nameOverride: "alfresco-dw"
   service:
     envType: frontend
   ingress:
@@ -836,17 +413,14 @@ alfresco-digital-workspace:
     #      - chart-example.local
   image:
     repository: quay.io/alfresco/alfresco-digital-workspace
-    tag: 3.1.1
+    tag: 4.3.0
     pullPolicy: IfNotPresent
+  registryPullSecrets:
+    - "{{ $.Values.global.alfrescoRegistryPullSecrets }}"
   env:
     APP_CONFIG_PROVIDER: "ECM"
     APP_CONFIG_AUTH_TYPE: "BASIC"
     API_URL: "{protocol}//{hostname}{:port}"
-    # APP_CONFIG_PLUGIN_MICROSOFT_ONLINE:
-    # APP_CONFIG_MICROSOFT_ONLINE_OOI_URL:
-    # APP_CONFIG_MICROSOFT_ONLINE_CLIENTID:
-    # APP_CONFIG_MICROSOFT_ONLINE_AUTHORITY:
-    # APP_CONFIG_MICROSOFT_ONLINE_REDIRECT:
   extraEnv: |-
     {{- if .Values.global.ai.enabled }}
     - name: APP_CONFIG_PLUGIN_AI_SERVICE
@@ -882,8 +456,10 @@ alfresco-control-center:
     #      - chart-example.local
   image:
     repository: quay.io/alfresco/alfresco-control-center
-    tag: 7.9.0
+    tag: 8.3.0
     pullPolicy: IfNotPresent
+  registryPullSecrets:
+    - "{{ $.Values.global.alfrescoRegistryPullSecrets }}"
   env:
     APP_CONFIG_PROVIDER: "ECM"
     APP_CONFIG_AUTH_TYPE: "BASIC"
@@ -902,9 +478,6 @@ alfresco-control-center:
     limits:
       cpu: "1"
       memory: "1024Mi"
-# -- Enable/Disable Alfresco Collaboration Connector for Microsoft 365
-ooi:
-  enabled: false
 postgresql:
   # -- Toggle embedded postgres for Alfresco Content Services repository
   # Check [PostgreSQL Bitnami chart
@@ -917,7 +490,7 @@ postgresql:
   commonAnnotations:
     application: alfresco-content-services
   auth:
-    existingSecret:
+    existingSecret: null
     username: alfresco
     password: alfresco
     database: alfresco
@@ -932,132 +505,29 @@ postgresql:
       log_min_messages = LOG
     resources:
       requests:
-        cpu: "0.5"
-        memory: "1500Mi"
+        cpu: "500m"
+        memory: "1Gi"
       limits:
         cpu: "8"
-        memory: "8192Mi"
+        memory: "8Gi"
+    service:
+      ports:
+        postgresql: 5432
     persistence:
       # -- set the storageClass to use for dynamic provisioning.
       # setting it to null means "default storageClass".
       storageClass: null
       # -- provide an existing persistent volume claim name to persist SQL data
-      # Make sure the root folder has the appropriate permissions/ownhership set.
+      # Make sure the root folder has the appropriate permissions/ownership set.
       existingClaim: null
       subPath: "alfresco-content-services/database-data"
-s3connector:
-  # -- Enable the S3 Connector
-  # For a full list of properties on the S3 connector see:
-  # https://docs.alfresco.com/s3connector/references/s3-contentstore-ref-config-props.html
-  enabled: true
-  config:
-    bucketName:
-    bucketLocation: eu-west-2
-  secrets:
-    accessKey: true
-    secretKey: true
-    encryption:
-    awsKmsKeyId:
-  # -- An existing kubernetes secret that contains ACCESSKEY, SECRETKEY, ENCRYPTION, KMSKEYID keys
-  existingSecretName: s3-bucket-output
-# -- For a full information of configuring the inbound email system, see
-# https://docs.alfresco.com/content-services/latest/config/email/#manage-inbound-emails
-email:
-  server:
-    enabled: false
-    port: 1125
-    domain:
-    enableTLS: true
-    hideTLS: false
-    requireTLS: false
-    auth:
-      enabled: true
-    connections:
-      max: 3
-    allowed:
-      senders: .*
-    blocked:
-      senders:
-  inbound:
-    enabled: false
-    unknownUser: anonymous
-    emailContributorsAuthority: EMAIL_CONTRIBUTORS
-  handler:
-    folder:
-      overwriteDuplicates: true
-  ssl:
-    secretName:
-  initContainers:
-    pemToKeystore:
-      image:
-        repository: registry.access.redhat.com/redhat-sso-7/sso71-openshift
-        tag: 1.1-16
-        pullPolicy: IfNotPresent
-    pemToTruststore:
-      image:
-        repository: registry.access.redhat.com/redhat-sso-7/sso71-openshift
-        tag: 1.1-16
-        pullPolicy: IfNotPresent
-    setPerms:
-      image:
-        repository: busybox
-        tag: 1.35.0
-        pullPolicy: IfNotPresent
-# -- For a full information of configuring the outbound email system, see
-# https://docs.alfresco.com/content-services/latest/config/email/#manage-outbound-emails
-mail:
-  # -- SMTP(S) host server to enable delivery of site invitations, activity notifications and workflow tasks by email
-  host:
-  port: 25
-  protocol: smtps
-  encoding: UTF-8
-  username:
-  password:
-  # -- An existing kubernetes secret that contains MAIL_PASSWORD as per `mail.password` value
-  existingSecretName:
-  from:
-    # -- Specifies the email address from which email notifications are sent
-    default:
-    enabled: false
-  smtp:
-    auth: true
-    debug: false
-    timeout: 30000
-    starttls:
-      enable: true
-  smtps:
-    auth: true
-    starttls:
-      enable: true
-# -- For a full information of configuring the imap subsystem, see
-# https://docs.alfresco.com/content-services/latest/config/email/#enable-imap-protocol-using-alfresco-globalproperties
-imap:
-  server:
-    enabled: false
-    host: "0.0.0.0"
-    port: 1143
-    imap:
-      enabled: true
-    imaps:
-      enabled: true
-      port: 1144
-  mail:
-    from:
-      default:
-    to:
-      default:
-metadataKeystore:
-  # keystorePassword: ""
-  # keyPassword: ""
-  defaultKeystorePassword: "mp6yc0UD9e"
-  defaultKeyPassword: "oKIWzVdEdA"
 alfresco-sync-service:
   # -- Toggle deployment of Alfresco Sync Service (Desktop-Sync)
   # Check [Alfresco Sync Service
   # Documentation](https://github.com/Alfresco/alfresco-helm-charts/tree/main/charts/alfresco-sync-service)
   enabled: false
   image:
-    tag: 3.8.0
+    tag: 4.0.1
   postgresql:
     enabled: true
     image:
@@ -1070,60 +540,32 @@ alfresco-sync-service:
     primary:
       resources:
         requests:
-          cpu: "0.5"
-          memory: "1500Mi"
+          cpu: 250m
+          memory: 1Gi
         limits:
           cpu: "4"
-          memory: "1500Mi"
+          memory: 4Gi
   messageBroker:
     existingSecretName: amazon-mq-broker-secret
   repository:
-    nameOverride: alfresco-cs-repository
-    port: *repositoryExternalPort
-global:
-  # A shared secret is now required in order to authenticate connections between
-  # solr and repo (typically: tracking)
-  tracking:
-    # -- Select how solr and repo authenticate to each other
-    # none: work only prior to acs 7.2 (and was the default)
-    # secret: use a shared secret (to specify using `tracking.sharedsecret`)
-    # https: to use mTLS auth (require appropriate certificate configuration)
-    auth: secret
-    # -- Shared secret to authenticate repo/solr traffic.
-    # Strong enough secret can be generated with `openssl rand 20 -base64`
-    # please do not set a value here for sharedsecret. Instead, overwirte it on the commandline
-    sharedsecret:
-  # -- If a private image registry a secret can be defined and passed to
-  # kubernetes, see:
-  # https://github.com/Alfresco/acs-deployment/blob/a924ad6670911f64f1bba680682d266dd4ea27fb/docs/helm/eks-deployment.md#docker-registry-secret
-  alfrescoRegistryPullSecrets: quay-registry-secret
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-  registryPullSecrets:
-    - quay-registry-secret
-  # -- Choose if you want AI capabilities (globally - including ADW AI plugin)
-  ai:
-    enabled: false
-    # ai:
-    #   aws:
-    #   accessKey:
-    #   secretAccessKey:
-    #   region:
-    #   s3Bucket:
-    #   comprehendRoleARN:
-  # -- Shared connections details for Elasticsearch/Opensearch, required when
-  # .enabled is true
-  elasticsearch:
-    # -- The host where service is available. The provided default is for when
-    # elasticsearch.enabled is true
-    host: null
-    # -- The port where service is available
-    port: 8080
-    # -- Valid values are http or https
-    protocol: http
-    # -- The username required to access the service, if any
-    user: null
-    # -- The password required to access the service, if any
-    password: null
+    nameOverride: alfresco-repository
+    port: 80
+  # -- toggle deploying Alfresco ai transformer
+alfresco-ai-transformer:
+  enabled: false
+  messageBroker:
+    existingSecretName: amazon-mq-broker-secret
+  image:
+    repository: quay.io/alfresco/alfresco-ai-docker-engine
+    tag: 3.0.1
+#  aws:
+#    accessKey:
+#    secretAccessKey:
+#    region:
+#    s3Bucket:
+#    comprehendRoleARN:
+elasticsearch:
+  # -- Enables the embedded elasticsearch cluster
+  enabled: false
+  replicas: 1
+  clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"

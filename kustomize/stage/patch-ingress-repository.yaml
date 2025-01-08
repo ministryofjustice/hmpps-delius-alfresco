@@ -1,9 +1,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: alfresco-content-services-alfresco-cs-repository
+  name: alfresco-content-services-alfresco-repository
   annotations:
-    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-cs-repository-hmpps-delius-alfresco-stage-green
+    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-repository-hmpps-delius-alfresco-stage-green
     nginx.ingress.kubernetes.io/whitelist-source-range: "placeholder"
 spec:
   rules:
@@ -12,14 +12,14 @@ spec:
         paths:
           - backend:
               service:
-                name: alfresco-content-services-alfresco-cs-repository
+                name: alfresco-content-services-alfresco-repository
                 port:
                   number: 80
             path: /
             pathType: Prefix
           - backend:
               service:
-                name: alfresco-content-services-alfresco-cs-repository
+                name: alfresco-content-services-alfresco-repository
                 port:
                   number: 80
             path: /api-explorer

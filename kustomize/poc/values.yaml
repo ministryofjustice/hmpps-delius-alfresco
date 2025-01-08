@@ -1,22 +1,35 @@
 # this file overrides values defined in ./values.yaml
-repository:
-  replicaCount: 1
+alfresco-repository:
+  replicaCount: 2
   image:
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
+  persistence:
+    # -- Persist repository data
+    enabled: true
+    baseSize: 100Gi
+    # -- Specify a storageClass for dynamic provisioning
+    accessModes:
+      - ReadWriteOnce
 share:
   replicaCount: 1
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
-filestore:
-  replicaCount: 1
-externalHost: hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
-externalProtocol: https
-externalPort: 443
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
+    tag: release_7.3.2_elasticsearch-r5.0.2-chart-7.0.3-share-latest
 activemq:
+  nameOverride: activemq
   enabled: true
-messageBroker:
-  existingSecretName: null
-  secretName: acs-alfresco-cs-brokersecret
+alfresco-transform-service:
+  filestore:
+    enabled: true
+    replicaCount: 1
 alfresco-search-enterprise:
   messageBroker:
-    existingSecretName: acs-alfresco-cs-brokersecret
+    existingSecret:
+      name: null
+  liveIndexing:
+externalPort: 443
+global:
+  known_urls:
+    - https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+    - https://share.hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk

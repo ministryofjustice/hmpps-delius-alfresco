@@ -20,6 +20,8 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: migrate-s3-{{ . | toString | replace "/" "-" | replace "."  "" | trimSuffix "-" }}
+  labels:
+    name-prefix: migrate-s3
 spec:
   template:
     spec:
