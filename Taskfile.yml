@@ -4,8 +4,17 @@ vars:
   ENV: "{{.ENV}}"
   FROM: "{{.FROM}}"
   TO: "{{.TO}}"
+  FORCE: "{{.FORCE}}"
   NAMESPACE:
-    sh: if [ "{{.ENV}}" = "poc" ]; then echo "hmpps-delius-alfrsco-{{.ENV}}"; else echo "hmpps-delius-alfresco-{{.ENV}}"; fi
+    sh: |
+      if [ -z "{{.ENV}}" ]; then
+        echo "ERROR: ENV variable is not set" >&2
+        exit 1
+      elif [ "{{.ENV}}" = "poc" ]; then
+        echo "hmpps-delius-alfrsco-{{.ENV}}"
+      else
+        echo "hmpps-delius-alfresco-{{.ENV}}"
+      fi
   BUCKET_NAME:
     sh: kubectl get secret s3-bucket-output -n {{.NAMESPACE}} -o jsonpath='{.data.BUCKET_NAME}' | base64 --decode
   OPEN_SEARCH_PREFIX:
@@ -90,7 +99,7 @@ tasks:
     cmds:
       - |
         helm upgrade --install alfresco-content-services alfresco/alfresco-content-services --version {{.CHART_VERSION}} --namespace {{.NAMESPACE}} \
-        --values=../base/values703.yaml --values=../base/values-versions.yaml --values=values.yaml \
+        --values=../base/values.yaml --values=../base/values-versions.yaml --values=values.yaml \
         --set s3connector.config.bucketName={{.BUCKET_NAME}} \
         --set database.url={{.RDS_JDBC_URL}} \
         --set-string messageBroker.url="{{.MESSAGEBROKER_URL}}" \
@@ -141,4 +150,16 @@ tasks:
         helm list -n {{.NAMESPACE}} -q | grep "^{{.PREFIX}}" | while IFS= read -r release; do
           echo "Uninstalling release: $release"
           helm uninstall "$release" -n "$NAMESPACE"
+        done
+
+  kubectl_remove_pods_prefix:
+    vars:
+      PREFIX: "{{.PREFIX}}"
+      FORCE_FLAG:
+        sh: if [ "{{.FORCE}}" = "true" ]; then echo "--force"; else echo ""; fi
+    cmds:
+      - |
+        kubectl get pods -n {{.NAMESPACE}} | grep "^{{.PREFIX}}" | awk '{print $1}' | while IFS= read -r pod; do
+          echo "Deleting pod: $pod"
+          kubectl delete pod "$pod" -n "$NAMESPACE" {{.FORCE_FLAG}}
         done

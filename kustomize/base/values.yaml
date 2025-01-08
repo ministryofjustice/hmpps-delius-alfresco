@@ -193,9 +193,9 @@ activemq:
   nodeSelector: {}
   adminUser:
     # -- Default username for the embedded broker admin user
-    user: null
+    user: admin
     # -- Default password for the embedded broker admin user
-    password: null
+    password: admin
     existingSecretName: amazon-mq-broker-secret
   existingSecretName: null
 alfresco-connector-ms365:
@@ -262,7 +262,7 @@ alfresco-transform-service:
     # -- Declares the alfresco-shared-file-store used by the content repository
     # and transform service
     # due to platform constraints, the filestore is in MP
-    enabled: false 
+    enabled: false
     replicaCount: 0
     image:
       repository: quay.io/alfresco/alfresco-shared-file-store
@@ -367,7 +367,7 @@ alfresco-search-enterprise:
         username: BROKER_USERNAME
         password: BROKER_PASSWORD
   liveIndexing:
-  # set in value-versions yaml
+    # set in value-versions yaml
     mediation:
       image:
         tag: 4.0.0.1
@@ -385,7 +385,7 @@ alfresco-search-enterprise:
         tag: 4.0.0.1
       replicaCount: 1
   reindexing:
-    enabled: false  # leave as false - reindexing job is now standalone
+    enabled: false # leave as false - reindexing job is now standalone
     repository:
       existingConfigMap:
         name: *infrastructure_cmName

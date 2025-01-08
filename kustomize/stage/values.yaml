@@ -1,21 +1,7 @@
-# this file overrides values defined in ./values.yaml
-repository:
-    # -- The startup probe to cover the worse case startup time for slow clusters
-  # startupProbe:
-  #   periodSeconds: 30
-  #   failureThreshold: 40
-  # readinessProbe:
-  #   initialDelaySeconds: 60
-  #   periodSeconds: 30
-  #   timeoutSeconds: 15
-  #   failureThreshold: 40  # Increased from 6 to 12
-  # livenessProbe:
-  #   initialDelaySeconds: 260  # Increased from 130 to 260
-  #   periodSeconds: 20
-  #   timeoutSeconds: 15
-  #   failureThreshold: 40
+alfresco-repository:
   replicaCount: 10
   image:
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
@@ -27,30 +13,40 @@ repository:
 share:
   replicaCount: 1
   image:
-    tag: release_7.3.2_elasticsearch-r5.0.2-share-latest
-externalHost: hmpps-delius-alfresco-stage.apps.live.cloud-platform.service.justice.gov.uk
+    repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
+    tag: release_7.3.2_elasticsearch-r5.0.2-chart-7.0.3-share-latest
 externalProtocol: https
 externalPort: 443
-tika:
-  replicaCount: 8
-  resources:
-    limits:
-      cpu: 2
-      memory: 4Gi
-transformrouter:
-  replicaCount: 12
-  resources:
-    requests:
-      cpu: "0.75"
-      memory: "300Mi"
-    limits:
-      cpu: "2"
-      memory: "756Mi"
 alfresco-search-enterprise:
   liveIndexing:
+    # set in value-versions yaml
     content:
-      replicaCount: 8
-    mediation:
       replicaCount: 4
     metadata:
-      replicaCount: 4
+      replicaCount: 2
+    mediation:
+      replicaCount: 2
+alfresco-transform-service:
+  tika:
+    replicaCount: 8
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "2048Mi"
+      limits:
+        cpu: "2"
+        memory: 6Gi
+  transformrouter:
+    replicaCount: 8
+    resources:
+      requests:
+        cpu: "0.75"
+        memory: "512Mi"
+      limits:
+        cpu: "2"
+        memory: 2Gi
+global:
+  known_urls:
+    - https://hmpps-delius-alfresco-stage.apps.live.cloud-platform.service.justice.gov.uk
+    - https://share.hmpps-delius-alfresco-stage.apps.live.cloud-platform.service.justice.gov.uk
+    - https://alf-sfs.stage.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk

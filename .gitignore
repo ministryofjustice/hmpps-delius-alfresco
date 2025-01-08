@@ -4,7 +4,8 @@
 templated/
 kustomize/base/charts/
 kustomize/**/charts/
-kustomize/**/output.yaml
+kustomize/**/helm_rendered_spec.yaml
+kustomize/**/kustomized_helm_rendered_spec.yaml
 kustomize/base/resources.yaml
 jobs/reindex/values-reindex-*.yaml
 completed.txt

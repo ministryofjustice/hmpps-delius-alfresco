@@ -1,0 +1,219 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  creationTimestamp: "2025-01-07T20:24:38Z"
+  generation: 1
+  labels:
+    role: alert-rules
+  name: prometheus-custom-rules-alfresco
+  namespace: hmpps-delius-alfresco-stage
+  resourceVersion: "2806395382"
+  uid: ab91b16a-80f3-4ccb-932c-f8e0346e83a2
+spec:
+  groups:
+    - name: application-rules
+      rules:
+        - alert: repositoryDeploymentOver75PctCpuUsage
+          annotations:
+            message: repository Deployment CPU usage is over 75%
+          expr:
+            sum(rate(container_cpu_usage_seconds_total{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-repository.*"}[5m])) / sum(cluster:namespace:pod_cpu:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-repository.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: repositoryDeploymentOver75PctMemUsage
+          annotations:
+            message: repository Deployment Memory usage is over 75%
+          expr:
+            sum(rate(container_memory_working_set_bytes{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-repository.*"}[5m])) / sum(cluster:namespace:pod_mem:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-repository.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: repositoryDeploymentAvailableReplicasLessThan5
+          annotations:
+            message: repository Deployment available replicas is less than 5
+          expr:
+            kube_deployment_status_replicas_available{namespace="hmpps-delius-alfresco-stage",
+            deployment=~"alfresco-content-services-alfresco-cs-repository"} < 5
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: tikaDeploymentOver75PctCpuUsage
+          annotations:
+            message: tika Deployment CPU usage is over 75%
+          expr:
+            sum(rate(container_cpu_usage_seconds_total{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-tika.*"}[5m])) / sum(cluster:namespace:pod_cpu:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-tika.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: tikaDeploymentOver75PctMemUsage
+          annotations:
+            message: tika Deployment Memory usage is over 75%
+          expr:
+            sum(rate(container_memory_working_set_bytes{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-tika.*"}[5m])) / sum(cluster:namespace:pod_mem:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-cs-tika.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: tikaDeploymentAvailableReplicasLessThan2
+          annotations:
+            message: tika Deployment available replicas is less than 2
+          expr:
+            kube_deployment_status_replicas_available{namespace="hmpps-delius-alfresco-stage",
+            deployment=~"alfresco-content-services-alfresco-cs-tika"} < 2
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: filestoreDeploymentOver75PctCpuUsage
+          annotations:
+            message: filestore Deployment CPU usage is over 75%
+          expr:
+            sum(rate(container_cpu_usage_seconds_total{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-filestore.*"}[5m])) / sum(cluster:namespace:pod_cpu:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-filestore.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: filestoreDeploymentOver75PctMemUsage
+          annotations:
+            message: filestore Deployment Memory usage is over 75%
+          expr:
+            sum(rate(container_memory_working_set_bytes{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-filestore.*"}[5m])) / sum(cluster:namespace:pod_mem:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-filestore.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: filestoreDeploymentAvailableReplicasLessThan1
+          annotations:
+            message: filestore Deployment available replicas is less than 1
+          expr:
+            kube_deployment_status_replicas_available{namespace="hmpps-delius-alfresco-stage",
+            deployment=~"alfresco-content-services-alfresco-filestore"} < 1
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: routerDeploymentOver75PctCpuUsage
+          annotations:
+            message: router Deployment CPU usage is over 75%
+          expr:
+            sum(rate(container_cpu_usage_seconds_total{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-router.*"}[5m])) / sum(cluster:namespace:pod_cpu:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-router.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: routerDeploymentOver75PctMemUsage
+          annotations:
+            message: router Deployment Memory usage is over 75%
+          expr:
+            sum(rate(container_memory_working_set_bytes{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-router.*"}[5m])) / sum(cluster:namespace:pod_mem:active:kube_pod_container_resource_limits{namespace="hmpps-delius-alfresco-stage",
+            pod=~"alfresco-content-services-alfresco-router.*"}) > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: routerDeploymentAvailableReplicasLessThan5
+          annotations:
+            message: router Deployment available replicas is less than 5
+          expr:
+            kube_deployment_status_replicas_available{namespace="hmpps-delius-alfresco-stage",
+            deployment=~"alfresco-content-services-alfresco-router"} < 5
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: RDSLowStorage
+          annotations:
+            message: "[{{ environment|upper }}] RDS free storage space is less than 10GB"
+          expr:
+            aws_rds_free_storage_space_average{dbinstance_identifier="cloud-platform-43f547bdfa94ce12"}
+            offset 10m < 10000000000
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: RDSHighCPUUtilization
+          annotations:
+            message:
+              "[{{ environment|upper }}] RDS CPU Utilization is over 75% for more
+              than 5 minutes"
+          expr: aws_rds_cpuutilization_average{dbinstance_identifier="cloud-platform-43f547bdfa94ce12"} >  75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: RDSHighMemoryUtilization
+          annotations:
+            message:
+              "[{{ environment|upper }}] RDS freeable memory is less than 5GB for
+              more than 5 minutes"
+          expr:
+            aws_rds_freeable_memory_average{dbinstance_identifier="cloud-platform-43f547bdfa94ce12"}
+            < 5000000000
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: RDSHighConnections
+          annotations:
+            message:
+              "[{{ environment|upper }}] RDS database connections are over 100
+              for more than 5 minutes"
+          expr:
+            aws_rds_database_connections_average{dbinstance_identifier="cloud-platform-43f547bdfa94ce12"}
+            > 100
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: RDSHighReadLatency
+          annotations:
+            message:
+              "[{{ environment|upper }}] RDS read latency is over 0.1s for more
+              than 5 minutes"
+          expr:
+            aws_rds_read_latency_average{dbinstance_identifier="cloud-platform-43f547bdfa94ce12"}
+            > 0.05
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: IngressLongRequestTime95thPercentile
+          annotations:
+            message:
+              "[{{ environment|upper }}] 95th percentile of request duration for
+              Ingress is over 0.5s for more than 5 minutes"
+          expr:
+            histogram_quantile(0.95, sum(rate(nginx_ingress_controller_request_duration_seconds_bucket{namespace="hmpps-delius-alfresco-stage",
+            ingress="alfresco-content-services-alfresco-cs-repository"}[5m])) by (le))
+            > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: IngressLongResponseTime95thPercentile
+          annotations:
+            message:
+              "[{{ environment|upper }}] 95th percentile of response duration for
+              Ingress is over 0.5s for more than 5 minutes"
+          expr:
+            histogram_quantile(0.95, sum(rate(nginx_ingress_controller_response_duration_seconds_bucket{exported_namespace="hmpps-delius-alfresco-stage",
+            ingress="alfresco-content-services-alfresco-cs-repository"}[5m])) by (le, exported_namespace, ingress))
+            > 0.75
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
+        - alert: IngressHighErrorRate
+          annotations:
+            message:
+              "[{{ environment|upper }}] Error rate for Ingress is over 1% for
+              more than 5 minutes"
+          expr:
+            sum(rate(nginx_ingress_controller_requests{exported_namespace="hmpps-delius-alfresco-stage",
+            ingress="alfresco-content-services-alfresco-cs-repository",status=~"5.*"}[5m]))
+            / sum(rate(nginx_ingress_controller_requests{exported_namespace="hmpps-delius-alfresco-stage",
+            ingress="alfresco-content-services-alfresco-cs-repository"}[5m])) > 0.01
+          for: 5m
+          labels:
+            severity: hmpps-delius-alfresco-stage
