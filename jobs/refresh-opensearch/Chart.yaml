@@ -1,0 +1,6 @@
+---
+apiVersion: v2
+name: delius-alfresco-refresh-opensearch
+version: 0.0.1
+description: Helm chart for OpenSearch data migration between environments
+type: application

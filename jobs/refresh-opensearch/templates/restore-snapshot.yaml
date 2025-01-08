@@ -1,0 +1,139 @@
+{{- if eq .Values.jobType "restore" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: restore-opensearch-snapshot
+spec:
+  restartPolicy: Never
+  serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.destEnv }}"
+  template:
+    spec:
+      containers:
+        - name: restore-opensearch-snapshot
+          image: {{ .Values.job.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+            type: RuntimeDefault
+          env:
+            - name: OPENSEARCH_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.opensearch.endpointSecretName }}
+                  key: {{ $.Values.opensearch.endpointSecretKey }}
+            - name: SOURCE_S3_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ $.Values.s3.sourceS3BucketSecretName }}-{{ $.Values.sourceEnv }}"
+                  key: {{ $.Values.s3.s3BucketNameKey }}
+            - name: SNAPSHOT_ROLE_ARN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.opensearch.endpointSecretName }}
+                  key: {{ $.Values.opensearch.snapshotRoleArnKey }}
+            - name: SNAPSHOT_NAME
+              value: "{{ $.Values.opensearch.snapshotName }}"
+            - name: SNAPSHOT_REPOSITORY
+              value: "refresh-snapshots-{{ $.Values.sourceEnv }}"
+            - name: REGION
+              value: "{{ $.Values.s3.region }}"
+            - name: SOURCE_ENV
+              value: "{{ $.Values.sourceEnv }}"
+            - name: DEST_ENV
+              value: "{{ $.Values.destEnv }}"
+            - name: INDICES
+              value: "{{ $.Values.opensearch.indices }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "OPENSEARCH_ENDPOINT: ${OPENSEARCH_ENDPOINT}"
+              echo "SOURCE_S3_BUCKET_NAME: ${SOURCE_S3_BUCKET_NAME}"
+              echo "SNAPSHOT_ROLE_ARN: ${SNAPSHOT_ROLE_ARN}"
+              echo "SNAPSHOT_NAME: ${SNAPSHOT_NAME}"
+              echo "SNAPSHOT_REPOSITORY: ${SNAPSHOT_REPOSITORY}"
+              echo "REGION: ${REGION}"
+              echo "SOURCE_ENV: ${SOURCE_ENV}"
+              echo "DEST_ENV: ${DEST_ENV}"
+              echo "INDICES: ${INDICES}"
+
+              # Check if repository exists
+              REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY")
+
+              if [ "$REPO_CHECK" = "404" ]; then
+                echo "Repository does not exist. Creating snapshot repository..."
+                RESPONSE=$(curl -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY" -H 'Content-Type: application/json' -d "{
+                  \"type\": \"s3\",
+                  \"settings\": {
+                    \"bucket\": \"$SOURCE_S3_BUCKET_NAME\",
+                    \"region\": \"$REGION\",
+                    \"role_arn\": \"$SNAPSHOT_ROLE_ARN\"
+                  }
+                }")
+                if echo "$RESPONSE" | grep -q '"acknowledged":true'; then
+                  echo "Repository created successfully"
+                else
+                  echo "Failed to create repository: $RESPONSE"
+                  exit 1
+                fi
+              else
+                echo "Repository already exists"
+              fi
+
+              # Close indices before restore if they exist
+              echo "Checking and closing existing indices..."
+              for INDEX in $(echo "$INDICES" | tr ',' ' '); do
+                INDEX_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/$INDEX")
+                if [ "$INDEX_CHECK" = "200" ]; then
+                  echo "Closing index $INDEX..."
+                  curl -XPOST "$OPENSEARCH_ENDPOINT/$INDEX/_close"
+                fi
+              done
+
+              # Restore snapshot
+              echo "Restoring snapshot..."
+              RESPONSE=$(curl -s -XPOST "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME/_restore" -H 'Content-Type: application/json' -d "{
+                \"indices\": \"$INDICES\",
+                \"include_global_state\": false
+              }")
+
+              if ! echo "$RESPONSE" | grep -q '"accepted":true'; then
+                echo "Failed to initiate restore: $RESPONSE"
+                exit 1
+              fi
+
+              # Monitor restore progress
+              echo "Monitoring restore progress..."
+              while true; do
+                CURRENT_TIME=$(date "+%Y-%m-%d %H:%M:%S")
+
+                # Check recovery status
+                RECOVERY_STATUS=$(curl -s "$OPENSEARCH_ENDPOINT/_recovery" | grep -o '"stage":"[^"]*"' | sort -u)
+
+                if echo "$RECOVERY_STATUS" | grep -q "done"; then
+                  echo "[$CURRENT_TIME] Restore completed successfully"
+                  break
+                elif echo "$RECOVERY_STATUS" | grep -q "failed"; then
+                  echo "[$CURRENT_TIME] Restore failed"
+                  exit 1
+                else
+                  echo "[$CURRENT_TIME] Restore in progress... (Status: $RECOVERY_STATUS)"
+                  sleep 10
+                fi
+              done
+
+              # Open restored indices
+              echo "Opening restored indices..."
+              for INDEX in $(echo "$INDICES" | tr ',' ' '); do
+                echo "Opening index $INDEX..."
+                curl -XPOST "$OPENSEARCH_ENDPOINT/$INDEX/_open"
+              done
+
+  {{- end }}
