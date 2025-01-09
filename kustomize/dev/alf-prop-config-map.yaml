@@ -2,10 +2,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: alf-prop-config-map
-data: 
- alfresco-global.properties: |
+data:
+  alfresco-global.properties: |
     deployment.method=HELM_CHART
-    alfresco.cluster.enabled=true
+    alfresco.cluster.enabled=false
     alfresco.host=hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
     alfresco.protocol=https
     alfresco.port=443
@@ -24,7 +24,7 @@ data:
     localTransform.tika.url=http://alfresco-content-services-tika
     localTransform.misc.url=http://alfresco-content-services-transform-misc
     events.subsystem.autoStart=false
-    
+
     #Zaizi additions
     zaizi.noms.root.folder=NOMS
     zaizi.noms.crn.pattern=([A-Z])([0-9]{3})([0-9]{3})
