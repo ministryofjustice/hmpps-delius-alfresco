@@ -5,7 +5,7 @@ metadata:
 data:
   alfresco-global.properties: |
     deployment.method=HELM_CHART
-    alfresco.cluster.enabled=true
+    alfresco.cluster.enabled=false
     alfresco.host=hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
     alfresco.protocol=https
     alfresco.port=443
