@@ -15,7 +15,7 @@ jobs:
   release:
     strategy:
       matrix:
-        environment: [poc, dev, test, stage]
+        environment: [poc, dev, test, stage, preprod, prod]
         ref: 
           - ${{ contains(github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') }}
         exclude:
