@@ -38,6 +38,9 @@ vars:
   ATOMIC: "true"
   ATOMIC_FLAG:
     sh: if [ "{{.ATOMIC}}" = "true" ]; then echo "--atomic"; else echo ""; fi
+  DRY_RUN: "false"
+  DRY_RUN_FLAG:
+    sh: if [ "{{.DRY_RUN}}" = "true" ]; then echo "--dry-run"; else echo ""; fi
   CHART_VERSION: "7.0.3"
 
 tasks:
@@ -50,6 +53,7 @@ tasks:
       - echo "OPENSEARCH_HOST set to {{.OPENSEARCH_HOST}}"
       - echo "RDS_JDBC_URL set to {{.RDS_JDBC_URL}}"
       - echo "DEBUG set to {{.DEBUG}}"
+      - echo "DRY_RUN set to {{.DRY_RUN}}"
       - task: helm_repo_add
       - task: update_allowlist
       - task: helm_upgrade_install
@@ -60,6 +64,7 @@ tasks:
           RDS_JDBC_URL: "{{.RDS_JDBC_URL}}"
           DEBUG_FLAG: "{{.DEBUG_FLAG}}"
           ATOMIC_FLAG: "{{.ATOMIC_FLAG}}"
+          DRY_RUN_FLAG: "{{.DRY_RUN_FLAG}}"
       - task: reset_allowlist
     silent: true
 
@@ -107,7 +112,7 @@ tasks:
         --set global.search.host={{.OPENSEARCH_HOST}} \
         --wait --timeout=60m \
         --post-renderer ../kustomizer.sh --post-renderer-args "{{.HELM_POST_RENDERER_ARGS}}" \
-        {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}}
+        {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}} {{.DRY_RUN_FLAG}}
         echo " "
         echo "***** Helm upgrade completed *****"
         echo "Helm revision: $(helm list -n {{.NAMESPACE}} | grep alfresco-content-services | awk '{print $10}')"
@@ -136,12 +141,6 @@ tasks:
       - |
         helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime={{.FROM}}" --set "toTime={{.TO}}" --namespace {{.NAMESPACE}}
 
-  # reindex_by_date_metadata-only:
-  #   cmds:
-  #     - |
-  #       helm install "reindex-default-date-meta" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=202402010100" --set "toTime=202402100100" --set "content=false" --namespace {{.NAMESPACE}}
-
-  # uninstalls all helm releases with the prefix
   helm_uninstall_prefix:
     vars:
       PREFIX: "{{.PREFIX}}"
