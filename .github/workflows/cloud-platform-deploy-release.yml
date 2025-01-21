@@ -46,6 +46,11 @@ jobs:
           version: 'v3.9.0'
         id: helm_install
 
+      - name: Debug Helm
+        run: |
+          helm version
+          which helm
+
       - name: ${{ matrix.environment }} release
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
