@@ -37,13 +37,13 @@ jobs:
       - name: Install Kubernetes
         uses: azure/setup-kubectl@v3.2
         with:
-          version: 'v1.26.0' # default is latest stable
+          version: 'v1.29.13' # default is latest stable
         id: kubectl_install
 
       - name: Install Helm
         uses: azure/setup-helm@v3.5
         with:
-          version: 'v3.9.0'
+          version: 'v3.14.4' # default is latest stable
         id: helm_install
 
       - name: Debug Helm
