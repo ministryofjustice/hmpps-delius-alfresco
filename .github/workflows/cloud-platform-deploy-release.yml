@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         environment: [poc, dev, test, stage, preprod, prod]
-        ref: 
+        ref:
           - ${{ contains(github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') }}
         exclude:
           - ref: false
@@ -35,15 +35,15 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Kubernetes
-        uses: azure/setup-kubectl@v3.2
+        uses: azure/setup-kubectl@v4.0.0
         with:
-          version: 'v1.29.13' # default is latest stable
+          version: "v1.29.13" # default is latest stable
         id: kubectl_install
 
       - name: Install Helm
-        uses: azure/setup-helm@v3.5
+        uses: azure/setup-helm@v4.2.0
         with:
-          version: 'v3.14.4' # default is latest stable
+          version: "v3.14.4" # default is latest stable
         id: helm_install
 
       - name: Debug Helm
@@ -72,7 +72,7 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.x
-      
+
       - name: Run Task
         run: task helm_upgrade ENV=${{ matrix.environment }}
 
@@ -84,4 +84,4 @@ jobs:
       - name: Alert Slack Success
         if: "${{ success() && github.ref == 'refs/heads/main' }}"
         run: |
-            curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment Succeeded"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment to Alfresco `${{ matrix.environment }}` succeeded."},	"accessory": {"type": "button","text": {"type": "plain_text","text": ":github: View Job","emoji": true}, "value": "view-job", "url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "action_id": "button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment Succeeded"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment to Alfresco `${{ matrix.environment }}` succeeded."},	"accessory": {"type": "button","text": {"type": "plain_text","text": ":github: View Job","emoji": true}, "value": "view-job", "url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "action_id": "button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
