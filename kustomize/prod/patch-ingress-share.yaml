@@ -1,9 +1,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: alfresco-content-services-alfresco-cs-share
+  name: alfresco-content-services-share
   annotations:
-    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-cs-share-hmpps-delius-alfresco-prod-green
+    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-share-hmpps-delius-alfresco-prod-green
     nginx.ingress.kubernetes.io/whitelist-source-range: "placeholder"
 spec:
   rules:
@@ -12,14 +12,14 @@ spec:
         paths:
           - backend:
               service:
-                name: alfresco-content-services-alfresco-cs-share
+                name: alfresco-content-services-share
                 port:
                   number: 80
             path: /
             pathType: Prefix
           - backend:
               service:
-                name: alfresco-content-services-alfresco-cs-share
+                name: alfresco-content-services-share
                 port:
                   number: 80
             path: /share/page/
