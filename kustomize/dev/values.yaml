@@ -21,4 +21,4 @@ global:
   known_urls:
     - https://hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
     - https://share.hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
-    - https://alf-sfs.dev.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk
+    - https://alf-sfs.dev.delius-core.hmpps-development.modernisation-platform.service.justice.gov.uk
