@@ -148,7 +148,7 @@ tasks:
       - |
         helm list -n {{.NAMESPACE}} -q | grep "^{{.PREFIX}}" | while IFS= read -r release; do
           echo "Uninstalling release: $release"
-          helm uninstall "$release" -n "$NAMESPACE"
+          helm uninstall "$release" -n {{.NAMESPACE}}
         done
 
   kubectl_remove_pods_prefix:
@@ -160,5 +160,5 @@ tasks:
       - |
         kubectl get pods -n {{.NAMESPACE}} | grep "^{{.PREFIX}}" | awk '{print $1}' | while IFS= read -r pod; do
           echo "Deleting pod: $pod"
-          kubectl delete pod "$pod" -n "$NAMESPACE" {{.FORCE_FLAG}}
+          kubectl delete pod "$pod" -n {{.NAMESPACE}} {{.FORCE_FLAG}}
         done
