@@ -16,7 +16,7 @@ data:
     share.host=hmpps-delius-alfresco-prod.apps.live.cloud-platform.service.justice.gov.uk
     share.port=443
     local.transform.service.enabled=true
-    transform.service.enabled=false
+    transform.service.enabled=true
     localTransform.core-aio.url=
     localTransform.pdfrenderer.url=http://alfresco-content-services-pdfrenderer
     localTransform.imagemagick.url=http://alfresco-content-services-imagemagick
