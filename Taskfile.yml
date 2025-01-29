@@ -23,7 +23,7 @@ vars:
     sh: echo "{{.OPEN_SEARCH_PREFIX}}.{{.NAMESPACE}}.svc.cluster.local"
   MESSAGEBROKER_URL:
     sh: |
-      kubectl get secrets amazon-mq-broker-secret -o json | \
+      kubectl get secrets amazon-mq-broker-secret -o json -n {{.NAMESPACE}} | \
       jq -r ".data | map_values(@base64d) | .BROKER_URL" | \
       sed -e 's/(/\\(/g' -e 's/)/\\)/g' -e 's/,/\\,/g'
   ALLOWLIST:
@@ -72,7 +72,7 @@ tasks:
     internal: true
     cmds:
       - |
-        export BUCKET_NAME=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+        export BUCKET_NAME=$(kubectl get secrets s3-bucket-output -n {{.NAMESPACE}} -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
         if [ "${ENV}" = "poc" ]; then
           export NAMESPACE=hmpps-delius-alfrsco-${ENV}
         else
