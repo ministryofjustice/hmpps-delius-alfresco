@@ -16,3 +16,4 @@ patches:
   - path: patch-transform-misc.yaml
   - path: patch-transform-libreoffice.yaml
   - path: patch-transform-imagemagick.yaml
+  - path: patch-security-context.yaml
