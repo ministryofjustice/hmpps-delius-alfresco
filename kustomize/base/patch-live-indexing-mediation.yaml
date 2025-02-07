@@ -4,8 +4,6 @@ metadata:
   name: alfresco-search-enterprise-mediation
 spec:
   serviceName: alfresco-search-enterprise-mediation
-  strategy:
-    type: Recreate
   template:
     spec:
       containers:

@@ -225,9 +225,6 @@ alfresco-transform-service:
   enabled: true
   messageBroker:
     existingSecretName: amazon-mq-broker-secret
-  securityContext:
-    seccompProfile:
-        type: RuntimeDefault
   transformrouter:
     # -- Declares the alfresco-transform-router service used by the content repository
     # to route transformation requests
@@ -276,9 +273,6 @@ alfresco-transform-service:
       data:
         mountPath: "/tmp/Alfresco"
         subPath: "alfresco-content-services/filestore-data"
-  podSecurityContext:
-    seccompProfile:
-        type: RuntimeDefault
 share:
   # -- toggle deploying Alfresco Share UI
   enabled: true
@@ -402,9 +396,6 @@ alfresco-search-enterprise:
         name: *infrastructure_cmName
     image:
       tag: 4.0.0.1
-  securityContext:
-    seccompProfile:
-        type: RuntimeDefault
 alfresco-digital-workspace:
   nodeSelector: {}
   enabled: false
