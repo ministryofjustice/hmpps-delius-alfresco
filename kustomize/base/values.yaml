@@ -136,9 +136,9 @@ alfresco-repository:
     timeoutSeconds: 10
     failureThreshold: 6
   livenessProbe:
-    initialDelaySeconds: 130
+    initialDelaySeconds: 150
     periodSeconds: 20
-    timeoutSeconds: 15
+    timeoutSeconds: 20
   # image: set by environment values file
   configuration:
     repository:

@@ -16,4 +16,12 @@ patches:
   - path: patch-transform-misc.yaml
   - path: patch-transform-libreoffice.yaml
   - path: patch-transform-imagemagick.yaml
-  - path: patch-security-context.yaml
+  - path: patch-security-contexts/alfresco-content-services-alfresco-repository.yaml
+  - path: patch-security-contexts/alfresco-content-services-imagemagick.yaml
+  - path: patch-security-contexts/alfresco-content-services-transform-misc.yaml
+  - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-content.yaml
+  - path: patch-security-contexts/alfresco-content-services-libreoffice.yaml
+  - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-metadata.yaml
+  - path: patch-security-contexts/alfresco-content-services-pdfrenderer.yaml
+  - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-path.yaml
+  - path: patch-security-contexts/alfresco-content-services-tika.yaml
