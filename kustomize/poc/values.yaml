@@ -6,7 +6,7 @@ alfresco-repository:
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
   persistence:
     # -- Persist repository data
-    enabled: true
+    enabled: false
     baseSize: 100Gi
     # -- Specify a storageClass for dynamic provisioning
     accessModes:
