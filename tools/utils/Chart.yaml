@@ -1,0 +1,6 @@
+apiVersion: v2
+name: utils
+description: Utility pod for HMPPS Delius Alfresco
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
