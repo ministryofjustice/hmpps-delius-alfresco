@@ -39,7 +39,3 @@ Once deployed you can access the pod using:
 ```bash
 kubectl exec -it utils -- /bin/bash
 ```
-
-
-
-
