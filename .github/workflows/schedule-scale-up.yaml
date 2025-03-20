@@ -2,8 +2,11 @@ name: Schedule Scale Up Environments
 
 on:
   schedule:
-    - cron: '30 11 * * 1-5'  # Scale up POC environment at 6am on weekdays
+    - cron: '55 11 * * 1-5'  # Scale up POC environment at 6am on weekdays
     - cron: '0 3 * * 1-5'  # Scale up DEV environment at 3am on weekdays
+
+  workflow_dispatch:
+
 jobs:
   scale-up:
     runs-on: ubuntu-latest
@@ -14,7 +17,7 @@ jobs:
       - name: Determine Environment
         id: which-env
         run: |
-          if [[ "30 11 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "poc" ]]; then
+          if [[ "55 11 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "poc" ]]; then
             echo "ENV_TO_SCALE=poc" >> $GITHUB_ENV
           elif [[ "0 3 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "dev" ]]; then
             echo "ENV_TO_SCALE=dev" >> $GITHUB_ENV
