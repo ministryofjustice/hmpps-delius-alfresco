@@ -21,7 +21,7 @@ jobs:
           echo "Current working directory:"
           pwd
           echo "Contents of the directory:"
-          ls -alh
+          ls -alh .github/workflows
 
       - name: Determine Environment
         id: which-env
