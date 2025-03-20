@@ -1,18 +1,28 @@
 name: Schedule Scale Up Environments
 
 on:
-  # schedule:
-  #   - cron: '0 6 * * 1-5'  # Scale up POC environment at 6am on weekdays
-  #   - cron: '0 3 * * 1-5'  # Scale up DEV environment at 3am on weekdays
+  push:
+    branches:
+      - 'TM-1077*'
   workflow_dispatch:
 
 jobs:
-  scale-up:
+  schedule-scale-up:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         environment: ["poc"]
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Debug current directory
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Contents of the directory:"
+          ls -alh
+
       - name: Determine Environment
         id: which-env
         run: |
@@ -23,9 +33,6 @@ jobs:
           else
             echo "ENV_TO_SCALE=poc" >> $GITHUB_ENV
           fi
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
       - name: Call scale up workflow
         if: env.ENV_TO_SCALE != 'NONE'
