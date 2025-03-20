@@ -22,6 +22,9 @@ jobs:
             echo "ENV_TO_SCALE=NONE" >> $GITHUB_ENV
           fi
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Call scale up workflow
         if: env.ENV_TO_SCALE != 'NONE'
         uses: ./.github/workflows/scale-up.yaml
