@@ -7,15 +7,20 @@ on:
   workflow_dispatch:
 
 jobs:
+  checkout-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
   schedule-scale-up:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         environment: ["poc"]
+    outputs:
+      env_to_scale: ${{ steps.which-env.outputs.result }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Determine Environment
         id: which-env
         run: |
@@ -24,12 +29,14 @@ jobs:
           elif [[ "0 3 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "dev" ]]; then
             echo "ENV_TO_SCALE=dev" >> $GITHUB_OUTPUT
           else
-            echo "ENV_TO_SCALE=poc" >> $GITHUB_OUTPUT
+            echo "ENV_TO_SCALE=poc"
+            echo "ENV_TO_SCALE=${ENV_TO_SCALE}"  # Debugging
+            echo "result=${ENV_TO_SCALE}" >> $GITHUB_OUTPUT
           fi
-  
+
   call-scale-up:
     needs: schedule-scale-up
     if: needs.schedule-scale-up.outputs.ENV_TO_SCALE != 'NONE'
     uses: ./.github/workflows/scale-up.yaml
     with:
-      environment: ${{ needs.schedule-scale-up.outputs.ENV_TO_SCALE }}-preapproved
+      environment: ${{ needs.schedule-scale-up.outputs.env_to_scale }}-preapproved
