@@ -55,13 +55,11 @@ jobs:
 
           kubectl scale deployment alfresco-content-services-alfresco-repository --replicas=$(yq -r '.repository.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-share --replicas=$(yq -r '.share.replicaCount // 1' <<< "$LATEST_VALUES")
-          kubectl scale deployment alfresco-content-services-activemq --replicas=$(yq -r '.activemq.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-imagemagick --replicas=$(yq -r '.imagemagick.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-libreoffice --replicas=$(yq -r '.libreoffice.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-pdfrenderer --replicas=$(yq -r '.pdfrenderer.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-tika --replicas=$(yq -r '.tika.replicaCount // 1' <<< "$LATEST_VALUES")
           kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-content --replicas=1
-          kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-mediation --replicas=1
           kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-metadata --replicas=1
           kubectl scale deployment alfresco-content-services-alfresco-search-enterprise-path --replicas=1
           kubectl scale deployment alfresco-content-services-transform-misc --replicas=$(yq -r '.transformmisc.replicaCount // 1' <<< "$LATEST_VALUES")
