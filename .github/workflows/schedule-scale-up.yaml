@@ -16,26 +16,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Debug current directory
-        run: |
-          echo "Current working directory:"
-          pwd
-          echo "Contents of the directory:"
-          ls -alh .github/workflows
-
       - name: Determine Environment
         id: which-env
         run: |
           if [[ "0 6 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "poc" ]]; then
-            echo "ENV_TO_SCALE=poc" >> $GITHUB_ENV
+            echo "ENV_TO_SCALE=poc" >> $GITHUB_OUTPUT
           elif [[ "0 3 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "dev" ]]; then
-            echo "ENV_TO_SCALE=dev" >> $GITHUB_ENV
+            echo "ENV_TO_SCALE=dev" >> $GITHUB_OUTPUT
           else
-            echo "ENV_TO_SCALE=poc" >> $GITHUB_ENV
+            echo "ENV_TO_SCALE=poc" >> $GITHUB_OUTPUT
           fi
-
-      - name: Call scale up workflow
-        if: env.ENV_TO_SCALE != 'NONE'
-        uses: ./.github/workflows/scale-up.yaml
-        with:
-          environment: ${{ env.ENV_TO_SCALE }}-preapproved
+  
+  call-scale-up:
+    needs: schedule-scale-up
+    if: needs.schedule-scale-up.outputs.ENV_TO_SCALE != 'NONE'
+    uses: ./.github/workflows/scale-up.yaml
+    with:
+      environment: ${{ needs.schedule-scale-up.outputs.ENV_TO_SCALE }}-preapproved
