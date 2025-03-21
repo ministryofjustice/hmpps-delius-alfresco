@@ -15,6 +15,7 @@ jobs:
 
   schedule-scale-up:
     runs-on: ubuntu-latest
+    needs: checkout-repo
     strategy:
       matrix:
         environment: ["poc"]
@@ -24,15 +25,7 @@ jobs:
       - name: Determine Environment
         id: which-env
         run: |
-          if [[ "0 6 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "poc" ]]; then
-            echo "ENV_TO_SCALE=poc" >> $GITHUB_OUTPUT
-          elif [[ "0 3 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "dev" ]]; then
-            echo "ENV_TO_SCALE=dev" >> $GITHUB_OUTPUT
-          else
-            echo "ENV_TO_SCALE=poc"
-            echo "ENV_TO_SCALE=${ENV_TO_SCALE}"  # Debugging
-            echo "result=${ENV_TO_SCALE}" >> $GITHUB_OUTPUT
-          fi
+            echo "result=poc" >> $GITHUB_OUTPUT
   
   use-env-to-scale:
     runs-on: ubuntu-latest
