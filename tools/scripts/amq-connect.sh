@@ -7,11 +7,14 @@ trap fail ERR
 
 main() {        
     env=$1
-    if [ "$env" == "poc" ]; then
-        namespace="hmpps-delius-alfrsco-${env}"
-    else 
-        namespace="hmpps-delius-alfresco-${env}"
+    
+    # Restrict env values to only stage, preprod or prod
+    if [[ "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
+        echo "Invalid namespace. Allowed values: stage, preprod, or prod."
+        exit 1
     fi
+ 
+    namespace="hmpps-delius-alfresco-${env}"
     echo "Connecting to AMQ Console in namespace $namespace"
        
     # get amq connection url
@@ -42,48 +45,74 @@ main() {
 
     # generate random hex string
     RANDOM_HEX=$(openssl rand -hex 4)
+
     # start port forwarding
-    kubectl run port-forward-pod-${RANDOM_HEX}-0 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_0} --env="REMOTE_HOST=$HOST_0" --env="LOCAL_PORT=$LOCAL_PORT_0" --env="REMOTE_PORT=$REMOTE_PORT_0" --namespace ${namespace};
-    kubectl run port-forward-pod-${RANDOM_HEX}-1 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_1} --env="REMOTE_HOST=$HOST_1" --env="LOCAL_PORT=$LOCAL_PORT_1" --env="REMOTE_PORT=$REMOTE_PORT_1" --namespace ${namespace};
-    kubectl run port-forward-pod-${RANDOM_HEX}-2 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_2} --env="REMOTE_HOST=$HOST_2" --env="LOCAL_PORT=$LOCAL_PORT_2" --env="REMOTE_PORT=$REMOTE_PORT_2" --namespace ${namespace};
+    POD_NAME_0="port-forward-pod-${RANDOM_HEX}-0"
+    POD_NAME_1="port-forward-pod-${RANDOM_HEX}-1"
+    POD_NAME_2="port-forward-pod-${RANDOM_HEX}-2"
+
+    kubectl run $POD_NAME_0 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_0} --env="REMOTE_HOST=$HOST_0" --env="LOCAL_PORT=$LOCAL_PORT_0" --env="REMOTE_PORT=$REMOTE_PORT_0" --namespace ${namespace};
+    kubectl run $POD_NAME_1 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_1} --env="REMOTE_HOST=$HOST_1" --env="LOCAL_PORT=$LOCAL_PORT_1" --env="REMOTE_PORT=$REMOTE_PORT_1" --namespace ${namespace};
+    kubectl run $POD_NAME_2 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_2} --env="REMOTE_HOST=$HOST_2" --env="LOCAL_PORT=$LOCAL_PORT_2" --env="REMOTE_PORT=$REMOTE_PORT_2" --namespace ${namespace};
+    
     # wait for pod to start
-    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-0 --timeout=60s --namespace ${namespace}
-    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-1 --timeout=60s --namespace ${namespace}
-    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX}-2 --timeout=60s --namespace ${namespace}
-    printf "\nPort forwarding started, connecting to $HOST:$REMOTE_PORT \n"
-    printf "\n****************************************************\n"
-    printf "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT locally\n"
-    printf "Press Ctrl+C to stop port forwarding \n"
-    printf "****************************************************\n\n"
+    kubectl wait --for=condition=ready $POD_NAME_0 --timeout=120s --namespace ${namespace}
+    kubectl wait --for=condition=ready $POD_NAME_1 --timeout=120s --namespace ${namespace}
+    kubectl wait --for=condition=ready $POD_NAME_2 --timeout=120s --namespace ${namespace}
+    sleep 30
+    for i in {0..2}; do
+        HOST_VAR="HOST_${i}"
+        REMOTE_PORT_VAR="REMOTE_PORT_${i}"
+        PROTOCOL_VAR="PROTOCOL_${i}"
+        LOCAL_PORT_VAR="LOCAL_PORT_${i}"
+
+        HOST="${!HOST_VAR}"
+        REMOTE_PORT="${!REMOTE_PORT_VAR}"
+        PROTOCOL="${!PROTOCOL_VAR}"
+        LOCAL_PORT="${!LOCAL_PORT_VAR}"
+
+        printf "\nPort forwarding started, connecting to $HOST:$REMOTE_PORT \n"
+        printf "\n****************************************************\n"
+        printf "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT locally\n"
+        printf "Press Ctrl+C to stop port forwarding \n"
+        printf "****************************************************\n\n"
+    done
+    
     # start the local port forwarding session
-    kubectl port-forward --namespace ${namespace} port-forward-pod-${RANDOM_HEX}-0 $LOCAL_PORT_0:$LOCAL_PORT_0 &
+    kubectl port-forward --namespace ${namespace} $POD_NAME_0 $LOCAL_PORT_0:$LOCAL_PORT_0 &
     PORT_FORWARD_PID_0=$!
-    kubectl port-forward --namespace ${namespace} port-forward-pod-${RANDOM_HEX}-1 $LOCAL_PORT_1:$LOCAL_PORT_1 &
+    kubectl port-forward --namespace ${namespace} $POD_NAME_1 $LOCAL_PORT_1:$LOCAL_PORT_1 &
     PORT_FORWARD_PID_1=$!
-    kubectl port-forward --namespace ${namespace} port-forward-pod-${RANDOM_HEX}-2 $LOCAL_PORT_2:$LOCAL_PORT_2 &
+    kubectl port-forward --namespace ${namespace} $POD_NAME_2 $LOCAL_PORT_2:$LOCAL_PORT_2 &
     PORT_FORWARD_PID_2=$!
     wait
+
+    # Keep the script running, listening for ctrl+c
+    while true; do
+        sleep 1
+    done
 }
 
 fail() {
     printf "\n\nPort forwarding failed"
-    kill $PORT_FORWARD_PID_0 || true
-    kill $PORT_FORWARD_PID_1 || true
-    kill $PORT_FORWARD_PID_2 || true
-    kubectl delete pod port-forward-pod-${RANDOM_HEX}-0 --force --grace-period=0  --namespace ${namespace}
-    kubectl delete pod port-forward-pod-${RANDOM_HEX}-1 --force --grace-period=0  --namespace ${namespace}
-    kubectl delete pod port-forward-pod-${RANDOM_HEX}-2 --force --grace-period=0  --namespace ${namespace}
+    cleanup
     exit 1
 }
 ctrl_c() {
     printf "\n\nStopping port forwarding"
-    kill $PORT_FORWARD_PID_0 || true
-    kill $PORT_FORWARD_PID_1 || true
-    kill $PORT_FORWARD_PID_2 || true
-    kubectl delete pod port-forward-pod-${RANDOM_HEX}-0 --force --grace-period=0  --namespace ${namespace}
-    kubectl delete pod port-forward-pod-${RANDOM_HEX}-1 --force --grace-period=0  --namespace ${namespace}
-    kubectl delete pod port-forward-pod-${RANDOM_HEX}-2 --force --grace-period=0  --namespace ${namespace}
+    cleanup
     exit 0
+}
+
+cleanup() {
+    echo "Cleaning up..."
+    kill $PORT_FORWARD_PID_0 2>/dev/null || true
+    kill $PORT_FORWARD_PID_1 2>/dev/null || true
+    kill $PORT_FORWARD_PID_2 2>/dev/null || true
+    kubectl delete pod $POD_NAME_0 --force --grace-period=0 --namespace=${namespace} 2>/dev/null || true
+    kubectl delete pod $POD_NAME_1 --force --grace-period=0 --namespace=${namespace} 2>/dev/null || true
+    kubectl delete pod $POD_NAME_2 --force --grace-period=0 --namespace=${namespace} 2>/dev/null || true
+    echo "Cleanup complete."
 }
 
 if [ -z "$1" ]; then
@@ -91,4 +120,4 @@ if [ -z "$1" ]; then
     echo "Usage: amq-connect.sh <env>"
     exit 1
 fi
-main $1 $2
+main "$1" "$2"
