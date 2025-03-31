@@ -11,7 +11,7 @@ spec:
           env:
             - name: SPRING_ACTIVEMQ_POOL_ENABLED
               value: "true"
-            - name: SPRING_ACTIVEMQ_POOL_MAXCONNECTIONS
+            - name: SPRING_ACTIVEMQ_POOL_MAX_CONNECTIONS
               value: "100"
             - name: SPRING_ACTIVEMQ_POOL_IDLE_TIMEOUT
               value: "30000"          # 30 seconds idle timeout

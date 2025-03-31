@@ -1,19 +1,24 @@
 # this file overrides values defined in ./values.yaml
 alfresco-repository:
   # -- The startup probe to cover the worse case startup time for slow clusters
-  # startupProbe:
-  #   periodSeconds: 30
-  #   failureThreshold: 40
-  # readinessProbe:
-  #   initialDelaySeconds: 60
-  #   periodSeconds: 30
-  #   timeoutSeconds: 15
-  #   failureThreshold: 40  # Increased from 6 to 12
+  # startup probe to allow enough time for repo pod to startup because of cache warming,
+  # database queries and indexing
+  startupProbe:
+    initialDelaySeconds: 180   # increase initial delay because alf takes long time to start
+    periodSeconds: 40
+    failureThreshold: 40
+    successThreshold: 1
+    timeoutSeconds: 20
+  readinessProbe:
+    initialDelaySeconds: 60   # shorter delays to detect readiness quickly
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 2
   # livenessProbe:
-  #   initialDelaySeconds: 260  # Increased from 130 to 260
+  #   initialDelaySeconds: 240  # Increased from 130 to 260
   #   periodSeconds: 20
   #   timeoutSeconds: 15
-  #   failureThreshold: 40
+  #   failureThreshold: 50
   replicaCount: 10
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
