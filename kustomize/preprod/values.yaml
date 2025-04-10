@@ -3,17 +3,17 @@ alfresco-repository:
   # -- The startup probe to cover the worse case startup time for slow clusters
   # startup probe to allow enough time for repo pod to startup because of cache warming,
   # database queries and indexing
-  startupProbe:
-    initialDelaySeconds: 180   # increase initial delay because alf takes long time to start
-    periodSeconds: 40
-    failureThreshold: 40
-    successThreshold: 1
-    timeoutSeconds: 20
-  readinessProbe:
-    initialDelaySeconds: 60   # shorter delays to detect readiness quickly
-    periodSeconds: 20
-    timeoutSeconds: 10
-    failureThreshold: 2
+  # startupProbe:
+  #   initialDelaySeconds: 180   # increase initial delay because alf takes long time to start
+  #   periodSeconds: 40
+  #   failureThreshold: 40
+  #   successThreshold: 1
+  #   timeoutSeconds: 20
+  # readinessProbe:
+  #   initialDelaySeconds: 60   # shorter delays to detect readiness quickly
+  #   periodSeconds: 20
+  #   timeoutSeconds: 10
+  #   failureThreshold: 2
   # livenessProbe:
   #   initialDelaySeconds: 240  # Increased from 130 to 260
   #   periodSeconds: 20
