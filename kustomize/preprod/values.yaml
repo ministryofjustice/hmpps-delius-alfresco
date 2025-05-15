@@ -19,7 +19,7 @@ alfresco-repository:
   #   periodSeconds: 20
   #   timeoutSeconds: 15
   #   failureThreshold: 50
-  replicaCount: 10
+  replicaCount: 8
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
@@ -41,14 +41,14 @@ alfresco-search-enterprise:
   liveIndexing:
   # set in value-versions yaml
     content:
-      replicaCount: 4
+      replicaCount: 3
     metadata:
       replicaCount: 2
     mediation:
-      replicaCount: 2
+      replicaCount: 1
 alfresco-transform-service:
   tika:
-    replicaCount: 8
+    replicaCount: 4
     resources:
       requests:
         cpu: "0.5"
@@ -57,7 +57,7 @@ alfresco-transform-service:
         cpu: "2"
         memory: 6Gi
   transformrouter:
-    replicaCount: 8
+    replicaCount: 4
     resources:
       requests:
         cpu: "0.75"
