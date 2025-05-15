@@ -24,7 +24,9 @@ data:
     localTransform.libreoffice.url=http://alfresco-content-services-libreoffice
     localTransform.tika.url=http://alfresco-content-services-tika
     localTransform.misc.url=http://alfresco-content-services-transform-misc
-    
+    events.subsystem.autoStart=true
+    messaging.subsystem.autoStart=true
+
     #Zaizi additions
     zaizi.noms.root.folder=NOMS
     zaizi.noms.crn.pattern=([A-Z])([0-9]{3})([0-9]{3})
