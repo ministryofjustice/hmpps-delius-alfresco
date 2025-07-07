@@ -41,3 +41,6 @@
 - "194.75.210.216/29" # Unilink AOVPN
 - "217.138.45.109/32" # Unilink AOVPN
 - "217.138.45.110/32" # Unilink AOVPN
+- "128.77.75.64/26" # Prisma access corporate
+- "128.77.75.0/26" # Prisma access third party
+- "128.77.75.128/26" # Prisma access residents
