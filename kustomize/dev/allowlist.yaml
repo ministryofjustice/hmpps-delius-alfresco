@@ -44,3 +44,6 @@
 - "34.241.149.106/32" # Airflow in Analytical Platform
 - "52.210.79.20/32" # Airflow in Analytical Platform
 - "54.228.134.38/32" # Airflow in Analytical Platform
+- "128.77.75.64/26" # Prisma access corporate
+- "128.77.75.0/26" # Prisma access third party
+- "128.77.75.128/26" # Prisma access residents
