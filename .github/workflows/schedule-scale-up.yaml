@@ -1,9 +1,11 @@
 name: Schedule Scale Up Environments
 
 on:
-  schedule:
-    - cron: '0 6 * * 1-5'  # Scale up POC environment at 6am on weekdays
-    - cron: '0 3 * * 1-5'  # Scale up DEV environment at 3am on weekdays
+  # schedule:
+  #   - cron: '0 6 * * 1-5'  # Scale up POC environment at 6am on weekdays
+  #   - cron: '0 3 * * 1-5'  # Scale up DEV environment at 3am on weekdays
+  workflow_dispatch:
+
 jobs:
   scale-up:
     runs-on: ubuntu-latest
@@ -19,8 +21,11 @@ jobs:
           elif [[ "0 3 * * 1-5" == "${{ github.event.schedule }}" && "${{ matrix.environment }}" == "dev" ]]; then
             echo "ENV_TO_SCALE=dev" >> $GITHUB_ENV
           else
-            echo "ENV_TO_SCALE=NONE" >> $GITHUB_ENV
+            echo "ENV_TO_SCALE=poc" >> $GITHUB_ENV
           fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Call scale up workflow
         if: env.ENV_TO_SCALE != 'NONE'

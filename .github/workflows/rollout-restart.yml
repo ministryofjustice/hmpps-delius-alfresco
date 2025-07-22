@@ -1,0 +1,87 @@
+name: Rollout Restart Deployment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment (Kubernetes namespace)'
+        required: true
+        type: string
+      deployment:
+        description: 'Deployment to restart (if blank, restart all deployments via Helm manifest)'
+        required: false
+        type: string
+
+jobs:
+  rollout-restart:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    env:
+      RELEASE_NAME: alfresco-content-services
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: 'v1.26.0'
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3.5
+        with:
+          version: 'v3.9.0'
+
+      - name: Configure kubecontext
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER:   ${{ secrets.KUBE_CLUSTER }}
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster "${KUBE_CLUSTER}" \
+            --certificate-authority=./ca.crt \
+            --server="https://${KUBE_CLUSTER}"
+          kubectl config set-credentials deploy-user --token="${{ secrets.KUBE_TOKEN }}"
+          kubectl config set-context "${KUBE_CLUSTER}" \
+            --cluster="${KUBE_CLUSTER}" \
+            --user=deploy-user \
+            --namespace="${KUBE_NAMESPACE}"
+          kubectl config use-context "${KUBE_CLUSTER}"
+          kubectl config set-context --current --namespace="${KUBE_NAMESPACE}"
+
+      - name: Validate deployment (if specified)
+        if: ${{ inputs.deployment }}
+        run: |
+          set -e
+          echo "Validating deployment: ${{ inputs.deployment }} in namespace ${{ inputs.environment }}"
+          AVAILABLE=$(helm get manifest "$RELEASE_NAME" -n "${{ inputs.environment }}" \
+            | kubectl get -f - --no-headers=true \
+            | awk '/deployment/{print $1}' \
+            | sed 's|deployment/||')
+          if ! echo "$AVAILABLE" | grep -x "${{ inputs.deployment }}"; then
+            echo "ERROR: Deployment '${{ inputs.deployment }}' not found in release '$RELEASE_NAME'"
+            exit 1
+          fi
+
+      - name: Rollout Restart
+        run: |
+          set -e
+          echo "Namespace: ${{ inputs.environment }}"
+
+          if [ -n "${{ inputs.deployment }}" ]; then
+            echo "-> Restarting single deployment: ${{ inputs.deployment }}"
+            kubectl rollout restart deployment/${{ inputs.deployment }}
+          else
+            echo "-> Restarting all deployments from Helm manifest"
+            DEPLOYMENTS=$(
+              helm get manifest "$RELEASE_NAME" \
+                | kubectl get -f - --no-headers=true \
+                | awk '/deployment/{print $1}'
+            )
+            for deployment in $DEPLOYMENTS; do
+              echo "   - $deployment"
+              kubectl rollout restart "$deployment"
+            done
+          fi

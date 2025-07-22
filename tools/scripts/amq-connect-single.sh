@@ -27,9 +27,9 @@ log_debug() {
 main() {
     env=$1
 
-    # Restrict env values to only poc, dev, or test
-    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" ]]; then
-        log_error "Invalid namespace. Allowed values: poc, dev, or test."
+    # Restrict env values to only poc, dev, test or preprod
+    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" ]]; then
+        log_error "Invalid namespace. Allowed values: poc, dev, test or preprod."
         exit 1
     fi
 
@@ -105,7 +105,7 @@ cleanup() {
 
 if [ -z "$1" ]; then
     log_info "env not provided"
-    log_info "Usage: amq-connect.sh <env>"
+    log_info "Usage: amq-connect-single.sh <env>"
     exit 1
 fi
 main "$1" "$2"
