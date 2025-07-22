@@ -2,7 +2,6 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: alfresco-content-services-hpa
-  namespace: preprod
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

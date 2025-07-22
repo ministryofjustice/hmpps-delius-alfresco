@@ -1,12 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: alfresco-content-services-metrics
-  namespace: preprod
+  name: alfresco-content-services-alfresco-repository
   annotations:
-    kubernetes.io/ingress.class: nginx
-    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-metrics-hmpps-delius-alfresco-preprod-green
+    external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-repository-hmpps-delius-alfresco-preprod-green
     nginx.ingress.kubernetes.io/whitelist-source-range: "placeholder"
+    # Tell nginx to rewrite /metrics → /alfresco/s/prometheus
     nginx.ingress.kubernetes.io/rewrite-target: /alfresco/s/prometheus
 spec:
   rules:
@@ -23,4 +22,3 @@ spec:
   tls:
     - hosts:
         - hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
-

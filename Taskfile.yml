@@ -92,6 +92,7 @@ tasks:
         export ALLOWLIST={{.ALLOWLIST}}
         yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-repository.yaml
         yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-share.yaml
+        yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-metrics.yaml
 
   helm_repo_add:
     internal: true
@@ -126,6 +127,7 @@ tasks:
     cmds:
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-repository.yaml
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-share.yaml
+      - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-metrics.yaml
 
   # reindexes by id from the FROM_ID to the TO_ID
   # ID FORMAT: alf-node id

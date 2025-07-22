@@ -4,11 +4,11 @@ kind: Kustomization
 resources:
   - ../base
   - alf-prop-config-map.yaml
+  - hpa.yaml
 
 patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-infra-config-map.yaml
   - path: patch-ingress-metrics.yaml
-  - path: patch-hpa.yaml
 
