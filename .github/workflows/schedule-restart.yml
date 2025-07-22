@@ -1,8 +1,8 @@
 name: Scheduled Daily Rollout Restart
 
 on:
-  schedule:
-    - cron: '0 3 * * *'  # 03:00 UTC daily
+  #schedule:
+    #- cron: '0 3 * * *'  # 03:00 UTC daily
   workflow_dispatch:
 
 jobs:
