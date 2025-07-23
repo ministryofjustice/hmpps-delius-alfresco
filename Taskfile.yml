@@ -42,12 +42,6 @@ vars:
   DRY_RUN_FLAG:
     sh: if [ "{{.DRY_RUN}}" = "true" ]; then echo "--dry-run"; else echo ""; fi
   CHART_VERSION: "7.0.3"
-  BROKER_URL:
-    sh: kubectl get secret amazon-mq-broker-secret -n {{.NAMESPACE}} -o jsonpath='{.data.BROKER_URL}' | base64 --decode
-  BROKER_USERNAME:
-    sh: kubectl get secret amazon-mq-broker-secret -n {{.NAMESPACE}} -o jsonpath='{.data.BROKER_USERNAME}' | base64 --decode
-  BROKER_PASSWORD:
-    sh: kubectl get secret amazon-mq-broker-secret -n {{.NAMESPACE}} -o jsonpath='{.data.BROKER_PASSWORD}' | base64 --decode
 
 tasks:
   # Perform a helm upgrade on the alfresco-content-services chart
@@ -71,8 +65,6 @@ tasks:
           DEBUG_FLAG: "{{.DEBUG_FLAG}}"
           ATOMIC_FLAG: "{{.ATOMIC_FLAG}}"
           DRY_RUN_FLAG: "{{.DRY_RUN_FLAG}}"
-          BROKER_URL: "{{.BROKER_URL}}"
-          BROKER_USERNAME: "{{.BROKER_USERNAME}}"
       - task: reset_allowlist
     silent: true
 
