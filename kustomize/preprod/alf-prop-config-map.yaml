@@ -17,13 +17,15 @@ data:
     share.port=443
     local.transform.service.enabled=true
     transform.service.enabled=true
+    transform.service.url=http://alfresco-content-services-transform-router
     localTransform.core-aio.url=
     localTransform.pdfrenderer.url=http://alfresco-content-services-pdfrenderer
     localTransform.imagemagick.url=http://alfresco-content-services-imagemagick
     localTransform.libreoffice.url=http://alfresco-content-services-libreoffice
     localTransform.tika.url=http://alfresco-content-services-tika
     localTransform.misc.url=http://alfresco-content-services-transform-misc
-    events.subsystem.autoStart=false
+    events.subsystem.autoStart=true
+    messaging.subsystem.autoStart=true
 
     #Zaizi additions
     zaizi.noms.root.folder=NOMS
