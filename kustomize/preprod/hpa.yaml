@@ -2,24 +2,23 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: alfresco-content-services-hpa
-  namespace: preprod
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: alfresco-content-services-alfresco-repository
-  minReplicas: 1
+  minReplicas: 2
   maxReplicas: 8
   metrics:
-  # Autoscale pods with a target of having 60% resource usage overall
-  # In the event we've less than 60% overall it'll just scale to
+  # Autoscale pods with a target of having 50% cpu usage.
+  # In the event we've less than 50% overall it'll just scale down to
   # the minReplicas number of pods
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 60
+        averageUtilization: 50
   behavior:
     scaleDown:
       policies:

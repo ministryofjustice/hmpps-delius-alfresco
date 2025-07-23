@@ -18,8 +18,8 @@ alfresco-repository:
   #   initialDelaySeconds: 240  # Increased from 130 to 260
   #   periodSeconds: 20
   #   timeoutSeconds: 15
-  #   failureThreshold: 50
-  replicaCount: 8
+  #   failureThreshold: 40
+  replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
     tag: release_7.3.2_elasticsearch-r5.0.2-content-latest
