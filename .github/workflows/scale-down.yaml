@@ -23,12 +23,6 @@ jobs:
           version: 'v1.26.0' # default is latest stable
         id: kubectl_install
       
-      - name: Install Helm
-        uses: azure/setup-helm@v3.5
-        with:
-          version: 'v3.9.0'
-        id: helm_install
-
       - name: Scaling Down Deployments in ${{ matrix.environment }} namespace
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
@@ -45,9 +39,10 @@ jobs:
 
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
           
-          RELEASE_NAME="alfresco-content-services"
-          DEPLOYMENTS=$(helm get manifest $RELEASE_NAME | kubectl get -f - --no-headers=true | awk '/deployment/{print $1}')
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
-          for deployment in $DEPLOYMENTS; do
-              kubectl scale $deployment --replicas=0
-          done
+      - name: Run Task
+        run: task scale_down_deployments ENV=${{ matrix.environment }}
