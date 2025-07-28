@@ -1,0 +1,7 @@
+Socat started listening on 8161: Redirecting traffic to b-56b49c37-0065-4fbf-b6ba-ee5e20a8d98b-1.mq.eu-west-2.amazonaws.com:8162 (7)
+2025/07/27 23:10:12 socat[7] W waitpid(-1, {}, WNOHANG): no child has exited
+2025/07/27 23:10:13 socat[7] W waitpid(-1, {}, WNOHANG): no child has exited
+2025/07/27 23:12:07 socat[7] W waitpid(-1, {}, WNOHANG): no child has exited
+2025/07/27 23:12:08 socat[7] W waitpid(-1, {}, WNOHANG): no child has exited
+2025/07/27 23:12:13 socat[7] W waitpid(-1, {}, WNOHANG): no child has exited
+2025/07/27 23:13:11 socat[7] W waitpid(-1, {}, WNOHANG): no child has exited

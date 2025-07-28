@@ -49,4 +49,4 @@ jobs:
           version: 3.x
 
       - name: Run Task
-        run: task scale_up_deployments ENV=${{ matrix.environment }}
+        run: task scale_up_deployments ENV=${{ inputs.environment }}
