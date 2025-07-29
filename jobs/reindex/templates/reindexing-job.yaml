@@ -74,7 +74,7 @@ spec:
               value: >-
                 -Dalfresco.reindex.fromId={{ .Values.fromId }}
                 -Dalfresco.reindex.toId={{ .Values.toId }}
-                -Dalfresco.reindex.contentIndexingEnabled=true
+                -Dalfresco.reindex.contentIndexingEnabled={{ .Values.content }}
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
                 -Dalfresco.reindex.concurrentProcessors=30

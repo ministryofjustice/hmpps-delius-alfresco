@@ -34,6 +34,11 @@ jobs:
         with:
           version: 'v3.9.0'
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          
       - name: Configure kubecontext
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
@@ -66,6 +71,7 @@ jobs:
           fi
 
       - name: Rollout Restart
+        if: ${{ inputs.deployment }}
         run: |
           set -e
           echo "Namespace: ${{ inputs.environment }}"
@@ -73,15 +79,9 @@ jobs:
           if [ -n "${{ inputs.deployment }}" ]; then
             echo "-> Restarting single deployment: ${{ inputs.deployment }}"
             kubectl rollout restart deployment/${{ inputs.deployment }}
-          else
-            echo "-> Restarting all deployments from Helm manifest"
-            DEPLOYMENTS=$(
-              helm get manifest "$RELEASE_NAME" \
-                | kubectl get -f - --no-headers=true \
-                | awk '/deployment/{print $1}'
-            )
-            for deployment in $DEPLOYMENTS; do
-              echo "   - $deployment"
-              kubectl rollout restart "$deployment"
-            done
           fi
+
+      - name: Full Rolling Restart
+        if: ${{ inputs.deployment == '' || inputs.deployment == null }}
+        run: task restart_deployments ENV=${{ inputs.environment }}
+
