@@ -174,7 +174,7 @@ tasks:
 
         if [ "$RANGE" -gt 100000 ]; then
           echo "🚀 Large ID range detected. Scaling up repository and tika deployments..."
-          task scale_up_deployments ENV={{.ENV}}
+          task reindex_scale_up ENV={{.ENV}}
         else
           echo "ℹ️ Small ID range detected. No scaling needed."
         fi
