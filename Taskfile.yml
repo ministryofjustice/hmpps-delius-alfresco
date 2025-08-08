@@ -415,12 +415,12 @@ tasks:
         MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
         MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
 
-        echo "Updating HPA minReplicas to match maxReplicas for Repository"
+        echo "Updating HPA minReplicas to original minReplicas value for Repository"
         kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
           --type='merge' \
           -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}}}"
 
-        echo "Updating HPA minReplicas to match maxReplicas for Tika"
+        echo "Updating HPA minReplicas to original minReplicas value for Tika"
         kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
           --type='merge' \
           -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}}}"
