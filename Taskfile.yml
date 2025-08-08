@@ -525,4 +525,35 @@ tasks:
             kubectl scale $deployment --replicas=0
         done
 
-        
+  cleanup_inactive_reindex_helm_releases:
+    desc: "Delete inactive Helm releases with prefix reindex-default-* if no active pods are running"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        PREFIX="reindex-default"
+
+        echo "🔍 Finding Helm releases with prefix $PREFIX in namespace $NS..."
+        RELEASES=$(helm list -n "$NS" -q | grep "^${PREFIX}" || true)
+
+        if [ -z "$RELEASES" ]; then
+          echo "✅ No matching Helm releases found."
+          exit 0
+        fi
+
+        for RELEASE in $RELEASES; do
+          echo "⏳ Checking release: $RELEASE"
+
+          PODS=$(kubectl get pods -n "$NS" -l "app.kubernetes.io/instance=$RELEASE" -o json)
+          ACTIVE_POD_COUNT=$(echo "$PODS" | jq '[.items[] | select(.status.phase != "Succeeded" and .status.phase != "Failed")] | length')
+
+          if [ "$ACTIVE_POD_COUNT" -eq 0 ]; then
+            if [ "{{.DRY_RUN}}" = "true" ]; then
+              echo "🧪 DRY RUN: Would uninstall $RELEASE"
+            else
+              echo "🗑️  Uninstalling release: $RELEASE"
+              helm uninstall "$RELEASE" -n "$NS"
+            fi
+          else
+            echo "⏭️  Skipping $RELEASE — $ACTIVE_POD_COUNT active pod(s) still running"
+          fi
+        done        
