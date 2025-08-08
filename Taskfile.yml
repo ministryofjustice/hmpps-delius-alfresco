@@ -280,11 +280,13 @@ tasks:
         NS="{{.NAMESPACE}}"
 
         echo "🔍 Finding all reindexing ConfigMaps in namespace $NS..."
-        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-')
+        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-' | wc -l)
 
-        if [ -z "$CONFIGMAPS" ]; then
+        if [ "$CONFIGMAPS" -eq 0 ]; then
           echo "✅ No reindexing ConfigMaps found."
           exit 0
+        else
+          CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-')
         fi
 
         # Get all active pods (not Completed/Failed)
