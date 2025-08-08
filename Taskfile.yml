@@ -179,7 +179,7 @@ tasks:
           echo "ℹ️ Small ID range detected. No scaling needed."
         fi
 
-        task cleanup_unused_reindex_configmaps ENV={{.ENV}}
+        task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM={{.FROM}} TO={{.TO}}
 
         helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId={{.FROM}}" --set "toId={{.TO}}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
 
@@ -250,6 +250,55 @@ tasks:
 
         echo "Running Helm install to run job..."
         helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=${FROM}" --set "toTime=${TO}" --set "content=${INDEX_CONTENT}" --namespace ${NS}
+
+  delete_existing_reindex_configmaps_for_range:
+    desc: "Delete existing reindexing configmaps for a specific FROM-TO ID range"
+    cmds:
+      - |
+        FROM="{{.FROM}}"
+        TO="{{.TO}}"
+        NS="{{.NAMESPACE}}"
+
+        if [ -z "$FROM" ] || [ -z "$TO" ]; then
+          echo "❌ FROM and TO must be set"
+          exit 1
+        fi
+
+        PREFIX="reindexing-${FROM}-${TO}-"
+        echo "🔍 Searching for configmaps with prefix $PREFIX in $NS..."
+
+        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}")
+
+        if [ -z "$CONFIGMAPS" ]; then
+          echo "✅ No matching ConfigMaps found."
+          exit 0
+        fi
+
+        # Get all active pods (not Completed or Failed)
+        ACTIVE_PODS=$(kubectl get pods -n "$NS" --field-selector=status.phase!=Succeeded,status.phase!=Failed -o json)
+
+        for CM in $CONFIGMAPS; do
+          echo "🔎 Checking if ConfigMap $CM is in use..."
+
+          CM_IN_USE=false
+          for POD in $(echo "$ACTIVE_PODS" | jq -r '.items[].metadata.name'); do
+            POD_JSON=$(kubectl get pod "$POD" -n "$NS" -o json)
+
+            if echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.volumes[]?.configMap.name == $CM' >/dev/null ||
+              echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.containers[].envFrom[]?.configMapRef.name == $CM' >/dev/null; then
+              echo "⚠️  ConfigMap $CM is in use by pod $POD"
+              CM_IN_USE=true
+              break
+            fi
+          done
+
+          if [ "$CM_IN_USE" = false ]; then
+            echo "🗑️  Deleting unused ConfigMap $CM"
+            kubectl delete configmap "$CM" -n "$NS" --ignore-not-found
+          else
+            echo "⏭️  Skipping $CM as it's currently in use"
+          fi
+        done
 
   helm_uninstall_prefix:
     vars:
