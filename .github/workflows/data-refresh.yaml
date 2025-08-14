@@ -152,22 +152,23 @@ jobs:
           # Stream UUIDs into the pod (no kubectl cp needed)
           kubectl exec -i psql-util -- /bin/sh -lc "cat > /tmp/uuids.txt" < uuids.txt
 
-# Run the mapping using a temp table and \copy
-kubectl exec psql-util -- /bin/sh -c "
-  export PGPASSWORD='$DB_PASS';
-  psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -At <<'EOF' > /tmp/query_output.txt
-  SET client_min_messages TO WARNING;
-  CREATE TEMP TABLE uuids (uuid text);
-  \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
-  SELECT id FROM alf_node
-  WHERE store_id = 6
-    AND uuid IN (SELECT uuid FROM uuids)
-  ORDER BY id;
-EOF
-"
+          # Run the mapping using a temp table and \copy
+          kubectl exec psql-util -- /bin/sh -c "
+            export PGPASSWORD='$DB_PASS';
+            psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -At <<'EOF' > /tmp/query_output.txt
+            SET client_min_messages TO WARNING;
+            CREATE TEMP TABLE uuids (uuid text);
+            \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
+            SELECT id FROM alf_node
+            WHERE store_id = 6
+              AND uuid IN (SELECT uuid FROM uuids)
+            ORDER BY id;
+          EOF
+          "
 
           kubectl cp psql-util:/tmp/query_output.txt ./ids.txt
 
+          cat ids.txt
 
           kubectl delete pod psql-util --grace-period=0 --force >/dev/null 2>&1 || true
 
