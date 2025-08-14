@@ -130,15 +130,29 @@ jobs:
           PORT=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\2#')
           DBNM=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\3#')
 
-          # Create ephemeral pod with psql/jq/curl already installed
-          kubectl run psql-util --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest \
-            --restart=Never -- /bin/sh -lc "sleep 3600" >/dev/null 2>&1 || true
-          kubectl wait --for=condition=Ready pod/psql-util --timeout=60s
+          # Create ephemeral pod with numeric UID to satisfy runAsNonRoot policy
+          kubectl run psql-util \
+            --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest \
+            --restart=Never \
+            --overrides='{
+              "spec":{
+                "securityContext":{"allowPrivilegeEscalation":false,"privileged":false,"runAsNonRoot":true,"runAsUser":999,"capabilities":{"drop":["ALL"]},"seccompProfile":{"type":"RuntimeDefault"}}
+              }
+            }' \
+            -- /bin/sh -lc "sleep 600" >/dev/null 2>&1 || true
 
-          # Copy UUID list into the pod (one UUID per line)
-          kubectl cp uuids.txt psql-util:/tmp/uuids.txt
+          # Wait up to 3 minutes for Ready; if it fails, show why and exit
+          if ! kubectl wait --for=condition=Ready pod/psql-util --timeout=180s; then
+            echo "Ephemeral pod failed to become Ready. Describing for diagnostics:"
+            kubectl describe pod psql-util || true
+            kubectl logs psql-util || true
+            exit 1
+          fi
 
-          # Do the mapping using a temp table and \copy
+          # Stream UUIDs into the pod (no kubectl cp needed)
+          kubectl exec -i psql-util -- /bin/sh -lc "cat > /tmp/uuids.txt" < uuids.txt
+
+          # Run the mapping using a temp table and \copy
           kubectl exec psql-util -- /bin/sh -lc "
             export PGPASSWORD='$DB_PASS';
             psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -At <<'SQL'
