@@ -267,11 +267,13 @@ tasks:
         PREFIX="reindexing-${FROM}-${TO}-"
         echo "🔍 Searching for configmaps with prefix $PREFIX in $NS..."
 
-        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}")
+        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}" || true)
 
         if [ -z "$CONFIGMAPS" ]; then
           echo "✅ No matching ConfigMaps found."
           exit 0
+        else
+          echo "Found ConfigMaps: $CONFIGMAPS"
         fi
 
         # Get all active pods (not Completed or Failed)
