@@ -2,6 +2,8 @@
 name: Alfresco Data Refresh
 
 on:
+  #schedule:
+  #  - cron: '00 19 * * *'
   workflow_dispatch:
     inputs:
       environment:
@@ -20,6 +22,7 @@ jobs:
   find-and-reindex:
     runs-on: ubuntu-latest
     strategy:
+      # If the workflow is triggered by a scheduled event (schedule), it runs for multiple environments (poc, dev, test, stage). Otherwise, it uses the environment specified by the user input
       matrix:
         environment: ${{ github.event_name == 'schedule' && fromJson('["poc", "dev", "test", "stage"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
     environment: ${{ matrix.environment }}-preapproved
@@ -196,6 +199,8 @@ jobs:
 
       - name: Clean up previous reindex-list configmaps (static names)
         if: steps.mapids.outputs.no_ids == 'false'
+        env:
+          TASK_ENV: ${{ matrix.environment }}
         run: |
           set -euo pipefail
           kubectl delete configmap reindexing-list-configmap --ignore-not-found
@@ -204,7 +209,7 @@ jobs:
           # Loop through the ids and run the task to delete existing reindex configmaps
           while IFS= read -r id; do
             next_id=$((id + 1))
-            task delete_existing_reindex_configmaps_for_range ENV=${{ matrix.environment }} FROM=${id} TO=${next_id}
+            task delete_existing_reindex_configmaps_for_range ENV=${TASK_ENV} FROM=${id} TO=${next_id}
           done < ids.txt
 
       - name: Kick off reindex (one container per ID)
