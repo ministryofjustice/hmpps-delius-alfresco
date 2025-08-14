@@ -76,7 +76,7 @@ spec:
             - name: JAVA_OPTS
               value: >-
                 -Dalfresco.reindex.fromId={{ (int $item) }}
-                -Dalfresco.reindex.toId={{ (int $item) }}
+                -Dalfresco.reindex.toId={{ add (int $item) 1 }}
                 -Dalfresco.reindex.contentIndexingEnabled=true
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
