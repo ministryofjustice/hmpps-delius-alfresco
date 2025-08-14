@@ -159,10 +159,10 @@ jobs:
             SET client_min_messages TO WARNING;
             CREATE TEMP TABLE uuids (uuid text);
             \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
-            COPY (SELECT id FROM alf_node
-            WHERE store_id = 6
-              AND uuid IN (SELECT uuid FROM uuids)
-            ORDER BY id) TO '/tmp/query_output.txt';
+            \\copy (SELECT id FROM alf_node
+                    WHERE store_id = 6
+                      AND uuid IN (SELECT uuid FROM uuids)
+                    ORDER BY id) TO '/tmp/query_output.txt' WITH (FORMAT text);
           EOF
           "
 
