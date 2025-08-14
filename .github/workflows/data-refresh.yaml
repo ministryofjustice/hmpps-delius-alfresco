@@ -177,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           RELEASE="reindex-list-$(openssl rand -hex 4)"
-          helm install "$RELEASE" ./jobs/reindex-list \
+          #helm install "$RELEASE" ./jobs/reindex-list \
             --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
             -f ids.values.yaml \
             --namespace "${{ secrets.KUBE_NAMESPACE }}"
