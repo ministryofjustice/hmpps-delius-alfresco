@@ -4,199 +4,187 @@ name: Alfresco Data Refresh
 on:
   workflow_dispatch:
     inputs:
-      source_env:
-        description: Environment to copy data from
+      environment:
+        description: "Environment (e.g. preprod)"
         required: true
-        type: choice
-        options:
-          - dev
-      destination_env:
-        description: Environment to copy data to
-        required: true
-        type: choice
-        options:
-          - poc
+        default: "preprod"
+      days:
+        description: "Look-back window in days"
+        required: false
+        default: "1"
 
 permissions:
   contents: read
 
 jobs:
-  stop-destination-environment:
-    name: Stop ${{ github.event.inputs.destination_env }} Environment
-    runs-on: ubuntu-22.04
+  find-and-reindex:
+    runs-on: ubuntu-latest
     environment:
-      name: ${{ github.event.inputs.destination_env }}
+      name: ${{ github.event.inputs.environment }}
+
     steps:
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBE_CERT }}" > ca.crt
-        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-        kubectl config use-context ${KUBE_CLUSTER}
-      env:
-        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-
-    - name: Install Task
-      uses: arduino/setup-task@v2
-      with:
-        version: 3.x
-
-    - name: Stop ${{ github.event.inputs.destination_env }} Environment
-      run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
-
-  refresh-db:
-    name: Refresh DB
-    runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.source_env }}
-    needs: stop-destination-environment
-    steps:
-      - uses: actions/checkout@v4.1.1
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v3.2
+        uses: azure/setup-kubectl@v4
         with:
-          version: 'v1.26.0' # default is latest stable
-        id: kubectl_install
+          version: "v1.29.13"
 
-      - uses: azure/setup-helm@v4.2.0
+      - name: Install Helm
+        uses: azure/setup-helm@v4
         with:
-           version: 'v3.15.3' # default is latest (stable)
-        id: install
+          version: "v3.15.2"
 
-      - name: Configure kubectl
+      - name: Configure kubectl context
         run: |
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
-          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server="https://${KUBE_CLUSTER}"
+          kubectl config set-credentials deploy-user --token="${{ secrets.KUBE_TOKEN }}"
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace="${KUBE_NAMESPACE}"
           kubectl config use-context ${KUBE_CLUSTER}
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Uninstall DB Refresh chart
-        run: helm uninstall refresh-db --ignore-not-found
-
-      - name: DB Refresh
-        working-directory: jobs/refresh-db
-        run: |
-          helm install refresh-db . \
-            --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-            --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-            --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
-
-  refresh-s3:
-    name: Refresh S3
-    runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.source_env }}
-    needs: stop-destination-environment
-    steps:
-      - uses: actions/checkout@v4.1.1
-
-      - name: Install k
-        uses: azure/setup-kubectl@v3.2
-        with:
-          version: 'v1.26.0' # default is latest stable
-        id: kubectl_install
-
-      - uses: azure/setup-helm@v4.2.0
-        with:
-           version: 'v3.15.3' # default is latest (stable)
-        id: install
-
-      - name: Configure kubectl
-        run: |
-          echo "${{ secrets.KUBE_CERT }}" > ca.crt
-          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-          kubectl config use-context ${KUBE_CLUSTER}
+      - name: Port-forward to opensearch-proxy and query UUIDs
+        id: query
         env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-      
-      - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
-
-      - name: S3 Refresh
-        working-directory: jobs/refresh-s3
+          DAYS: ${{ github.event.inputs.days }}
         run: |
-          set -xeo pipefail
+          set -euo pipefail
 
-          SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
-          SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          # Find a running opensearch-proxy pod
+          POD=$(kubectl get pods -o name | grep opensearch-proxy-cloud-platform | head -n 1)
+          if [ -z "${POD}" ]; then
+            echo "No opensearch-proxy pod found" >&2
+            exit 1
+          fi
 
-          SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          # Start port-forward in background
+          kubectl port-forward "${POD#pod/}" 8080:8080 >/tmp/pf.log 2>&1 &
+          PF_PID=$!
+          echo "PF_PID=$PF_PID" >> $GITHUB_OUTPUT
+          # Give it a moment
+          sleep 3
 
-          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
+          # Build query with now-${DAYS}d window
+          cat > query-unindexed.json <<'JSON'
+          {
+            "size": 1000,
+            "_source": false,
+            "query": {
+              "bool": {
+                "filter": [
+                  { "range": { "cm%3Acreated": { "gte": "REPLACE_NOW_WINDOW" } } }
+                ],
+                "must": [
+                  { "match": { "TYPE": "nspg:offenderDocument" } }
+                ],
+                "must_not": [
+                  { "exists": { "field": "cm%3Acontent" } }
+                ]
+              }
+            },
+            "sort": [ { "_id": "desc" } ],
+            "track_total_hits": false
+          }
+          JSON
+          sed -i.bak "s/REPLACE_NOW_WINDOW/now-${DAYS}d/" query-unindexed.json
 
-          helm install refresh-s3 . \
-            --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-            --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-            --set directories="{${DIRS}}"
+          # Query opensearch-proxy
+          curl -sS -X POST "http://localhost:8080/alfresco/_search" \
+            --header "Content-Type: application/json" \
+            --data-binary @query-unindexed.json \
+            -o hits.json
 
-          kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
+          # Extract UUIDs
+          jq -r '.hits.hits[]._id' hits.json | sort -u > uuids.txt || true
+          echo "Found $(wc -l < uuids.txt) UUID(s)."
+          if [ ! -s uuids.txt ]; then
+            echo "no_uuids=true" >> $GITHUB_OUTPUT
+          else
+            echo "no_uuids=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
+      - name: Stop port-forward
+        if: steps.query.outputs.PF_PID != ''
+        run: |
+          kill -9 "${{ steps.query.outputs.PF_PID }}" || true
 
-  # wipe-solr-data:
-  #   name: Wipe Solr Data
-  #   runs-on: ubuntu-22.04
-  #   environment:
-  #     name: ${{ github.event.inputs.destination_env }}
-  #   needs: stop-destination-environment
-  #   steps:
-  #     - uses: actions/checkout@v4.1.1
+      - name: Map UUIDs -> alf_node.id via ephemeral pod
+        if: steps.query.outputs.no_uuids == 'false'
+        id: mapids
+        run: |
+          set -euo pipefail
 
-  #     - name: Configure kubectl
-  #       run: |
-  #         echo "${{ secrets.KUBE_CERT }}" > ca.crt
-  #         kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-  #         kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-  #         kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-  #         kubectl config use-context ${KUBE_CLUSTER}
-  #       env:
-  #         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-  #         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+          # Pull DB details from secret
+          JDBC_URL=$(kubectl get secret rds-instance-output -o jsonpath='{.data.RDS_JDBC_URL}' | base64 -d)
+          DB_USER=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_USERNAME}' | base64 -d)
+          DB_PASS=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_PASSWORD}' | base64 -d)
 
-  #     - name: Start Solr Data Wipe Job
-  #       run: |
-  #         kubectl apply -f jobs/wipe-solr-data.yaml
-  #         kubectl wait --timeout 10m --for=condition=complete job/wipe-solr-data
+          # Parse JDBC URL -> host/port/db
+          HOST=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\1#')
+          PORT=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\2#')
+          DBNM=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\3#')
 
-  #     - name: Delete Refresh Job
-  #       run: kubectl delete job wipe-solr-data
+          # Build ARRAY['uuid',...] for SQL
+          UUID_CSV=$(awk '{printf "%s%s", NR>1?",":"",("'"'"'"$0"'"'"'")}' uuids.txt)
+          SQL="select id from alf_node where store_id = 6 and uuid = any(ARRAY[$UUID_CSV]) order by id;"
 
-  start-destination-environment:
-    name: Start ${{ github.event.inputs.destination_env }} Environment
-    runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.destination_env }}
-    needs:
-      - refresh-db
-      - refresh-s3
-      # - wipe-solr-data
-    steps:
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBE_CERT }}" > ca.crt
-        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-        kubectl config use-context ${KUBE_CLUSTER}
-      env:
-        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+          # Create ephemeral pod using your db-utils image (psql + curl + jq preinstalled)
+          kubectl run psql-util --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest \
+            --restart=Never -- /bin/sh -lc "sleep 3600" >/dev/null 2>&1 || true
+          kubectl wait --for=condition=Ready pod/psql-util --timeout=60s
 
-    - name: Install Task
-      uses: arduino/setup-task@v2
-      with:
-        version: 3.x
+          # Execute psql and capture numeric IDs
+          kubectl exec psql-util -- /bin/sh -lc \
+            "PGPASSWORD='$DB_PASS' psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -Atc \"$SQL\"" \
+            > ids.txt
 
-    - name: Start ${{ github.event.inputs.destination_env }} Environment
-      run: task scale_up_deployments ENV=${{ github.event.inputs.destination_env }}
+          kubectl delete pod psql-util --grace-period=0 --force >/dev/null 2>&1 || true
+
+          sort -n -u ids.txt -o ids.txt
+          echo "Resolved $(wc -l < ids.txt) alf_node id(s)."
+          if [ ! -s ids.txt ]; then
+            echo "no_ids=true" >> $GITHUB_OUTPUT
+          else
+            echo "no_ids=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Helm values for reindex-list
+        if: steps.mapids.outputs.no_ids == 'false'
+        run: |
+          set -euo pipefail
+          echo "ids:" > ids.values.yaml
+          awk '{print "  - " $0}' ids.txt >> ids.values.yaml
+          echo "Generated ids.values.yaml:"
+          cat ids.values.yaml
+
+      - name: Clean up previous reindex-list configmaps (static names)
+        if: steps.mapids.outputs.no_ids == 'false'
+        run: |
+          kubectl delete configmap reindexing-list-configmap --ignore-not-found
+          kubectl delete configmap reindexing-list-prefixes-configmap --ignore-not-found
+
+      - name: Kick off reindex (one container per ID)
+        if: steps.mapids.outputs.no_ids == 'false'
+        env:
+          # Service name for the in-cluster opensearch proxy
+          OPENSEARCH_HOST: opensearch-proxy-cloud-platform
+        run: |
+          set -euo pipefail
+          RELEASE="reindex-list-$(openssl rand -hex 4)"
+          helm install "$RELEASE" ./jobs/reindex-list \
+            --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
+            -f ids.values.yaml \
+            --namespace "${{ secrets.KUBE_NAMESPACE }}"
+          echo "Installed Helm release: $RELEASE"
+
+      - name: Summary
+        run: |
+          echo "UUIDs (if any):"
+          [ -f uuids.txt ] && cat uuids.txt || true
+          echo
+          echo "alf_node IDs (if any):"
+          [ -f ids.txt ] && cat ids.txt || true
