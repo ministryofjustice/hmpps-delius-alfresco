@@ -38,6 +38,11 @@ jobs:
         with:
           version: "v3.15.2"
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
       - name: Configure kubectl context
         run: |
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
@@ -192,8 +197,15 @@ jobs:
       - name: Clean up previous reindex-list configmaps (static names)
         if: steps.mapids.outputs.no_ids == 'false'
         run: |
+          set -euo pipefail
           kubectl delete configmap reindexing-list-configmap --ignore-not-found
           kubectl delete configmap reindexing-list-prefixes-configmap --ignore-not-found
+
+          # Loop through the ids and run the task to delete existing reindex configmaps
+          while IFS= read -r id; do
+            next_id=$((id + 1))
+            task delete_existing_reindex_configmaps_for_range ENV=${{ matrix.environment }} FROM=${id} TO=${next_id}
+          done < ids.txt
 
       - name: Kick off reindex (one container per ID)
         if: steps.mapids.outputs.no_ids == 'false'
