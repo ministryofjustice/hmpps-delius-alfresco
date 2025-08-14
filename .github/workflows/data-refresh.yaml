@@ -130,19 +130,26 @@ jobs:
           PORT=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\2#')
           DBNM=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\3#')
 
-          # Build ARRAY['uuid',...] for SQL
-          UUID_CSV=$(awk '{printf "%s%s", NR>1?",":"",("'"'"'"$0"'"'"'")}' uuids.txt)
-          SQL="select id from alf_node where store_id = 6 and uuid = any(ARRAY[$UUID_CSV]) order by id;"
-
-          # Create ephemeral pod using your db-utils image (psql + curl + jq preinstalled)
+          # Create ephemeral pod with psql/jq/curl already installed
           kubectl run psql-util --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest \
             --restart=Never -- /bin/sh -lc "sleep 3600" >/dev/null 2>&1 || true
           kubectl wait --for=condition=Ready pod/psql-util --timeout=60s
 
-          # Execute psql and capture numeric IDs
-          kubectl exec psql-util -- /bin/sh -lc \
-            "PGPASSWORD='$DB_PASS' psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -Atc \"$SQL\"" \
-            > ids.txt
+          # Copy UUID list into the pod (one UUID per line)
+          kubectl cp uuids.txt psql-util:/tmp/uuids.txt
+
+          # Do the mapping using a temp table and \copy
+          kubectl exec psql-util -- /bin/sh -lc "
+            export PGPASSWORD='$DB_PASS';
+            psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -At <<'SQL'
+            CREATE TEMP TABLE uuids (uuid text);
+            \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
+            SELECT id FROM alf_node
+            WHERE store_id = 6
+              AND uuid IN (SELECT uuid FROM uuids)
+            ORDER BY id;
+            SQL
+          " > ids.txt
 
           kubectl delete pod psql-util --grace-period=0 --force >/dev/null 2>&1 || true
 
