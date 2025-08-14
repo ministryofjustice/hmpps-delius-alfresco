@@ -184,7 +184,7 @@ jobs:
         if: steps.mapids.outputs.no_ids == 'false'
         run: |
           set -euo pipefail
-          echo "ids:" > ids.values.yaml
+          echo "idList:" > ids.values.yaml
           awk '{print "  - " $0}' ids.txt >> ids.values.yaml
           echo "Generated ids.values.yaml:"
           cat ids.values.yaml
@@ -203,10 +203,10 @@ jobs:
         run: |
           set -euo pipefail
           RELEASE="reindex-list-$(openssl rand -hex 4)"
-          #helm install "$RELEASE" ./jobs/reindex-list \
-          #  --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
-          #  -f ids.values.yaml \
-          #  --namespace "${{ secrets.KUBE_NAMESPACE }}"
+          helm install "$RELEASE" ./jobs/reindex-list \
+            --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
+            -f ids.values.yaml \
+            --namespace "${{ secrets.KUBE_NAMESPACE }}"
           echo "Installed Helm release: $RELEASE"
 
       - name: Summary
