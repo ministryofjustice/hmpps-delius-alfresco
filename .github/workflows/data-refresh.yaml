@@ -155,7 +155,7 @@ jobs:
           # Run the mapping using a temp table and \copy
           kubectl exec psql-util -- /bin/sh -lc "
             export PGPASSWORD='$DB_PASS';
-            psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -At <<'SQL'
+            psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -At <<SQL
             CREATE TEMP TABLE uuids (uuid text);
             \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
             SELECT id FROM alf_node
@@ -163,7 +163,7 @@ jobs:
               AND uuid IN (SELECT uuid FROM uuids)
             ORDER BY id;
             SQL
-          " > ids.txt
+          " > ids.txt 
 
           kubectl delete pod psql-util --grace-period=0 --force >/dev/null 2>&1 || true
 
@@ -199,9 +199,9 @@ jobs:
           set -euo pipefail
           RELEASE="reindex-list-$(openssl rand -hex 4)"
           #helm install "$RELEASE" ./jobs/reindex-list \
-            --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
-            -f ids.values.yaml \
-            --namespace "${{ secrets.KUBE_NAMESPACE }}"
+          #  --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
+          #  -f ids.values.yaml \
+          #  --namespace "${{ secrets.KUBE_NAMESPACE }}"
           echo "Installed Helm release: $RELEASE"
 
       - name: Summary
