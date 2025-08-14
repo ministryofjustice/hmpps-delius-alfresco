@@ -155,14 +155,14 @@ jobs:
           # Run the mapping using a temp table and \copy
           kubectl exec psql-util -- /bin/sh -c "
             export PGPASSWORD='$DB_PASS';
-            psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -At <<'EOF'
+            psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -qAt <<'EOF' > /tmp/query_output.txt
             SET client_min_messages TO WARNING;
             CREATE TEMP TABLE uuids (uuid text);
             \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
-            \\copy (SELECT id FROM alf_node
-                    WHERE store_id = 6
-                      AND uuid IN (SELECT uuid FROM uuids)
-                    ORDER BY id) TO '/tmp/query_output.txt' WITH (FORMAT text);
+            SELECT id FROM alf_node
+            WHERE store_id = 6
+              AND uuid IN (SELECT uuid FROM uuids)
+            ORDER BY id;
           EOF
           "
 
