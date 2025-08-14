@@ -19,8 +19,10 @@ permissions:
 jobs:
   find-and-reindex:
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.event.inputs.environment }}
+    strategy:
+      matrix:
+        environment: ${{ github.event_name == 'schedule' && fromJson('["poc", "dev", "test", "stage"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
+    environment: ${{ matrix.environment }}-preapproved
 
     steps:
       - name: Checkout repo
