@@ -198,15 +198,17 @@ jobs:
       - name: Kick off reindex (one container per ID)
         if: steps.mapids.outputs.no_ids == 'false'
         env:
-          # Service name for the in-cluster opensearch proxy
-          OPENSEARCH_HOST: opensearch-proxy-cloud-platform
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         run: |
           set -euo pipefail
+
+          OPEN_SEARCH_PREFIX=$(kubectl get svc --namespace ${KUBE_NAMESPACE} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }')
+          OPENSEARCH_HOST=$(echo "${OPEN_SEARCH_PREFIX}.${KUBE_NAMESPACE}.svc.cluster.local")
           RELEASE="reindex-list-$(openssl rand -hex 4)"
           helm install "$RELEASE" ./jobs/reindex-list \
             --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
             -f ids.values.yaml \
-            --namespace "${{ secrets.KUBE_NAMESPACE }}"
+            --namespace "${KUBE_NAMESPACE}"
           echo "Installed Helm release: $RELEASE"
 
       - name: Summary
