@@ -235,3 +235,20 @@ jobs:
           echo
           echo "alf_node IDs (if any):"
           [ -f ids.txt ] && cat ids.txt || true
+
+      - name: Repository rolling restart if threshold met
+        if: steps.mapids.outputs.no_ids == 'false'
+        env:
+          TASK_ENV: ${{ matrix.environment }}
+          DEPLOYMENT: alfresco-content-services-alfresco-repository
+          RESTART_THRESHOLD: 40
+        run: |
+          set -e
+          UNINDEXED=$(wc -l < ids.txt)
+          # if UNINDEXED is greater than x then restart the repo deployment
+          if [ "$UNINDEXED" -gt "${RESTART_THRESHOLD}" ]; then
+            echo "-> Restarting deployment: ${DEPLOYMENT}"
+            kubectl rollout restart deployment/${DEPLOYMENT}
+          fi
+          # send Slack notification
+          curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
