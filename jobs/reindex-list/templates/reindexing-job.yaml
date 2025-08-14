@@ -4,9 +4,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "reindexing-{{ (int $item) }}-{{ (int $item) }}-{{ $index }}"
+  name: "reindexing-{{ (int $item) }}-{{ add (int $item) 1 }}-{{ $index }}"
   labels:
-    reindex-job: "{{ (int $item) }}-{{ (int $item) }}-{{ $index }}"
+    reindex-job: "{{ (int $item) }}-{{ add (int $item) 1 }}-{{ $index }}"
     reindex-type: "list"
 spec:
   template:
@@ -29,7 +29,7 @@ spec:
       - name: {{ $.Values.imagePullSecrets }}
       restartPolicy: Never
       containers:
-        - name: "reindexing-{{ (int $item) }}-{{ (int $item) }}"
+        - name: "reindexing-{{ (int $item) }}-{{ add (int $item) 1 }}"
           image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           securityContext:
@@ -80,7 +80,7 @@ spec:
                 -Dalfresco.reindex.contentIndexingEnabled=true
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
-                -Dalfresco.reindex.concurrentProcessors=30
+                -Dalfresco.reindex.concurrentProcessors=10
                 -Dalfresco.reindex.batchSize=1000
                 -Dalfresco.reindex.pageSize=10000
           ports:
