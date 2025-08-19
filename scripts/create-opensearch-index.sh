@@ -27,3 +27,6 @@ curl -XPUT "localhost:8080/$1/_settings" -H 'Content-Type: application/json' -d 
 
 # set the translog flush threshold to 2GB
 curl -XPUT "localhost:8080/$1/_settings" -H 'Content-Type: application/json' -d '{ "index" : { "translog" : { "flush_threshold_size" : "2gb"  }} }'
+
+# set the max docvalue fields search to 150
+curl -XPUT "localhost:8080/$1/_settings" -H 'Content-Type: application/json' -d '{ "index" : { "max_docvalue_fields_search" : "150"  }}'
