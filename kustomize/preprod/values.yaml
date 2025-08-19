@@ -20,7 +20,8 @@ alfresco-repository:
   #   timeoutSeconds: 15
   #   failureThreshold: 40
   environment:
-  # We need s3.flatRoot=false to build the correct S3 folder structures.
+  # We need s3.flatRoot=false to build the correct S3 folder structures with dates, 
+  # however this property is deprecated and may be removed in future versions.
   # The com.sun.management.jmxremote settings are required for JMX monitoring.
     JAVA_OPTS: >-
       -Dindex.subsystem.name=elasticsearch
