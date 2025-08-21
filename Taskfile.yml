@@ -1,3 +1,55 @@
+# Taskfile.yml - Taskfile for managing Alfresco Content Services (ACS) deployments and operations in Kubernetes
+#
+# This Taskfile provides a set of tasks and variables to automate common operational workflows for the
+# Alfresco Content Services (ACS) platform, including Helm upgrades, scaling, reindexing, and cleanup
+# operations within Kubernetes namespaces.
+#
+# VARIABLES:
+#   - ENV: The environment name (e.g., dev, test, prod, poc). Required for most tasks.
+#   - FROM, TO: Used for specifying ID or date ranges in reindexing tasks.
+#   - FORCE, DEBUG, DRY_RUN, ATOMIC: Flags to control task behavior.
+#   - NAMESPACE: Dynamically determined namespace based on ENV.
+#   - BUCKET_NAME, OPENSEARCH_HOST, RDS_JDBC_URL, MESSAGEBROKER_URL: Fetched from Kubernetes secrets/services.
+#   - ALLOWLIST: Comma-separated allowlist for ingress whitelisting.
+#   - Various replica counts for scaling deployments (MAX_REPO_REPLICAS, MIN_REPO_REPLICAS, etc.).
+#
+# MAIN TASKS:
+#   - helm_upgrade: Performs a Helm upgrade/install of the ACS chart, updating allowlists and using dynamic values.
+#   - prepare_namespace: Prepares environment variables and prints the namespace in use.
+#   - update_allowlist/reset_allowlist: Updates or resets ingress allowlist annotations for repository and share.
+#   - helm_repo_add: Adds the Alfresco Helm repository.
+#   - helm_upgrade_install: Runs the Helm upgrade/install command with all required values and flags.
+#
+# REINDEXING TASKS:
+#   - reindex_by_id: Reindexes documents/metadata by Alfresco node ID range. Scales up deployments if range > 100,000.
+#   - reindex_by_date: Reindexes by date range (YYYYMMDDHHMM). Optionally skips content indexing.
+#   - delete_existing_reindex_configmaps_for_range: Deletes unused reindexing configmaps for a given ID range.
+#
+# CLEANUP & MAINTENANCE TASKS:
+#   - helm_uninstall_prefix: Uninstalls Helm releases by prefix.
+#   - kubectl_remove_pods_prefix: Deletes pods by prefix, with optional force.
+#   - cleanup_unused_reindex_configmaps: Deletes all unused reindexing configmaps in a namespace.
+#   - cleanup_inactive_reindex_helm_releases: Uninstalls inactive Helm releases with prefix reindex-default-*.
+#
+# SCALING & DEPLOYMENT MANAGEMENT:
+#   - restart_deployments: Restarts all ACS deployments in the namespace.
+#   - reindex_scale_up/reindex_scale_down: Temporarily scales up/down HPA minReplicas for reindexing.
+#   - scale_up_deployments: Scales up all deployments to their configured replica counts.
+#   - scale_down_deployments: Scales down all deployments to zero replicas.
+#
+# USAGE EXAMPLES:
+#   - FROM=100000 TO=200000 task reindex_by_id
+#   - FROM=201706072250 TO=201706072350 INDEX_CONTENT=false task reindex_by_date
+#
+# REQUIREMENTS:
+#   - yq, jq, kubectl, helm, and openssl must be installed and available in PATH.
+#   - Kubernetes context must be set to the target cluster.
+#   - ENV variable must be set for most tasks.
+#
+# NOTES:
+#   - Many tasks are internal and intended to be called by other tasks.
+#   - The Taskfile is designed for use with the go-task/task runner.
+#   - Secrets and configuration are dynamically loaded from Kubernetes and local YAML files.
 version: "3"
 
 vars:
