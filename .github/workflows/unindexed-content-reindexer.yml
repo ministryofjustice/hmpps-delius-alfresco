@@ -34,18 +34,32 @@
 name: Alfresco Unindexed Content Reindexer
 
 on:
-  #schedule:
-  #  - cron: '00 19 * * *'
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment (e.g. preprod)"
+        description: "Target Environment"
         required: true
-        default: "preprod"
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
       days:
         description: "Look-back window in days"
         required: false
         default: "1"
+      uuids_csv:
+        description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
+        required: false
+        type: string
+  #schedule:
+    # GitHub Actions cron uses UTC.
+    # E.g. runs every night at:
+    #   19:00 UTC
+    #- cron: "0 19 * * *"
 
 permissions:
   contents: read
@@ -54,9 +68,9 @@ jobs:
   find-and-reindex:
     runs-on: ubuntu-latest
     strategy:
-      # If the workflow is triggered by a scheduled event (schedule), it runs for multiple environments (poc, dev, test, stage). Otherwise, it uses the environment specified by the user input
+      # If the workflow is triggered by a scheduled event (schedule), it runs for multiple environments (e.g. poc, dev, test, stage). Otherwise, it uses the environment specified by the user input
       matrix:
-        environment: ${{ github.event_name == 'schedule' && fromJson('["poc", "dev", "test", "stage"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
+        environment: ${{ github.event_name == 'schedule' && fromJson('["poc", "dev", "test", "stage", "preprod", "prod"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
     environment: ${{ matrix.environment }}-preapproved
 
     steps:
@@ -89,7 +103,26 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Port-forward to opensearch-proxy and query UUIDs
+      # if user supplied a CSV list, transform it into uuids.txt (one UUID per line)
+      - name: Create uuids.txt from input (if provided)
+        if: ${{ inputs.uuids_csv != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Write the raw input, then normalize to one UUID per line:
+          # - Replace commas/semicolons/spaces/tabs with newlines
+          # - Strip CR characters (Windows line endings)
+          # - Drop empty lines
+          printf "%s\n" "${{ inputs.uuids_csv }}" \
+            | tr ',;\t ' '\n' \
+            | sed 's/\r//g' \
+            | sed '/^$/d' \
+            > uuids.txt
+
+          echo "Wrote $(wc -l < uuids.txt) UUID(s) to uuids.txt"
+
+      - name: Query UUIDs from OpenSearch
+        if: ${{ inputs.uuids_csv == '' }}
         id: query
         env:
           DAYS: ${{ github.event.inputs.days }}
