@@ -1,6 +1,20 @@
 name: Scale Up Lower Environments
 
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to scale up"
+        required: true
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
+
   workflow_call:
     inputs:
       environment:
