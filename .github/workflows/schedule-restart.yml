@@ -1,8 +1,9 @@
 name: Scheduled Daily Rollout Restart
 
 on:
-  schedule:
-    - cron: '0 5 * * *'  # 05:00 UTC daily
+  # No need to scheduled restarts at the moment. Should be expanded so that schedules per env can be defined.
+  #schedule:
+    #- cron: '0 5 * * *'  # 05:00 UTC daily
   workflow_dispatch:
 
 jobs:
