@@ -1,5 +1,31 @@
 #!/bin/bash
 
+# -----------------------------------------------------------------------------
+# Script Name: stream-alfresco-logs-per-pod.sh
+#
+# Description:
+#   Streams logs from all pods in a specified Kubernetes namespace related to
+#   Alfresco, saving each pod's logs to a separate file in the local log directory.
+#   The script supports environments: poc, dev, test, and preprod.
+#
+# Usage:
+#   ./stream-alfresco-logs-per-pod.sh <poc|dev|test|preprod>
+#
+# Arguments:
+#   <environment>   The target environment/namespace (poc, dev, test, or preprod).
+#
+# Features:
+#   - Validates the provided environment argument.
+#   - Determines the correct Kubernetes namespace based on the environment.
+#   - Fetches all pod names in the namespace.
+#   - Streams logs from each pod to a separate file under ../../../alfresco-logs/.
+#   - Handles cleanup of background log streaming processes on script exit or interruption.
+#
+# Notes:
+#   - Requires kubectl to be configured with access to the target cluster.
+#   - Log files are stored in the ../../../alfresco-logs directory relative to the script.
+# -----------------------------------------------------------------------------
+
 if [ -z "${1:-}" ]; then
   echo "❌ No environment specified. Usage: $0 <poc|dev|test|preprod>"
   exit 1

@@ -1,4 +1,34 @@
 #!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# Script Name: stream-alfresco-logs.sh
+#
+# Description:
+#   Streams logs from all pods (or optionally, only alfresco-repository pods)
+#   in a specified Kubernetes namespace corresponding to an environment
+#   (poc, dev, test, or preprod). Logs are aggregated into a timestamped file.
+#
+# Usage:
+#   ./stream-alfresco-logs.sh <poc|dev|test|preprod>
+#
+# Arguments:
+#   <environment>   The target environment/namespace (must be one of: poc, dev, test, preprod)
+#
+# Features:
+#   - Validates the environment argument.
+#   - Determines the correct Kubernetes namespace based on the environment.
+#   - Optionally filters pods by label (default: all pods).
+#   - Streams logs from all containers in each pod to a single log file.
+#   - Handles cleanup on exit (stops all background log streams).
+#
+# Output:
+#   - Logs are saved to ../../../alfresco-logs/alfresco-repo-logs-<timestamp>.log
+#
+# Notes:
+#   - Requires kubectl to be configured with access to the target cluster.
+#   - Press Ctrl+C to stop streaming and clean up background processes.
+# -----------------------------------------------------------------------------
+
 set -euo pipefail
 
 # ─── Cleanup on exit ─────────────────────────────────────────────────────────────
