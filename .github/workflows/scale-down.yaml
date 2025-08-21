@@ -4,13 +4,25 @@ on:
   schedule:
     - cron: '00 19 * * 1-5'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to scale up"
+        required: true
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
 jobs:
   scale-down:
     runs-on: ubuntu-latest
     strategy:
-        matrix:
-          environment: ["poc"]
-        fail-fast: false
+      matrix:
+        environment: ${{ github.event_name == 'workflow_dispatch' && fromJson('["' + inputs.environment + '"]') || fromJson('["poc"]') }}
+      fail-fast: false
     environment:
       name: ${{ matrix.environment }}-preapproved
     steps:
