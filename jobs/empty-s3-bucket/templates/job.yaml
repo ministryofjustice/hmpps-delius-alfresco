@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: empty-s3
+  labels:
+    name-prefix: empty-s3
+spec:
+  backoffLimit: {{ .Values.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+  template:
+    spec:
+      parallelism: {{ .Values.parallelism }}
+      completions: 1
+      containers:
+        - name: empty-s3
+          image: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/webops/cloud-platform-service-pod:c5f69b4624b956248001fa7c173c89a0556a457e
+          imagePullPolicy: IfNotPresent
+          resources:
+          limits:
+            cpu: 1
+            memory: 2Gi
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              chmod +x /scripts/delete-s3.sh && \
+              BUCKET="{{ .Values.bucketName }}" \
+              AWS_REGION="{{ .Values.region }}" \
+              /scripts/delete-s3.sh
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: script
+          configMap:
+            name: empty-s3-script
+            defaultMode: 0755
+
