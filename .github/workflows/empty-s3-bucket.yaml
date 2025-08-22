@@ -53,7 +53,7 @@ jobs:
       # Deploy the s3 emptying Job via Helm
       - name: Helm install empty s3 buckets
         run: |
-          helm upgrade --install empty-s3 ./empty-s3-bucket \
+          helm install empty-s3 ./jobs//empty-s3-bucket \
             --namespace hmpps-delius-alfresco-${{ github.event.inputs.environment }}
             --set environment=${{ github.event.inputs.environment }}
 

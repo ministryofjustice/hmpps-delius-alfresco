@@ -2,9 +2,11 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: empty-s3-script
+  labels:
+    action: empty-s3-bucket
 data:
-  delete-s3.sh: |
-    #!/usr/bin/env bash
+  delete-s3.sh: |-
+    #!/bin/sh
     set -euo pipefail
 
     BUCKET="${BUCKET}"
@@ -13,30 +15,38 @@ data:
     echo "Bucket: ${BUCKET}"
     echo "Region: ${REGION}"
 
+    # Delete current object versions
     while true; do
-      echo "Listing up to 1000 versions and delete markers from $BUCKET..."
+      versions=$(aws s3api list-object-versions --bucket "$BUCKET" \
+                  --max-items 1000 \
+                  --query 'Versions[*].[Key,VersionId]' \
+                  --output text)
 
-      aws s3api list-object-versions \
-        --bucket "$BUCKET" \
-        --max-items 1000 \
-        --output json > /tmp/list.json
-
-      # Check if there are no more versions or delete markers
-      TOTAL=$(jq '[.Versions[], .DeleteMarkers[]] | length' /tmp/list.json)
-      if [ "$TOTAL" -eq 0 ]; then
-        echo "Bucket $BUCKET is empty (all versions and delete markers removed)."
-        exit 0
+      if [ -z "$versions" ]; then
+        echo "No more versions left."
+        break
       fi
 
-      # Delete all versions
-      jq -r '.Versions[] | [.Key, .VersionId] | @tsv' /tmp/list.json | while read -r key version; do
-        echo "Deleting object: $key (version $version)"
+      echo "$versions" | while read -r key version; do
+        echo "Deleting object: $key (version: $version)"
         aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
       done
+    done
 
-      # Delete all delete markers
-      jq -r '.DeleteMarkers[] | [.Key, .VersionId] | @tsv' /tmp/list.json | while read -r key version; do
-        echo "Deleting delete marker: $key (version $version)"
+    # Delete delete markers
+    while true; do
+      markers=$(aws s3api list-object-versions --bucket "$BUCKET" \
+                  --max-items 1000 \
+                  --query 'DeleteMarkers[*].[Key,VersionId]' \
+                  --output text)
+
+      if [ -z "$markers" ]; then
+        echo "No more delete markers left."
+        break
+      fi
+
+      echo "$markers" | while read -r key version; do
+        echo "Deleting delete marker: $key (version: $version)"
         aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
       done
     done

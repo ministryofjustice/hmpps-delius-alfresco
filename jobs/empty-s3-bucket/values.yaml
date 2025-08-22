@@ -1,10 +1,5 @@
-bucketName: "cloud-platform-f0ef56cb1ce77f028f850c05f6691d6d"
-# Optional prefix, empty means whole bucket
-prefix: ""
-region: "eu-west-2"
-
-parallelism: 10
-
-# Kubernetes stuffs
-backoffLimit: 10
+bucketName: cloud-platform-f0ef56cb1ce77f028f850c05f6691d6d
+region: eu-west-2
+parallelism: 15
+backoffLimit: 15
 ttlSecondsAfterFinished: 3600
