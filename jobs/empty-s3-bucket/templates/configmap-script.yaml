@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: empty-s3-script
+data:
+  delete-s3.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    BUCKET="${BUCKET}"
+    REGION="${AWS_REGION}"
+
+    echo "Bucket: ${BUCKET}"
+    echo "Region: ${REGION}"
+
+    while true; do
+      echo "Listing up to 1000 versions and delete markers from $BUCKET..."
+
+      aws s3api list-object-versions \
+        --bucket "$BUCKET" \
+        --max-items 1000 \
+        --output json > /tmp/list.json
+
+      # Check if there are no more versions or delete markers
+      TOTAL=$(jq '[.Versions[], .DeleteMarkers[]] | length' /tmp/list.json)
+      if [ "$TOTAL" -eq 0 ]; then
+        echo "Bucket $BUCKET is empty (all versions and delete markers removed)."
+        exit 0
+      fi
+
+      # Delete all versions
+      jq -r '.Versions[] | [.Key, .VersionId] | @tsv' /tmp/list.json | while read -r key version; do
+        echo "Deleting object: $key (version $version)"
+        aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
+      done
+
+      # Delete all delete markers
+      jq -r '.DeleteMarkers[] | [.Key, .VersionId] | @tsv' /tmp/list.json | while read -r key version; do
+        echo "Deleting delete marker: $key (version $version)"
+        aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
+      done
+    done
+
+    echo "s3 bucket emptying process....Done."
