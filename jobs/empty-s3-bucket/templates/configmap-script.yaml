@@ -16,38 +16,27 @@ data:
     echo "Region: ${REGION}"
 
     # Delete current object versions
+    SHARD_INDEX=${JOB_COMPLETION_INDEX}
+    echo "Starting shard $SHARD_INDEX of $TOTAL_SHARDS for bucket $BUCKET"
+    NEXT_TOKEN=""
+
     while true; do
       versions=$(aws s3api list-object-versions --bucket "$BUCKET" \
                   --max-items 1000 \
-                  --query 'Versions[*].[Key,VersionId]' \
+                  --query "[Versions[].{Key: Key, VersionId: VersionId}, DeleteMarkers[].{Key: Key, VersionId: VersionId}]" \
                   --output text)
 
       if [ -z "$versions" ]; then
-        echo "No more versions left."
+        echo "No more versions left for shard $SHARD_INDEX."
         break
       fi
 
-      echo "$versions" | while read -r key version; do
-        echo "Deleting object: $key (version: $version)"
-        aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
-      done
-    done
-
-    # Delete delete markers
-    while true; do
-      markers=$(aws s3api list-object-versions --bucket "$BUCKET" \
-                  --max-items 1000 \
-                  --query 'DeleteMarkers[*].[Key,VersionId]' \
-                  --output text)
-
-      if [ -z "$markers" ]; then
-        echo "No more delete markers left."
-        break
-      fi
-
-      echo "$markers" | while read -r key version; do
-        echo "Deleting delete marker: $key (version: $version)"
-        aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
+      echo "$versions" | nl -ba | while read -r lineno key version; do
+        shard=$(( (lineno - 1) % TOTAL_SHARDS ))
+        if [ "$shard" -eq "$SHARD_INDEX" ]; then
+          echo "[$SHARD_INDEX] Deleting $key (version $version)"
+          aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
+        fi
       done
     done
 
