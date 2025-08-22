@@ -67,7 +67,8 @@ jobs:
 
           prefixes=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
           # remove all spaces and put one comma between prefixes
-          cleaned_prefixes=$(echo $prefixes | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
+          #cleaned_prefixes=$(echo $prefixes | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
+          clean_prefixes=$(echo "$prefixes" | xargs | sed 's/ \+/,/g')
 
           # None occurs when a file is at the root of the bucket or level 1 directory
           # remove None from cleaned_prefixes with comma if in list
@@ -81,7 +82,8 @@ jobs:
           for prefix in $cleaned_prefixes; do
               DIR=$(kubectl exec $SERVICE_POD_NAME -- aws s3api list-objects-v2 --bucket $SRC_BUCKET --prefix "$prefix" --delimiter '/' --query 'CommonPrefixes[*].Prefix' --output text)
               if [ -n "$DIR" ]; then
-                  DIR=$(echo $DIR | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
+                  #DIR=$(echo $DIR | tr -s '[:space:]' ',' | sed 's/[,/]*$//')
+                  DIR=$(echo "$DIR" | xargs | sed 's/ \+/,/g')
                   DIRS="${DIRS}${DIR},"
               fi
           done
