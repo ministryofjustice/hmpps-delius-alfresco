@@ -3,36 +3,47 @@ kind: Job
 metadata:
   name: empty-s3
   labels:
-    name-prefix: empty-s3
+    action: empty-s3-buckets
 spec:
   backoffLimit: {{ .Values.backoffLimit }}
+  parallelism: {{ .Values.parallelism }}
+  completions: {{ .Values.parallelism }}
   ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
   template:
     spec:
-      parallelism: {{ .Values.parallelism }}
-      completions: 1
+      serviceAccount:	hmpps-migration-preprod
+      serviceAccountName: hmpps-migration-preprod
+      restartPolicy: OnFailure
       containers:
-        - name: empty-s3
-          image: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/webops/cloud-platform-service-pod:c5f69b4624b956248001fa7c173c89a0556a457e
-          imagePullPolicy: IfNotPresent
-          resources:
+      - name: empty-s3
+        image: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/webops/cloud-platform-service-pod:c5f69b4624b956248001fa7c173c89a0556a457e
+        imagePullPolicy: IfNotPresent
+        resources:
           limits:
             cpu: 1
             memory: 2Gi
-          command: ["/bin/sh","-c"]
-          args:
-            - |
-              chmod +x /scripts/delete-s3.sh && \
-              BUCKET="{{ .Values.bucketName }}" \
-              AWS_REGION="{{ .Values.region }}" \
-              /scripts/delete-s3.sh
-          volumeMounts:
-            - name: script
-              mountPath: /scripts
-              readOnly: true
-      volumes:
+        command: ["/bin/sh","-c"]
+        args:
+        - |
+          BUCKET="{{ .Values.bucketName }}" \
+          AWS_REGION="{{ .Values.region }}" \
+          /scripts/delete-s3.sh
+        volumeMounts:
         - name: script
-          configMap:
-            name: empty-s3-script
-            defaultMode: 0755
-
+          mountPath: /scripts
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      volumes:
+      - name: script
+        configMap:
+          name: empty-s3-script
+          defaultMode: 0755
