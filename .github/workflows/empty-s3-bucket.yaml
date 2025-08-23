@@ -58,4 +58,4 @@ jobs:
       # Wait for Job to complete
       - name: Wait for Job
         run: |
-          kubectl wait --for=condition=complete job/empty-s3 --timeout=6h
+          kubectl wait --for=condition=complete job/empty-s3 --timeout=3h
