@@ -31,7 +31,7 @@ spec:
           /scripts/delete-s3.sh
         env:
         - name: TOTAL_SHARDS
-          value: "15"
+          value: "20"
         volumeMounts:
         - name: script
           mountPath: /scripts
