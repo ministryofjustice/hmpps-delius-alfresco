@@ -9,7 +9,7 @@ on:
         required: true
         type: choice
         options:
-          - preprod
+          - <replace_with_env>
 
 permissions:
   contents: read

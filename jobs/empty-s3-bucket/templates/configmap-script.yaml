@@ -19,25 +19,51 @@ data:
     SHARD_INDEX=${JOB_COMPLETION_INDEX}
     echo "Starting shard $SHARD_INDEX of $TOTAL_SHARDS for bucket $BUCKET"
     NEXT_TOKEN=""
-
+    
     while true; do
-      versions=$(aws s3api list-object-versions --bucket "$BUCKET" \
-                  --max-items 1000 \
-                  --query "[Versions[].{Key: Key, VersionId: VersionId}, DeleteMarkers[].{Key: Key, VersionId: VersionId}]" \
-                  --output text)
-
-      if [ -z "$versions" ]; then
-        echo "No more versions left for shard $SHARD_INDEX."
-        break
+      DELETED_COUNTER=0
+      if [ -n "$NEXT_TOKEN" ]; then
+        TOKEN_ARG="--starting-token $NEXT_TOKEN"
+      else
+        TOKEN_ARG=""
       fi
 
-      echo "$versions" | nl -ba | while read -r lineno key version; do
+      echo "[$SHARD_INDEX] Fetching next batch..."
+      # Stream versions & delete line by line
+      aws s3api list-object-versions \
+        --bucket "$BUCKET" \
+        --region "$REGION" \
+        --page-size 1000 \
+        $TOKEN_ARG \
+        --query "[Versions[].{Key: Key, VersionId: VersionId}, DeleteMarkers[].{Key: Key, VersionId: VersionId}]" \
+        --output text |
+      nl -ba |
+      while read -r lineno key version; do
         shard=$(( (lineno - 1) % TOTAL_SHARDS ))
         if [ "$shard" -eq "$SHARD_INDEX" ]; then
           echo "[$SHARD_INDEX] Deleting $key (version $version)"
-          aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version"
+          if aws s3api delete-object --bucket "$BUCKET" --key "$key" --version-id "$version" >/dev/null 2>&1; then
+            echo "[$SHARD_INDEX] Deleted: $key (version $version)"
+          else
+            echo "[$SHARD_INDEX] Failed deleting: $key (version $version)" >&2
+          fi
         fi
       done
-    done
 
+      # Get next token
+      NEXT_TOKEN=$(aws s3api list-object-versions \
+        --bucket "$BUCKET" \
+        --region "$REGION" \
+        --page-size 1000 \
+        $TOKEN_ARG \
+        --query "NextToken" \
+        --output text 2>/dev/null || true)
+
+      if [ -z "$NEXT_TOKEN" ] || [ "$NEXT_TOKEN" = "None" ]; then
+        echo "[$SHARD_INDEX] No more pages left."
+        break
+      fi
+
+    done
+    echo "[$SHARD_INDEX] Finished. Total deleted: $DELETED_COUNTER"
     echo "s3 bucket emptying process....Done."
