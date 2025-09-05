@@ -6,6 +6,7 @@ metadata:
   labels:
     reindex-job: "{{ .Values.fromId }}-{{ .Values.toId }}"
 spec:
+  ttlSecondsAfterFinished: 3600
   template:
     metadata:
       {{- with $.Values.podAnnotations }}

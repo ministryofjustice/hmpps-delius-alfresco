@@ -9,6 +9,7 @@ metadata:
     reindex-job: "{{ (int $item) }}-{{ add (int $item) 1 }}-{{ $index }}"
     reindex-type: "list"
 spec:
+  ttlSecondsAfterFinished: 3600
   template:
     metadata:
       {{- with $.Values.podAnnotations }}
