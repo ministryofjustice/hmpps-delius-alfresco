@@ -50,6 +50,10 @@ data:
     cache.propertyValueTransactionalCache.tx.maxItems=250000
     cache.propertyValueTransactionalCache.maxItems=250000
 
+    cache.propertyValueCache.tx.maxItems=250000
+    cache.propertyValueCache.maxItems=250000
+    cache.propertyValueCache.tx.statsEnabled=${caches.tx.statsEnabled}
+
     # The User to Schema Cache
     cache.spgUserToSchemaVersionCache.tx.maxItems=100
     cache.spgUserToSchemaVersionCache.tx.statsEnabled=${caches.tx.statsEnabled}
