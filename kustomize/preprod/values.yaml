@@ -74,14 +74,41 @@ alfresco-search-enterprise:
   liveIndexing:
   # set in value-versions yaml
     content:
-      replicaCount: 3
+#      replicaCount: 3
+      replicaCount: 1
     metadata:
-      replicaCount: 2
+#      replicaCount: 2
+      replicaCount: 1
     mediation:
       replicaCount: 1
+  path:
+    extraEnv:
+      - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+        value: file:/config/
+    extraVolumes:
+      - name: search-logging
+        configMap:
+          name: search-enterprise-logging
+    extraVolumeMounts:
+      - name: search-logging
+        mountPath: /config
+        readOnly: true
+  content:
+    extraEnv:
+      - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+        value: file:/config/
+    extraVolumes:
+      - name: search-logging
+        configMap:
+          name: search-enterprise-logging
+    extraVolumeMounts:
+      - name: search-logging
+        mountPath: /config
+        readOnly: true
 alfresco-transform-service:
   tika:
-    replicaCount: 2
+#    replicaCount: 2
+    replicaCount: 1
     resources:
       requests:
         cpu: "0.5"
@@ -90,7 +117,8 @@ alfresco-transform-service:
         cpu: "2"
         memory: 6Gi
   transformrouter:
-    replicaCount: 4
+#    replicaCount: 4
+    replicaCount: 1
     resources:
       requests:
         cpu: "0.75"

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: search-enterprise-logging
+data:
+  # Spring Boot will pick this up and map it to the logger
+  application.properties: |
+    # Suppress noisy ActiveMQ FailoverTransport INFO logs
+    logging.level.org.apache.activemq.transport.failover.FailoverTransport=WARN
