@@ -166,11 +166,13 @@ tasks:
     cmds:
       - |
         RELEASE_NAME="{{.RELEASE_NAME}}"
+        BROKER_URL="{{.MESSAGEBROKER_URL}}"
+        echo "***** Starting Helm upgrade *****"
         helm upgrade --install $RELEASE_NAME alfresco/$RELEASE_NAME --version {{.CHART_VERSION}} --namespace {{.NAMESPACE}} \
         --values=../base/values.yaml --values=../base/values-versions.yaml --values=values.yaml \
         --set s3connector.config.bucketName={{.BUCKET_NAME}} \
         --set database.url={{.RDS_JDBC_URL}} \
-        --set-string messageBroker.url="{{.MESSAGEBROKER_URL}}" \
+        --set-string messageBroker.url="$BROKER_URL" \
         --set global.search.url=http://{{.OPENSEARCH_HOST}}:8080 \
         --set global.search.host={{.OPENSEARCH_HOST}} \
         --wait --timeout=60m \
@@ -493,24 +495,54 @@ tasks:
         MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
         MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
 
+        # Helper: wait for an HPA to exist (up to 60s)
+        wait_for_hpa () {
+          local hpa_name="$1"
+          local tries=12
+          local i=0
+          until kubectl get hpa "$hpa_name" -n "$NS" >/dev/null 2>&1; do
+            i=$((i+1))
+            if [ "$i" -ge "$tries" ]; then
+              echo "HPA $hpa_name not found after waiting. Aborting."
+              exit 1
+            fi
+            sleep 5
+          done
+        }
+
+        # Option A (recommended): ensure HPAs are present via Helm
+        # This re-applies manifests that include the HPAs you deleted during scale-down.
+        # If your pipeline already runs Helm before scale-up, you can skip this explicit call.
+        echo "Re-applying release to restore HPAs (no changes to values)"
+        helm upgrade "$RELEASE_NAME" alfresco/alfresco-content-services \
+          -n "$NS" --reuse-values
+
+        # If you don't want to call Helm here, comment the block above and
+        # ensure some other step recreates HPAs before this script runs.
+
+        # Ensure repository deployment is at least 1 replica before re-enabling HPA (optional but tidy)
+        kubectl scale deploy "${RELEASE_NAME}-alfresco-repository" -n "$NS" --replicas="${MIN_REPO_REPLICAS}" || true
+        kubectl scale deploy "${RELEASE_NAME}-tika" -n "$NS" --replicas="${MIN_TIKA_REPLICAS}" || true
+
+        REPO_HPA="${RELEASE_NAME}-hpa-repository"
+        TIKA_HPA="${RELEASE_NAME}-hpa-tika"
+
+        echo "Ensuring Repository HPA exists..."
+        wait_for_hpa "$REPO_HPA"
+
         echo "Reset HPA Replicas for Repository"
-        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}}}"
-        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+        kubectl patch hpa "$REPO_HPA" -n "$NS" --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}, \"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+
+        echo "Ensuring Tika HPA exists..."
+        wait_for_hpa "$TIKA_HPA"
 
         echo "Reset HPA Replicas for Tika"
-        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}}}"
-        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
+        kubectl patch hpa "$TIKA_HPA" -n "$NS" --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}, \"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
 
-        kubectl scale deployment $RELEASE_NAME-alfresco-repository --replicas=$MIN_REPO_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-tika --replicas=$MIN_TIKA_REPLICAS
+        # Optional: show current targets
+        kubectl get hpa -n "$NS" | grep "^${RELEASE_NAME}-" || true
 
         # non-HPA configured deployments
         # Load default replica counts from values.yaml or base values.yaml
@@ -555,28 +587,27 @@ tasks:
 
         echo "Scaling down deployments in namespace $NS"
 
-        # HPA configured deployments
+        # 1) Remove HPAs for this release (so they don't force replicas >= 1)
+        HPAS=$(kubectl get hpa -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
+        for hpa in $HPAS; do
+          echo "Deleting HPA: $hpa"
+          kubectl delete hpa "$hpa" -n "$NS" --wait=true
+        done
 
-        echo "Updating HPA Replicas for Repository"
-        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"minReplicas\": 0}}"
-        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"maxReplicas\": 0}}"
-
-        echo "Updating HPA Replicas for Tika"
-        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"minReplicas\": 0}}"
-        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
-          --type='merge' \
-          -p "{\"spec\": {\"maxReplicas\": 0}}"
-
-        DEPLOYMENTS=$(kubectl get deployments -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-")
+        # 2) Scale Deployments to 0
+        DEPLOYMENTS=$(kubectl get deploy -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
         for deployment in $DEPLOYMENTS; do
-            echo "Scaling down deployment: $deployment"
-            kubectl scale $deployment --replicas=0
+          echo "Scaling down deployment: $deployment"
+          kubectl scale deployment "$deployment" -n "$NS" --replicas=0
+          kubectl rollout status deployment "$deployment" -n "$NS" --timeout=120s || true
+        done
+
+        # (Optional) If you have StatefulSets (e.g., SFS, transform), scale those too:
+        STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
+        for sts in $STATEFULSETS; do
+          echo "Scaling down statefulset: $sts"
+          kubectl scale statefulset "$sts" -n "$NS" --replicas=0
+          kubectl rollout status statefulset "$sts" -n "$NS" --timeout=120s || true
         done
 
   cleanup_inactive_reindex_helm_releases:
