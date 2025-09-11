@@ -10,27 +10,67 @@ spec:
   - name: utils
     image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-utils:latest
     imagePullPolicy: IfNotPresent
+    tty: true
+    stdin: true
+    command: ["/bin/bash","-l"]
+    envFrom:
+      - secretRef:
+          name: rds-instance-output
+          # Exposes DATABASE_NAME, DATABASE_USERNAME, DATABASE_PASSWORD, RDS_JDBC_URL
+    env:
+      # psql understands PGDATABASE; keep DATABASE_NAME too if other tooling expects it
+      - name: PGDATABASE
+        valueFrom:
+          secretKeyRef:
+            name: rds-instance-output
+            key: DATABASE_NAME
+      - name: DATABASE_NAME
+        valueFrom:
+          secretKeyRef:
+            name: rds-instance-output
+            key: DATABASE_NAME
+      - name: RDS_JDBC_URL
+        valueFrom:
+          secretKeyRef:
+            name: rds-instance-output
+            key: RDS_JDBC_URL
+      - name: DATABASE_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: rds-instance-output
+            key: DATABASE_USERNAME
+      - name: DATABASE_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: rds-instance-output
+            key: DATABASE_PASSWORD
+      # Optional defaults that psql respects
+      - name: PGSSLMODE
+        value: "require"
+    volumeMounts:
+      - name: utils-profile
+        mountPath: /etc/profile.d
+        readOnly: true
     resources:
-      limits:
-        cpu: "1"
-        memory: 2Gi
       requests:
         cpu: 500m
         memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
     securityContext:
       allowPrivilegeEscalation: false
       privileged: false
       readOnlyRootFilesystem: false
       runAsNonRoot: true
       runAsUser: 999
-      capabilities:
-        drop:
-          - ALL
-      seccompProfile:
-        type: RuntimeDefault
-    tty: true
-    stdin: true
-    command: ["/bin/bash"]
+      capabilities: { drop: ["ALL"] }
+      seccompProfile: { type: RuntimeDefault }
   serviceAccount: hmpps-migration-{{ $.Values.environment }}
   serviceAccountName: hmpps-migration-{{ $.Values.environment }}
   restartPolicy: Never
+  volumes:
+    - name: utils-profile
+      configMap:
+        name: utils-profile
+        defaultMode: 0644
