@@ -79,7 +79,7 @@ spec:
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
                 -Dalfresco.reindex.concurrentProcessors=30
-                -Dalfresco.reindex.batchSize=1000
+                -Dalfresco.reindex.batchSize=50
                 -Dalfresco.reindex.pageSize=10000
           ports:
               - name: http

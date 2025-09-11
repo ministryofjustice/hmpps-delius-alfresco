@@ -27,6 +27,9 @@ data:
     events.subsystem.autoStart=true
     messaging.subsystem.autoStart=true
 
+    repo.event2.queue.dequeueThreadPool.coreSize=10
+    repo.event2.queue.dequeueThreadPool.maximumSize=20
+
     # Repository Content caching
     system.content.caching.cacheOnInbound=true
     # Maximum disk usage for the cache in MB, increased from default of 50GB (51200) to 120GB

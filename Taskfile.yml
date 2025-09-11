@@ -513,9 +513,9 @@ tasks:
         # Option A (recommended): ensure HPAs are present via Helm
         # This re-applies manifests that include the HPAs you deleted during scale-down.
         # If your pipeline already runs Helm before scale-up, you can skip this explicit call.
-        echo "Re-applying release to restore HPAs (no changes to values)"
-        helm upgrade "$RELEASE_NAME" alfresco/alfresco-content-services \
-          -n "$NS" --reuse-values
+        #echo "Re-applying release to restore HPAs (no changes to values)"
+        #helm upgrade "$RELEASE_NAME" alfresco/alfresco-content-services \
+        #  -n "$NS" --reuse-values
 
         # If you don't want to call Helm here, comment the block above and
         # ensure some other step recreates HPAs before this script runs.
@@ -527,15 +527,15 @@ tasks:
         REPO_HPA="${RELEASE_NAME}-hpa-repository"
         TIKA_HPA="${RELEASE_NAME}-hpa-tika"
 
-        echo "Ensuring Repository HPA exists..."
-        wait_for_hpa "$REPO_HPA"
+        #echo "Ensuring Repository HPA exists..."
+        #wait_for_hpa "$REPO_HPA"
 
         echo "Reset HPA Replicas for Repository"
         kubectl patch hpa "$REPO_HPA" -n "$NS" --type='merge' \
           -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}, \"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
 
-        echo "Ensuring Tika HPA exists..."
-        wait_for_hpa "$TIKA_HPA"
+        #echo "Ensuring Tika HPA exists..."
+        #wait_for_hpa "$TIKA_HPA"
 
         echo "Reset HPA Replicas for Tika"
         kubectl patch hpa "$TIKA_HPA" -n "$NS" --type='merge' \
@@ -549,7 +549,7 @@ tasks:
         TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // (load("../base/values.yaml") | .["alfresco-transform-service"].transformrouter.replicaCount) // 2' values.yaml)
 
         # The below deployments use the same transformrouter default replica count if not specified
-        BASE_TRANSFORM_ROUTER_REPLICAS=$(yq '(["alfresco-transform-service"].transformrouter.replicaCount) // 2' ../base/values.yaml)
+        BASE_TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // 2' ../base/values.yaml)
 
         TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' ../base/values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
 
@@ -573,9 +573,9 @@ tasks:
         kubectl scale deployment $RELEASE_NAME-transform-misc --replicas=$TRANSFORM_MISC_REPLICAS
         kubectl scale deployment $RELEASE_NAME-transform-router --replicas=$TRANSFORM_ROUTER_REPLICAS
         kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-content --replicas=$CONTENT_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-mediation --replicas=$MEDIATION_REPLICAS
         kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-metadata --replicas=$METADATA_REPLICAS
         kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-path --replicas=$PATH_REPLICAS
+        kubectl scale statefulset alfresco-search-enterprise-mediation --replicas=$MEDIATION_REPLICAS
 
 
   scale_down_deployments:
@@ -602,7 +602,7 @@ tasks:
           kubectl rollout status deployment "$deployment" -n "$NS" --timeout=120s || true
         done
 
-        # (Optional) If you have StatefulSets (e.g., SFS, transform), scale those too:
+        # Scale StatefulSets (e.g., SFS, transform):
         STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
         for sts in $STATEFULSETS; do
           echo "Scaling down statefulset: $sts"
@@ -641,4 +641,16 @@ tasks:
           else
             echo "⏭️  Skipping $RELEASE — $ACTIVE_POD_COUNT active pod(s) still running"
           fi
-        done        
+        done
+
+  restart_repo:
+    desc: "Restart the Alfresco repository pods"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+
+        echo "🔄 Restarting Alfresco repository: $RELEASE_NAME"
+
+        # Restart the deployment
+        kubectl rollout restart deployment "$RELEASE_NAME-alfresco-repository" -n "$NS"
