@@ -10,6 +10,7 @@ QUEUE_NAME=${1:?Usage: $0 <queue_name> <stop_stat> [namespace] [interval_secs]}
 STOP_STAT=${2:?Usage: $0 <queue_name> <stop_stat> [namespace] [interval_secs]}
 NAMESPACE=${3:-}
 INTERVAL=${4:-30}
+WARN_LEVEL=${5:-6000}
 
 if [[ -n "$NAMESPACE" ]]; then
   NS_ARG="$NAMESPACE"
@@ -71,9 +72,13 @@ while true; do
 
   echo "$line"
 
+  if [[ "$size_total" -lt "$WARN_LEVEL" ]]; then
+    echo "Queue ${QUEUE_NAME} is almost empty."
+    osascript -e 'tell application "System Events" to display dialog "Queue is almost empty." with title "Alert Box"'
+  fi
+
   if [[ "$size_total" -eq 0 ]]; then
-    echo "Queue is empty."
-    osascript -e 'tell application "System Events" to display dialog "Queue is empty." with title "Alert Box"'
+    echo "Queue ${QUEUE_NAME} is empty."
     exit 0
   fi
 
