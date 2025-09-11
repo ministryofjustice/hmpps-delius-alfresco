@@ -47,12 +47,14 @@ while true; do
     rate_per_sec=$(awk -v d="$delta" -v e="$elapsed" 'BEGIN{printf "%.2f", d/e}')
     # per-minute helper too
     rate_per_min=$(awk -v r="$rate_per_sec" 'BEGIN{printf "%.1f", r*60}')
+    # per-hour helper too
+    rate_per_hour=$(awk -v r="$rate_per_sec" 'BEGIN{printf "%.1f", r*3600}')
 
     symbol="↔"
     [[ $delta -gt 0 ]] && symbol="↑"
     [[ $delta -lt 0 ]] && symbol="↓"
 
-    line+=" | Δ=${delta} in ${elapsed}s ${symbol}  rate=${rate_per_sec}/s (${rate_per_min}/min)"
+    line+=" | Δ=${delta} in ${elapsed}s ${symbol}  rate=${rate_per_sec}/s (${rate_per_min}/min ${rate_per_hour}/hr)"
 
     # ETA if draining (negative rate)
     if awk -v r="$rate_per_sec" 'BEGIN{exit !(r<0)}'; then
