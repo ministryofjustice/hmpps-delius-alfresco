@@ -1,0 +1,63 @@
+---
+name: Empty an S3 bucket
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Empty an S3 bucket in an environment
+        required: true
+        type: choice
+        options:
+          - preprod
+
+permissions:
+  contents: read
+
+run-name: Emptying S3 bucket in - ${{ github.event.inputs.environment }}
+
+jobs:
+  empty-s3:
+    name: Empty S3 Bucket
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4.1.1
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3.2
+        with:
+          version: 'v1.26.0' # default is latest stable
+        id: kubectl_install
+
+      - uses: azure/setup-helm@v4.2.0
+        with:
+           version: 'v3.15.3' # default is latest (stable)
+        id: install
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Uninstall Empty S3 chart
+        run: helm uninstall empty-s3 --ignore-not-found
+
+      # Deploy the s3 emptying Job via Helm
+      - name: Helm install empty s3 buckets
+        run: |
+          helm install empty-s3 ./jobs//empty-s3-bucket \
+            --namespace hmpps-delius-alfresco-${{ github.event.inputs.environment }}
+            --set environment=${{ github.event.inputs.environment }}
+
+      # Wait for Job to complete
+      - name: Wait for Job
+        run: |
+          kubectl -n default wait --for=condition=complete job/empty-s3 --timeout=6h
