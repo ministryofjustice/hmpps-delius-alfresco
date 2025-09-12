@@ -37,5 +37,13 @@ helm upgrade --install utils . --set environment=<env>
 Once deployed you can access the pod using:
 
 ```bash
-kubectl exec -it utils -- /bin/bash
+kubectl exec -it utils -- /bin/bash -l
+```
+
+### Connecting to the Database
+
+Run the following:
+
+```bash
+psqlr
 ```

@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: utils-profile
+data:
+  psql-utils.sh: |
+    #!/usr/bin/env bash
+    # Auto-sourced by bash via /etc/profile.d
+
+    # Parse postgres JDBC URL like: jdbc:postgresql://host:port/db
+    _parse_jdbc() {
+      local jdbc="$RDS_JDBC_URL"
+      # fall back if not present
+      [[ -z "$jdbc" ]] && return 1
+
+      # strip prefix
+      jdbc="${jdbc#jdbc:postgresql://}"
+
+      # host:port/db  -> host, port, db
+      local host_port="${jdbc%%/*}"
+      PGHOST="${host_port%%:*}"
+      PGPORT="${host_port##*:}"
+      PGDATABASE="${jdbc#*/}"
+
+      # if no port in URL, default 5432
+      [[ "$PGHOST" == "$host_port" ]] && PGPORT="5432"
+
+      export PGHOST PGPORT PGDATABASE
+    }
+
+    # Load env for psql connections (runs quickly each time)
+    rdsenv() {
+      _parse_jdbc || {
+        echo "RDS_JDBC_URL not set/parseable"; return 1;
+      }
+      export PGUSER="${DATABASE_USERNAME}"
+      export PGPASSWORD="${DATABASE_PASSWORD}"
+      export PGSSLMODE="require"   # RDS uses SSL by default
+      echo "Target: $PGUSER@$PGHOST:$PGPORT/$PGDATABASE (sslmode=$PGSSLMODE)"
+    }
+
+    # Short, safe psql command: resolves host/port/db/user/pass from env + secret
+    psqlr() {
+      rdsenv >/dev/null || return 1
+      psql "$@"
+    }
+
+    # A quick test command to verify connectivity
+    psqltest() {
+      psqlr -c 'select current_user as user, current_database() as db, inet_server_addr() as host, inet_server_port() as port;'
+    }

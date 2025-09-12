@@ -1,10 +1,28 @@
 name: Rollout Restart Deployment
 
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
+      deployment:
+        description: 'Deployment to restart (if blank, restart all deployments via Helm manifest)'
+        required: false
+        type: string
+
   workflow_call:
     inputs:
       environment:
-        description: 'Target environment (Kubernetes namespace)'
+        description: 'Target environment'
         required: true
         type: string
       deployment:
@@ -19,7 +37,8 @@ jobs:
       name: ${{ inputs.environment }}
     env:
       RELEASE_NAME: alfresco-content-services
-
+      KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+      KUBE_CLUSTER:   ${{ secrets.KUBE_CLUSTER }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,10 +53,12 @@ jobs:
         with:
           version: 'v3.9.0'
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          
       - name: Configure kubecontext
-        env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-          KUBE_CLUSTER:   ${{ secrets.KUBE_CLUSTER }}
         run: |
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
           kubectl config set-cluster "${KUBE_CLUSTER}" \
@@ -55,8 +76,8 @@ jobs:
         if: ${{ inputs.deployment }}
         run: |
           set -e
-          echo "Validating deployment: ${{ inputs.deployment }} in namespace ${{ inputs.environment }}"
-          AVAILABLE=$(helm get manifest "$RELEASE_NAME" -n "${{ inputs.environment }}" \
+          echo "Validating deployment: ${{ inputs.deployment }} in namespace ${KUBE_NAMESPACE}"
+          AVAILABLE=$(helm get manifest "$RELEASE_NAME" -n "${KUBE_NAMESPACE}" \
             | kubectl get -f - --no-headers=true \
             | awk '/deployment/{print $1}' \
             | sed 's|deployment/||')
@@ -66,22 +87,17 @@ jobs:
           fi
 
       - name: Rollout Restart
+        if: ${{ inputs.deployment }}
         run: |
           set -e
-          echo "Namespace: ${{ inputs.environment }}"
+          echo "Namespace: ${KUBE_NAMESPACE}"
 
           if [ -n "${{ inputs.deployment }}" ]; then
             echo "-> Restarting single deployment: ${{ inputs.deployment }}"
             kubectl rollout restart deployment/${{ inputs.deployment }}
-          else
-            echo "-> Restarting all deployments from Helm manifest"
-            DEPLOYMENTS=$(
-              helm get manifest "$RELEASE_NAME" \
-                | kubectl get -f - --no-headers=true \
-                | awk '/deployment/{print $1}'
-            )
-            for deployment in $DEPLOYMENTS; do
-              echo "   - $deployment"
-              kubectl rollout restart "$deployment"
-            done
           fi
+
+      - name: Full Rolling Restart
+        if: ${{ inputs.deployment == '' || inputs.deployment == null }}
+        run: task restart_deployments ENV=${{ inputs.environment }}
+

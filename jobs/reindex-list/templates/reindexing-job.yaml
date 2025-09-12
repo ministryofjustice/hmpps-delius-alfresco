@@ -4,11 +4,12 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "reindexing-{{ $item | toString }}-{{ add (int  $item) 1 }}-{{ $index }}"
+  name: "reindexing-{{ (int $item) }}-{{ add (int $item) 1 }}-{{ $index }}"
   labels:
-    reindex-job: "{{ $item | toString }}-{{ add (int  $item) 1 }}-{{ $index }}"
+    reindex-job: "{{ (int $item) }}-{{ add (int $item) 1 }}-{{ $index }}"
     reindex-type: "list"
 spec:
+  ttlSecondsAfterFinished: 3600
   template:
     metadata:
       {{- with $.Values.podAnnotations }}
@@ -29,7 +30,7 @@ spec:
       - name: {{ $.Values.imagePullSecrets }}
       restartPolicy: Never
       containers:
-        - name: "reindexing-{{ $item | toString }}-{{ add (int $item) 1 }}"
+        - name: "reindexing-{{ (int $item) }}-{{ add (int $item) 1 }}"
           image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           securityContext:
@@ -75,12 +76,12 @@ spec:
               value: "200"
             - name: JAVA_OPTS
               value: >-
-                -Dalfresco.reindex.fromId={{ . }}
-                -Dalfresco.reindex.toId={{ add . 1 }}
+                -Dalfresco.reindex.fromId={{ (int $item) }}
+                -Dalfresco.reindex.toId={{ add (int $item) 1 }}
                 -Dalfresco.reindex.contentIndexingEnabled=true
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
-                -Dalfresco.reindex.concurrentProcessors=30
+                -Dalfresco.reindex.concurrentProcessors=10
                 -Dalfresco.reindex.batchSize=1000
                 -Dalfresco.reindex.pageSize=10000
           ports:

@@ -4,6 +4,7 @@ kind: Job
 metadata:
   name: opensearch-backup
 spec:
+  ttlSecondsAfterFinished: 3600
   template:
     spec:
       serviceAccountName: "{{ $.Values.opensearch.serviceAccountPrefix }}-{{ $.Values.opensearch.environment }}"

@@ -14,7 +14,8 @@ STAT=$2
 echo "Queue name: $QUEUE_NAME"
 
 # Brokers' URLs
-BROKERS=("https://localhost:8161" "https://localhost:8162" "https://localhost:8163")
+#BROKERS=("https://localhost:8161" "https://localhost:8162" "https://localhost:8163")
+BROKERS=("https://localhost:8161")
 
 # ActiveMQ credentials (username:password)
 USER=$(kubectl get secrets ${NAMESPACE} amazon-mq-broker-secret -o json | jq -r ".data | map_values(@base64d) | .BROKER_USERNAME")

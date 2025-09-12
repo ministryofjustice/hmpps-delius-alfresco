@@ -1,3 +1,4 @@
+ttlSecondsAfterFinished: 3600
 imagePullSecrets: quay-registry-secret
 nameOverride: ""
 fullnameOverride: ""

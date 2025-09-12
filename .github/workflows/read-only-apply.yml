@@ -60,7 +60,7 @@ jobs:
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
           # Get the current server-snippet annotation
-          CURRENT_SNIPPET=$(kubectl get ingress alfresco-content-services-alfresco-cs-repository -n ${KUBE_NAMESPACE} -o=jsonpath='{.metadata.annotations.nginx\.ingress\.kubernetes\.io\/server-snippet}')
+          CURRENT_SNIPPET=$(kubectl get ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} -o=jsonpath='{.metadata.annotations.nginx\.ingress\.kubernetes\.io\/server-snippet}')
 
           # Define the new server-snippet
           NEW_SNIPPET="if (\$request_method != GET) { return 403; }"
@@ -78,4 +78,4 @@ jobs:
           fi
 
           # Apply the new server-snippet
-          kubectl annotate ingress alfresco-content-services-alfresco-cs-repository -n ${KUBE_NAMESPACE} nginx.ingress.kubernetes.io/server-snippet="$FINAL_SNIPPET" --overwrite=true
+          kubectl annotate ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} nginx.ingress.kubernetes.io/server-snippet="$FINAL_SNIPPET" --overwrite=true
