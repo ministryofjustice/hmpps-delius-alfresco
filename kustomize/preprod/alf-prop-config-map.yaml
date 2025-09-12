@@ -27,8 +27,8 @@ data:
     events.subsystem.autoStart=true
     messaging.subsystem.autoStart=true
 
-    repo.event2.queue.dequeueThreadPool.coreSize=10
-    repo.event2.queue.dequeueThreadPool.maximumSize=20
+    repo.event2.queue.dequeueThreadPool.coreSize=30
+    repo.event2.queue.dequeueThreadPool.maximumSize=50
 
     # Repository Content caching
     system.content.caching.cacheOnInbound=true
