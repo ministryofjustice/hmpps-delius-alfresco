@@ -90,7 +90,7 @@ fi
 # Stream logs for each pod
 for POD in "${PODS[@]}"; do
   echo "  • Attaching to logs for pod $POD"
-  kubectl logs -n "$NAMESPACE" "$POD" --follow --all-containers \
+  kubectl logs --tail=20 -n "$NAMESPACE" "$POD" --follow --all-containers \
     >> "$LOG_FILE" 2>&1 &
 done
 
