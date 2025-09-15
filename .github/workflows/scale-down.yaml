@@ -21,7 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: ${{ github.event_name == 'workflow_dispatch' && fromJson('["' + inputs.environment + '"]') || fromJson('["poc"]') }}
+        environment: ${{ github.event.inputs.environment && fromJson(format('["{0}"]', github.event.inputs.environment)) || fromJson('["poc"]') }}
+        #environment: ${{ github.event_name == 'workflow_dispatch' && fromJson('["' + inputs.environment + '"]') || fromJson('["poc"]') }}
       fail-fast: false
     environment:
       name: ${{ matrix.environment }}-preapproved
