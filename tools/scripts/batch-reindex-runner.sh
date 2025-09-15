@@ -31,7 +31,9 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 
 # ----------------------------- Configurable bits ------------------------------
-STARTING_NODE_ID=790534185
+# We reindex backwards so STARTING_NODE_ID should be higher than the ENDING_NODE_ID
+STARTING_NODE_ID=814580955
+ENDING_NODE_ID=790534185
 ENV_NAME="preprod"
 K8S_NAMESPACE="hmpps-delius-alfresco-preprod"
 BATCH_SIZE=100000
@@ -249,13 +251,13 @@ calc_batch_window() {
 }
 
 get_max_child_id() {
-  # if STARTING_NODE_ID is set them use the below sql with restriction on child_node_id
+  # if STARTING_NODE_ID is set then use that otherwise use the below sql
   if [[ -n "$STARTING_NODE_ID" ]]; then
-    local q="SELECT COALESCE(MAX(child_node_id),0) FROM alf_child_assoc WHERE type_qname_id=${TYPE_QNAME_ID_FOR_DOCS} and child_node_id = ${STARTING_NODE_ID};"
+    echo ${STARTING_NODE_ID}
   else
     local q="SELECT COALESCE(MAX(child_node_id),0) FROM alf_child_assoc WHERE type_qname_id=${TYPE_QNAME_ID_FOR_DOCS};"
+    sql "$q"
   fi
-  sql "$q"
 }
 
 phase_descending_batches() {
@@ -290,6 +292,17 @@ phase_descending_batches() {
     if [[ -z "$min_id" || -z "$window_max" || -z "$count" || "$count" -eq 0 ]]; then
       log "No more rows under max_id=${max_id}. Done."
       break
+    fi
+
+    # if ENDING_NODE_ID is set then stop if window_max is less than that
+    if [[ -n "$ENDING_NODE_ID" && "$window_max" -lt "$ENDING_NODE_ID" ]]; then
+      log "Stopping batch processing: TO=${window_max} < ENDING_NODE_ID=${ENDING_NODE_ID}"
+      break
+    fi
+
+    # if ENDING_NODE_ID is set and min_id is less that it then set min_id to ENDING_NODE_ID
+    if [[ -n "$ENDING_NODE_ID" && "$min_id" -lt "$ENDING_NODE_ID" ]]; then
+      min_id="$ENDING_NODE_ID"
     fi
 
     log "Next batch: FROM=${min_id} TO=${window_max} (count=${count})"
