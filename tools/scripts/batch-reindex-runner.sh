@@ -61,7 +61,7 @@ fatal() { log "FATAL: $*"; exit 1; }
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 ensure_tools() {
-  for c in task psql kubectl timeout awk sed tr; do
+  for c in task psql kubectl awk sed tr; do
     have_cmd "$c" || fatal "Missing required command: $c"
   done
 }
@@ -79,13 +79,35 @@ metrics_append() {
   echo "$phase,$from_id,$to_id,$count,$start_iso,$finish_iso,$duration,$queue_wait" >> "$METRICS_CSV"
 }
 
+# Retry wrapper for kubectl
+kubectl_retry() {
+  local max_retries=5
+  local delay=10
+  local attempt=1
+
+  while true; do
+    if kubectl "$@"; then
+      return 0
+    fi
+
+    echo "kubectl command failed (attempt $attempt/$max_retries): kubectl $*" >&2
+    if [ "$attempt" -ge "$max_retries" ]; then
+      echo "Giving up after $max_retries attempts" >&2
+      return 1
+    fi
+
+    attempt=$((attempt+1))
+    sleep $delay
+  done
+}
+
 get_utils_pod() {
   # First try a label selector
   local pod
-  pod=$(kubectl -n "$K8S_NAMESPACE" get pods $UTILS_SELECTOR -o name 2>/dev/null | head -n1 | cut -d/ -f2)
+  pod=$(kubectl_retry -n "$K8S_NAMESPACE" get pods $UTILS_SELECTOR -o name 2>/dev/null | head -n1 | cut -d/ -f2)
   if [[ -z "$pod" ]]; then
     # Fallback: grep for 'utils' in pod names
-    pod=$(kubectl -n "$K8S_NAMESPACE" get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 -E 'utils' || true)
+    pod=$(kubectl_retry -n "$K8S_NAMESPACE" get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 -E 'utils' || true)
   fi
   echo "$pod"
 }

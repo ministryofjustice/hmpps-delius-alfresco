@@ -6,6 +6,9 @@ resources:
   - alf-prop-config-map.yaml
   - hpa-repository.yaml
   - hpa-tika.yaml
+  - cronjob-restart-repo.yaml
+  - role-restart-repo.yaml
+  - rolebinding-restart-repo.yaml
 
 patches:
   - path: patch-ingress-repository.yaml
