@@ -246,13 +246,16 @@ tasks:
           exit 1
         fi
 
+        FROM_ID="{{.FROM}}"
+        TO_ID="{{.TO}}"
+
         INDEX_CONTENT="{{.INDEX_CONTENT}}"
         if [ -z "$INDEX_CONTENT" ]; then
           INDEX_CONTENT="true"
         fi
 
-        RANGE=$((TO - FROM))
-        echo "📊 ID Range: $FROM to $TO (count: $RANGE)"
+        RANGE=$((TO_ID - FROM_ID))
+        echo "📊 ID Range: $FROM_ID to $TO_ID (count: $RANGE)"
 
         if [ "$RANGE" -gt 100000 ]; then
           echo "🚀 Large ID range detected. Scaling up repository and tika deployments..."
@@ -261,9 +264,9 @@ tasks:
           echo "ℹ️ Small ID range detected. No scaling needed."
         fi
 
-        task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM={{.FROM}} TO={{.TO}}
+        task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
 
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId={{.FROM}}" --set "toId={{.TO}}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
 
   # reindexes by date from the FROM_DATE to the TO_DATE
   # DATE FORMAT: YYYYMMDDHHMM
@@ -478,6 +481,16 @@ tasks:
         MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
         MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
 
+        echo "Updating HPA maxReplicas to match maxReplicas for Repository"
+        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+
+        echo "Updating HPA maxReplicas to match maxReplicas for Tika"
+        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
+          
         echo "Updating HPA minReplicas to match maxReplicas for Repository"
         kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
           --type='merge' \
@@ -508,6 +521,16 @@ tasks:
         kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
           --type='merge' \
           -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}}}"
+
+        echo "Updating HPA maxReplicas to original maxReplicas value for Repository"
+        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+
+        echo "Updating HPA maxReplicas to original maxReplicas value for Tika"
+        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
 
   scale_up_deployments:
     desc: "Scale up all ACS deployments based on config file defaults"
