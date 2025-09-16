@@ -10,7 +10,7 @@ QUEUE_NAME=${1:-"acs-repo-transform-request"}
 STOP_STAT=${2:-"size"}
 NAMESPACE=${3:-}
 INTERVAL=${4:-30}
-WARN_LEVEL=${5:-6000}
+WARN_LEVEL=${5:-1000}
 
 if [[ -n "$NAMESPACE" ]]; then
   NS_ARG="$NAMESPACE"
