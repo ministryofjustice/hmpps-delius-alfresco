@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cronjob-restart-repository-pods
+spec:
+  schedule: "0 5 * * *"   # Every day at 5 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: hmpps-migration-prod    # must have RBAC to restart deployments
+          restartPolicy: OnFailure
+          containers:
+          - name: restart-repo
+            image: bitnami/kubectl:1.29   # lightweight kubectl image
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Restarting deployment alfresco-content-services-alfresco-repository at $(date)"
+              kubectl rollout restart deployment alfresco-content-services-alfresco-repository
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+              capabilities:
+                drop:
+                  - NET_RAW
+                  - ALL
