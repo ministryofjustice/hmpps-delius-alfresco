@@ -298,7 +298,7 @@ phase_descending_batches() {
       break
     fi
 
-    # if ENDING_NODE_ID is set and min_id is less that it then set min_id to ENDING_NODE_ID
+    # if ENDING_NODE_ID is set and min_id is less than it then set min_id to ENDING_NODE_ID
     if [[ -n "$ENDING_NODE_ID" && "$min_id" -lt "$ENDING_NODE_ID" ]]; then
       min_id="$ENDING_NODE_ID"
     fi
