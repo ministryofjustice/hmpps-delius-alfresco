@@ -32,7 +32,7 @@ set -euo pipefail
 
 # ----------------------------- Configurable bits ------------------------------
 # We reindex backwards so STARTING_NODE_ID should be higher than the ENDING_NODE_ID
-STARTING_NODE_ID=814580955
+STARTING_NODE_ID=
 #ENDING_NODE_ID=814580955
 ENDING_NODE_ID=1000
 BATCH_SIZE=200000
@@ -49,8 +49,8 @@ AMQ_BROKER_PASSWORD=$(kubectl get secret amazon-mq-broker-secret -o json | jq -r
 AMQ_QUEUE_NAME="acs-repo-transform-request"
 AMQ_QUEUE_STAT="size"
 
-QUEUE_THRESHOLD=3000           # proceed when queue size <= this
-INITIAL_QUEUE_SETTLE_SEC=240   # allow time after batch for queue to start filling
+QUEUE_THRESHOLD=1000           # proceed when queue size <= this
+INITIAL_QUEUE_SETTLE_SEC=360   # allow time after batch for queue to start filling
 QUEUE_WAIT_TIMEOUT_SEC=$((60*50)) # max wait ~50 minutes per batch
 
 # ----------------------------- Helper functions -------------------------------
