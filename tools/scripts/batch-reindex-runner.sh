@@ -305,12 +305,12 @@ phase_descending_batches() {
 
     log "Next batch: FROM=${min_id} TO=${window_max} (count=${count})"
     run_reindex_task "$min_id" "$window_max"
+    write_state "$min_id"
 
     wait_queue_below_threshold
 
     # Prepare for next window: use the previous min_id as new max bound
     max_id=$min_id
-    write_state "$max_id"
   done
 
   log "All batches complete."
