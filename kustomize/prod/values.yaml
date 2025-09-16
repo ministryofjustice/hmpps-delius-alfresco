@@ -70,7 +70,7 @@ alfresco-search-enterprise:
   liveIndexing:
   # set in value-versions yaml
     content:
-      replicaCount: 4
+      replicaCount: 3
     metadata:
       replicaCount: 2
     mediation:

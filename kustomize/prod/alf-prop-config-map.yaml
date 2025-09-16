@@ -99,3 +99,12 @@ data:
     patch.nspg.administration.deferred=false
     patch.nspg.administration.roles.cronExpression=0 0 0 ? 1 1 2030
     patch.nspg.administration.roles.startDelay=0
+
+    # Metrics
+    metrics.enabled=true
+    metrics.dbMetricsReporter.enabled=true
+    metrics.dbMetricsReporter.query.enabled=true
+    metrics.dbMetricsReporter.query.statements.enabled=true
+    metrics.jvmMetricsReporter.enabled=true
+    metrics.restMetricsReporter.enabled=true
+    metrics.restMetricsReporter.path.enabled=true
