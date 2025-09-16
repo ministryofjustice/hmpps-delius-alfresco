@@ -33,14 +33,12 @@ set -euo pipefail
 # ----------------------------- Configurable bits ------------------------------
 # We reindex backwards so STARTING_NODE_ID should be higher than the ENDING_NODE_ID
 STARTING_NODE_ID=814580955
-ENDING_NODE_ID=790534185
-ENV_NAME="preprod"
-K8S_NAMESPACE="hmpps-delius-alfresco-preprod"
-BATCH_SIZE=100000
+#ENDING_NODE_ID=814580955
+ENDING_NODE_ID=1000
+BATCH_SIZE=200000
 
 PARENT_NODE_ID_FOR_CHILDREN=738
 TYPE_QNAME_ID_FOR_DOCS=35
-STATE_FILE=".reindex_state.descending.json"
 # Label selector or name filter to locate the utils pod
 UTILS_SELECTOR="-l app=utils"
 
@@ -51,7 +49,7 @@ AMQ_BROKER_PASSWORD=$(kubectl get secret amazon-mq-broker-secret -o json | jq -r
 AMQ_QUEUE_NAME="acs-repo-transform-request"
 AMQ_QUEUE_STAT="size"
 
-QUEUE_THRESHOLD=5000           # proceed when queue size <= this
+QUEUE_THRESHOLD=3000           # proceed when queue size <= this
 INITIAL_QUEUE_SETTLE_SEC=240   # allow time after batch for queue to start filling
 QUEUE_WAIT_TIMEOUT_SEC=$((60*50)) # max wait ~50 minutes per batch
 
@@ -197,8 +195,8 @@ wait_queue_below_threshold() {
 run_reindex_task() {
   local from_id=$1
   local to_id=$2
-  log "Launching: task reindex_by_id ENV=${ENV_NAME} FROM=${from_id} TO=${to_id} …"
-  task reindex_by_id ENV="${ENV_NAME}" FROM="${from_id}" TO="${to_id}"
+  log "Launching: task reindex_by_id ENV=${ENV} FROM=${from_id} TO=${to_id} …"
+  task reindex_by_id ENV="${ENV}" FROM="${from_id}" TO="${to_id}"
 }
 
 # State management (JSON stored very simply without jq to avoid dependency)
@@ -320,25 +318,40 @@ phase_descending_batches() {
 
 # ----------------------------------- Main -------------------------------------
 main() {
+  ENV=$1
+
+  # Restrict env values to only poc, dev, test, stage, preprod or prod
+  if [[ "$ENV" != "poc" && "$ENV" != "dev" && "$ENV" != "test" && "$ENV" != "stage" && "$ENV" != "preprod" && "$ENV" != "prod" ]]; then
+      log_error "Invalid namespace. Allowed values: poc, dev, stage, test, preprod or prod."
+      exit 1
+  fi
+
+  if [ "$ENV" == "poc" ]; then
+      K8S_NAMESPACE="hmpps-delius-alfrsco-${ENV}"
+  else
+      K8S_NAMESPACE="hmpps-delius-alfresco-${ENV}"
+  fi
+  STATE_FILE=".reindex_state.${ENV}.json"
+
   ensure_tools
   export KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
   export KUBECTL_NAMESPACE_OVERRIDE="${K8S_NAMESPACE}"
 
-  log "Starting reindex runner for ENV=${ENV_NAME} in namespace ${K8S_NAMESPACE} …"
+  log "Starting reindex runner for ENV=${ENV} in namespace ${K8S_NAMESPACE} …"
 
   # Phase 1 & 2 should run only once; guard with simple sentinels
-  if [[ ! -f .phase1.done ]]; then
+  if [[ ! -f .phase1.${ENV}.done ]]; then
     phase_hierarchy
-    touch .phase1.done
+    touch .phase1.${ENV}.done
   else
-    log "Phase 1 already completed (marker .phase1.done exists)."
+    log "Phase 1 already completed (marker .phase1.${ENV}.done exists)."
   fi
 
-  if [[ ! -f .phase2.done ]]; then
+  if [[ ! -f .phase2.${ENV}.done ]]; then
     phase_parent_children
-    touch .phase2.done
+    touch .phase2.${ENV}.done
   else
-    log "Phase 2 already completed (marker .phase2.done exists)."
+    log "Phase 2 already completed (marker .phase2.${ENV}.done exists)."
   fi
 
   phase_descending_batches

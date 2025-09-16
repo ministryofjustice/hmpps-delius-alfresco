@@ -6,8 +6,8 @@
 
 set -euo pipefail
 
-QUEUE_NAME=${1:?Usage: $0 <queue_name> <stop_stat> [namespace] [interval_secs]}
-STOP_STAT=${2:?Usage: $0 <queue_name> <stop_stat> [namespace] [interval_secs]}
+QUEUE_NAME=${1:-"acs-repo-transform-request"}
+STOP_STAT=${2:-"size"}
 NAMESPACE=${3:-}
 INTERVAL=${4:-30}
 WARN_LEVEL=${5:-6000}

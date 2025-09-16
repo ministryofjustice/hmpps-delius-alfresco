@@ -27,7 +27,9 @@ spec:
             name: s3-bucket-output
             key: BUCKET_NAME
       - name: REGION
-        value: eu-west-2
+        value: "eu-west-2"
+      - name: AWS_PAGER
+        value: ""
       # psql understands PGDATABASE; keep DATABASE_NAME too if other tooling expects it
       - name: PGDATABASE
         valueFrom:
