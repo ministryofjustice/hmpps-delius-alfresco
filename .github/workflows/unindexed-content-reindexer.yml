@@ -48,9 +48,17 @@ on:
           - preprod
           - prod
       days:
-        description: "Look-back window in days"
-        required: true
+        description: "Look-back window in days (from today)"
+        required: false
         default: "1"
+      range_start_unixtime:
+        description: "Starting Unix timestamp for the range to check"
+        required: false
+        default: ""
+      range_end_unixtime:
+        description: "Ending Unix timestamp for the range to check"
+        required: false
+        default: ""             
       uuids_csv:
         description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
         required: false
@@ -138,6 +146,8 @@ jobs:
         id: query
         env:
           DAYS: ${{ github.event.inputs.days }}
+          RANGE_START_UNIXTIME: ${{ github.event.inputs.range_start_unixtime }}
+          RANGE_END_UNIXTIME: ${{ github.event.inputs.range_end_unixtime }}
         run: |
           set -euo pipefail
 
@@ -155,31 +165,62 @@ jobs:
           # Give it a moment
           sleep 3
 
-          # Build query with now-${DAYS}d window
-          cat > query-unindexed.json <<'JSON'
-          {
-            "size": 1000,
-            "_source": false,
-            "query": {
-              "bool": {
-                "filter": [
-                  { "range": { "cm%3Acreated": { "gte": "REPLACE_NOW_WINDOW" } } }
-                ],
-                "must": [
-                  { "match": { "TYPE": "nspg:offenderDocument" } }
-                ],
-                "must_not": [
-                  { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
-                  { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
-                  { "exists": { "field": "cm%3Acontent" } }
-                ]
-              }
-            },
-            "sort": [ { "_id": "desc" } ],
-            "track_total_hits": false
-          }
-          JSON
-          sed -i.bak "s/REPLACE_NOW_WINDOW/now-${DAYS}d/" query-unindexed.json
+          # Build query with now-${DAYS}d window if ${DAYS} is set
+          if [ -n "${DAYS}" ]; then
+            cat > query-unindexed.json <<'JSON'
+            {
+              "size": 1000,
+              "_source": false,
+                "query": {
+                "bool": {
+                  "filter": [
+                    { "range": { "cm%3Acreated": { "gte": "REPLACE_NOW_WINDOW" } } }
+                  ],
+                  "must": [
+                    { "match": { "TYPE": "nspg:offenderDocument" } }
+                  ],
+                  "must_not": [
+                    { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
+                    { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
+                    { "exists": { "field": "cm%3Acontent" } }
+                  ]
+                }
+              },
+              "sort": [ { "_id": "desc" } ],
+              "track_total_hits": false
+            }
+            JSON
+            sed -i.bak "s/REPLACE_NOW_WINDOW/now-${DAYS}d/" query-unindexed.json
+          else
+            cat > query-unindexed.json <<'JSON'
+            {
+              "size": 1000,
+              "_source": false,
+                "query": {
+                "bool": {
+                  "filter": [
+                    { "range": { "METADATA_INDEXING_LAST_UPDATE":{
+                        "gte": "REPLACE_START_UNIXTIME",
+                        "lte": "REPLACE_END_UNIXTIME"
+                    }}}
+                  ],
+                  "must": [
+                    { "match": { "TYPE": "nspg:offenderDocument" } }
+                  ],
+                  "must_not": [
+                    { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
+                    { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
+                    { "exists": { "field": "cm%3Acontent" } }
+                  ]
+                }
+              },
+              "sort": [ { "_id": "desc" } ],
+              "track_total_hits": false
+            }
+            JSON
+            sed -i.bak "s/REPLACE_START_UNIXTIME/${RANGE_START_UNIXTIME}/" query-unindexed.json
+            sed -i.bak "s/REPLACE_END_UNIXTIME/${RANGE_END_UNIXTIME}/" query-unindexed.json
+          end if;
 
           # Query opensearch-proxy
           curl -sS -X POST "http://localhost:8080/alfresco/_search" \
