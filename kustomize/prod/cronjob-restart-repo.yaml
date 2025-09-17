@@ -4,8 +4,11 @@ metadata:
   name: cronjob-restart-repository-pods
 spec:
   schedule: "0 5 * * *"   # Every day at 5 AM
+  successfulJobsHistoryLimit: 1   # keep only the most recent successful Job
+  failedJobsHistoryLimit: 1       # keep only the most recent failed Job
   jobTemplate:
     spec:
+      ttlSecondsAfterFinished: 3600
       template:
         spec:
           serviceAccountName: hmpps-migration-prod    # must have RBAC to restart deployments
