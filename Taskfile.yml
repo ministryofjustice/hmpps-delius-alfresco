@@ -149,6 +149,7 @@ tasks:
         export RDS_JDBC_URL=$(kubectl get secrets rds-instance-output --namespace ${NAMESPACE} -o json | jq -r ".data | map_values(@base64d) | .RDS_JDBC_URL")
         export EXTRACTED=$(yq 'join(",")' ./kustomize/${ENV}/allowlist.yaml)
         echo "Using namespace: ${NAMESPACE}"
+    silent: true
 
   update_allowlist:
     internal: true
@@ -158,11 +159,13 @@ tasks:
         export ALLOWLIST={{.ALLOWLIST}}
         yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-repository.yaml
         yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-share.yaml
+    silent: true
 
   helm_repo_add:
     internal: true
     cmds:
       - helm repo add alfresco https://kubernetes-charts.alfresco.com/stable --force-update
+    silent: true
 
   helm_upgrade_install:
     internal: true
@@ -188,6 +191,7 @@ tasks:
         echo "Chart version: $(helm list -n {{.NAMESPACE}} | grep $RELEASE_NAME | awk '{print $9}')"
         echo "ACS Version: $(helm list -n {{.NAMESPACE}} | grep $RELEASE_NAME | awk '{print $10}')"
         echo " "
+    silent: true
 
   helm_dryrun_diff:
     internal: true
@@ -212,6 +216,7 @@ tasks:
         else
           echo "Skipping helm diff as DEBUG and DRY_RUN are not both set to true"
         fi
+    silent: true
 
   reset_allowlist:
     internal: true
@@ -219,6 +224,7 @@ tasks:
     cmds:
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-repository.yaml
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-share.yaml
+    silent: true
 
   # reindexes by id from the FROM_ID to the TO_ID
   # ID FORMAT: alf-node id
@@ -267,6 +273,7 @@ tasks:
         task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
 
         helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
+    silent: true
 
   # reindexes by date from the FROM_DATE to the TO_DATE
   # DATE FORMAT: YYYYMMDDHHMM
@@ -335,6 +342,7 @@ tasks:
 
         echo "Running Helm install to run job..."
         helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=${FROM}" --set "toTime=${TO}" --set "content=${INDEX_CONTENT}" --namespace ${NS}
+    silent: true
 
   delete_existing_reindex_configmaps_for_range:
     desc: "Delete existing reindexing configmaps for a specific FROM-TO ID range"
@@ -386,6 +394,7 @@ tasks:
             echo "⏭️  Skipping $CM as it's currently in use"
           fi
         done
+    silent: true
 
   helm_uninstall_prefix:
     vars:
@@ -396,6 +405,7 @@ tasks:
           echo "Uninstalling release: $release"
           helm uninstall "$release" -n {{.NAMESPACE}}
         done
+    silent: true
 
   kubectl_remove_pods_prefix:
     vars:
@@ -408,6 +418,7 @@ tasks:
           echo "Deleting pod: $pod"
           kubectl delete pod "$pod" -n {{.NAMESPACE}} {{.FORCE_FLAG}}
         done
+    silent: true
 
   cleanup_unused_reindex_configmaps:
     desc: "Delete all unused reindexing-* configmaps in a given namespace"
@@ -450,6 +461,7 @@ tasks:
             echo "⏭️  Skipping $CM as it's in use"
           fi
         done
+    silent: true
 
   restart_deployments:
     desc: "Restart all ACS deployments in the specified namespace"
@@ -469,6 +481,7 @@ tasks:
           echo "Restarting deployment: $DEPLOYMENT"
           kubectl rollout restart deployment "$DEPLOYMENT" -n "$NS"
         done
+    silent: true
 
   reindex_scale_up:
     desc: "Scale up ACS deployments to their maxReplicas when reindexing by setting HPA minReplicas to match maxReplicas"
@@ -500,6 +513,7 @@ tasks:
         kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
           --type='merge' \
           -p "{\"spec\": {\"minReplicas\": ${MAX_TIKA_REPLICAS}}}"
+    silent: true
 
   reindex_scale_down:
     desc: "Scale down ACS deployments to their default minReplicas after reindexing by resetting HPA minReplicas"
@@ -531,6 +545,7 @@ tasks:
         kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
           --type='merge' \
           -p "{\"spec\": {\"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
+    silent: true
 
   scale_up_deployments:
     desc: "Scale up all ACS deployments based on config file defaults"
@@ -627,6 +642,7 @@ tasks:
         kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-metadata --replicas=$METADATA_REPLICAS
         kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-path --replicas=$PATH_REPLICAS
         kubectl scale statefulset alfresco-search-enterprise-mediation --replicas=$MEDIATION_REPLICAS
+    silent: true
 
 
   scale_down_deployments:
@@ -660,6 +676,7 @@ tasks:
           kubectl scale statefulset "$sts" -n "$NS" --replicas=0
           kubectl rollout status statefulset "$sts" -n "$NS" --timeout=120s || true
         done
+    silent: true
 
   cleanup_inactive_reindex_helm_releases:
     desc: "Delete inactive Helm releases with prefix reindex-default-* if no active pods are running"
@@ -693,6 +710,7 @@ tasks:
             echo "⏭️  Skipping $RELEASE — $ACTIVE_POD_COUNT active pod(s) still running"
           fi
         done
+    silent: true
 
   restart_repo:
     desc: "Restart the Alfresco repository pods"
@@ -705,3 +723,4 @@ tasks:
 
         # Restart the deployment
         kubectl rollout restart deployment "$RELEASE_NAME-alfresco-repository" -n "$NS"
+    silent: true

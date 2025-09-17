@@ -49,12 +49,24 @@ on:
           - prod
       days:
         description: "Look-back window in days"
-        required: false
+        required: true
         default: "1"
       uuids_csv:
         description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
         required: false
         type: string
+      restart_pods:
+        description: "Restart the repo pods if more unindexed docs than threshold found?"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "Yes"
+      restart_threshold:
+        description: "Threshold for restarting repo pods"
+        required: true
+        default: "40"
   #schedule:
     # GitHub Actions cron uses UTC.
     # E.g. runs every night at:
@@ -157,6 +169,8 @@ jobs:
                   { "match": { "TYPE": "nspg:offenderDocument" } }
                 ],
                 "must_not": [
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
                   { "exists": { "field": "cm%3Acontent" } }
                 ]
               }
@@ -302,11 +316,12 @@ jobs:
           [ -f ids.txt ] && cat ids.txt || true
 
       - name: Repository rolling restart if threshold met
-        if: steps.mapids.outputs.no_ids == 'false'
+        if: steps.mapids.outputs.no_ids == 'false' && github.event.inputs.restart_pods == 'Yes'
         env:
           TASK_ENV: ${{ matrix.environment }}
           DEPLOYMENT: alfresco-content-services-alfresco-repository
-          RESTART_THRESHOLD: 40
+          DAYS: ${{ github.event.inputs.days }}
+          RESTART_THRESHOLD: ${{ github.event.inputs.restart_threshold }}
         run: |
           set -e
           UNINDEXED=$(wc -l < ids.txt)

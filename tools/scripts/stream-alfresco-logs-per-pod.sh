@@ -46,7 +46,7 @@ else
 fi
 
 NAMESPACE="${namespace}"
-LOG_DIR="../../../alfresco-logs"
+LOG_DIR="logs"
 PIDS=()
 
 mkdir -p "${LOG_DIR}"

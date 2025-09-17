@@ -68,7 +68,7 @@ LABEL_SELECTOR=""
 
 # Build your log file name
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-LOG_DIR="../../../alfresco-logs"
+LOG_DIR="logs"
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/alfresco-repo-logs-${TIMESTAMP}.log"
 

@@ -27,6 +27,13 @@ data:
     events.subsystem.autoStart=true
     messaging.subsystem.autoStart=true
 
+    # content cleaner settings
+    # Default is 0 0 21 * * ? but we want to delay and run it every Saturday night
+    system.nodeServiceCleanup.cronExpression=0 0 21 ? * 6
+    system.node_table_cleaner.algorithm=V2
+    # Default is 0 0 4 * * ? but we want to delay and run it every Sunday morning
+    system.content.orphanCleanup.cronExpression=0 0 4 ? * 7
+
     repo.event2.queue.dequeueThreadPool.coreSize=30
     repo.event2.queue.dequeueThreadPool.maximumSize=50
 

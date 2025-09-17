@@ -72,6 +72,7 @@ spec:
               value: "true"
             - name: ACTIVEMQ_POOL_SIZE
               value: "200"
+            # add -Dlogging.level.root=TRACE below to increase the level the logging
             - name: JAVA_OPTS
               value: >-
                 -Dalfresco.reindex.fromId={{ .Values.fromId }}
@@ -80,7 +81,7 @@ spec:
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
                 -Dalfresco.reindex.concurrentProcessors=30
-                -Dalfresco.reindex.batchSize=50
+                -Dalfresco.reindex.batchSize=100
                 -Dalfresco.reindex.pageSize=10000
           ports:
               - name: http

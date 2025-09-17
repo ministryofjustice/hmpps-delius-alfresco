@@ -53,8 +53,16 @@ QUEUE_THRESHOLD=1000           # proceed when queue size <= this
 INITIAL_QUEUE_SETTLE_SEC=360   # allow time after batch for queue to start filling
 QUEUE_WAIT_TIMEOUT_SEC=$((60*50)) # max wait ~50 minutes per batch
 
+LOG_DIR="logs"
+
 # ----------------------------- Helper functions -------------------------------
-log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
+log() { 
+  local ts="[$(date +'%Y-%m-%d %H:%M:%S')]"
+  # Write to stdout/stderr
+  echo "$ts $*" >&2
+  # Append to a hidden log file (per ENV)
+  echo "$ts $*" >> "${LOG_DIR}/reindexing.${ENV}.log"
+}
 
 fatal() { log "FATAL: $*"; exit 1; }
 
@@ -331,7 +339,7 @@ main() {
   else
       K8S_NAMESPACE="hmpps-delius-alfresco-${ENV}"
   fi
-  STATE_FILE=".reindex_state.${ENV}.json"
+  STATE_FILE="${LOG_DIR}/reindex_state.${ENV}.json"
 
   ensure_tools
   export KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
@@ -340,18 +348,18 @@ main() {
   log "Starting reindex runner for ENV=${ENV} in namespace ${K8S_NAMESPACE} …"
 
   # Phase 1 & 2 should run only once; guard with simple sentinels
-  if [[ ! -f .phase1.${ENV}.done ]]; then
+  if [[ ! -f ${LOG_DIR}/phase1.${ENV}.done ]]; then
     phase_hierarchy
-    touch .phase1.${ENV}.done
+    touch ${LOG_DIR}/phase1.${ENV}.done
   else
-    log "Phase 1 already completed (marker .phase1.${ENV}.done exists)."
+    log "Phase 1 already completed (marker ${LOG_DIR}/phase1.${ENV}.done exists)."
   fi
 
-  if [[ ! -f .phase2.${ENV}.done ]]; then
+  if [[ ! -f ${LOG_DIR}/phase2.${ENV}.done ]]; then
     phase_parent_children
-    touch .phase2.${ENV}.done
+    touch ${LOG_DIR}/phase2.${ENV}.done
   else
-    log "Phase 2 already completed (marker .phase2.${ENV}.done exists)."
+    log "Phase 2 already completed (marker ${LOG_DIR}/phase2.${ENV}.done exists)."
   fi
 
   phase_descending_batches
