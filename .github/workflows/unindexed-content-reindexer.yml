@@ -50,15 +50,12 @@ on:
       days:
         description: "Look-back window in days (from today)"
         required: false
-        default: "1"
       range_start_unixtime:
         description: "Starting Unix timestamp for the range to check"
         required: false
-        default: ""
       range_end_unixtime:
         description: "Ending Unix timestamp for the range to check"
         required: false
-        default: ""             
       uuids_csv:
         description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
         required: false
