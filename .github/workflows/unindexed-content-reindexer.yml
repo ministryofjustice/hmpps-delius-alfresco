@@ -60,6 +60,14 @@ on:
         description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
         required: false
         type: string
+      skip_configmap_check:
+        description: "Skip configmap check (quicker reindexing)?"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "Yes"
       restart_pods:
         description: "Restart the repo pods if more unindexed docs than threshold found?"
         required: true
@@ -142,7 +150,8 @@ jobs:
         if: ${{ inputs.uuids_csv == '' }}
         id: query
         env:
-          DAYS: ${{ github.event.inputs.days }}
+          # If scheduled look back 2 days, otherwise use input values
+          DAYS: ${{ github.event_name == 'schedule' && '2' || github.event.inputs.days }}
           RANGE_START_UNIXTIME: ${{ github.event.inputs.range_start_unixtime }}
           RANGE_END_UNIXTIME: ${{ github.event.inputs.range_end_unixtime }}
         run: |
@@ -301,7 +310,7 @@ jobs:
           cat ids.values.yaml
 
       - name: Clean up previous reindex-list configmaps (static names)
-        if: steps.mapids.outputs.no_ids == 'false'
+        if: steps.mapids.outputs.no_ids == 'false' && github.event.inputs.skip_configmap_check == 'No'
         env:
           TASK_ENV: ${{ matrix.environment }}
         run: |
@@ -344,7 +353,6 @@ jobs:
         env:
           TASK_ENV: ${{ matrix.environment }}
           DEPLOYMENT: alfresco-content-services-alfresco-repository
-          DAYS: ${{ github.event.inputs.days }}
           RESTART_THRESHOLD: ${{ github.event.inputs.restart_threshold }}
         run: |
           set -e
