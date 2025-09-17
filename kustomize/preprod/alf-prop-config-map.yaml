@@ -27,6 +27,25 @@ data:
     events.subsystem.autoStart=true
     messaging.subsystem.autoStart=true
 
+    # content cleaner settings
+    # Default is 0 0 21 * * ? but we want to delay and run it every Saturday night
+    system.nodeServiceCleanup.cronExpression=0 0 21 ? * 6
+    system.node_table_cleaner.algorithm=V2
+    # Default is 0 0 4 * * ? but we want to delay and run it every Sunday morning
+    system.content.orphanCleanup.cronExpression=0 0 4 ? * 7
+
+    repo.event2.queue.dequeueThreadPool.coreSize=30
+    repo.event2.queue.dequeueThreadPool.maximumSize=50
+
+    # Repository Content caching
+    system.content.caching.cacheOnInbound=true
+    # Maximum disk usage for the cache in MB, increased from default of 50GB (51200) to 120GB
+    system.content.caching.maxUsageMB=122880
+    # Cleanup every hour
+    system.content.caching.contentCleanup.cronExpression=0 0 * * * ?
+    # Keep files in cache for 30 minutes
+    system.content.caching.timeToLiveSeconds=1800
+
     #Zaizi additions
     zaizi.noms.root.folder=NOMS
     zaizi.noms.crn.pattern=([A-Z])([0-9]{3})([0-9]{3})
@@ -35,13 +54,22 @@ data:
     spg.ndelius.users=N00
     spg.crc.users=C01,C02,C03,C04,C05,C06,C07,C08,C09,C10,C11,C12,C13,C14,C15,C16,C17,C18,C19,C20,C21,C22,C23
 
+    # standard cache values
+    caches.tx.statsEnabled=true
+
+    cache.propertyValueTransactionalCache.tx.maxItems=250000
+    cache.propertyValueTransactionalCache.maxItems=250000
+
+    cache.propertyValueCache.tx.maxItems=250000
+    cache.propertyValueCache.maxItems=250000
+    cache.propertyValueCache.tx.statsEnabled=${caches.tx.statsEnabled}
+
     # The User to Schema Cache
     cache.spgUserToSchemaVersionCache.tx.maxItems=100
     cache.spgUserToSchemaVersionCache.tx.statsEnabled=${caches.tx.statsEnabled}
     cache.spgUserToSchemaVersionCache.maxItems=500
     cache.spgUserToSchemaVersionCache.timeToLiveSeconds=0
     cache.spgUserToSchemaVersionCache.maxIdleSeconds=0
-    cache.spgUserToSchemaVersionCache.cluster.type=local
     cache.spgUserToSchemaVersionCache.backup-count=1
     cache.spgUserToSchemaVersionCache.eviction-policy=LRU
     cache.spgUserToSchemaVersionCache.eviction-percentage=25

@@ -1,8 +1,9 @@
 name: Scheduled Daily Rollout Restart
 
 on:
+  # No need to scheduled restarts at the moment. Should be expanded so that schedules per env can be defined.
   #schedule:
-    #- cron: '0 3 * * *'  # 03:00 UTC daily
+    #- cron: '0 5 * * *'  # 05:00 UTC daily
   workflow_dispatch:
 
 jobs:
@@ -16,4 +17,4 @@ jobs:
         uses: ./.github/workflows/rollout-restart.yaml
         with:
           environment: preprod
-          deployment: alfresco-content-services-alfresco-cs-repository
+          deployment: alfresco-content-services-alfresco-repository

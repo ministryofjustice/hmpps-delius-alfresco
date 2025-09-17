@@ -3,6 +3,7 @@ kind: Job
 metadata:
   name: restore-docs-worker
 spec:
+  ttlSecondsAfterFinished: 3600
   template:
     spec:
       containers:
