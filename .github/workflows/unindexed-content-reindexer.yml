@@ -166,8 +166,8 @@ jobs:
           sleep 3
 
           # Build query with now-${DAYS}d window if ${DAYS} is set
-          if [ -n "${DAYS}" ]; then
-            cat > query-unindexed.json <<'JSON'
+          if [ -n "${DAYS:-}" ]; then
+cat > query-unindexed.json <<'JSON'
 {
   "size": 1000,
   "_source": false,
@@ -192,7 +192,7 @@ jobs:
 JSON
             sed -i.bak "s/REPLACE_NOW_WINDOW/now-${DAYS}d/" query-unindexed.json
           else
-            cat > query-unindexed.json <<'JSON'
+cat > query-unindexed.json <<'JSON'
 {
   "size": 1000,
   "_source": false,
@@ -220,7 +220,7 @@ JSON
 JSON
             sed -i.bak "s/REPLACE_START_UNIXTIME/${RANGE_START_UNIXTIME}/" query-unindexed.json
             sed -i.bak "s/REPLACE_END_UNIXTIME/${RANGE_END_UNIXTIME}/" query-unindexed.json
-          end if;
+          fi;
 
           # Query opensearch-proxy
           curl -sS -X POST "http://localhost:8080/alfresco/_search" \
