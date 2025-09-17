@@ -167,6 +167,7 @@ jobs:
 
           # Build query with now-${DAYS}d window if ${DAYS} is set
           if [ -n "${DAYS:-}" ]; then
+            echo "Building query with window: now-${DAYS}d"
             jq -n --arg window "now-${DAYS}d" '{
               "size": 1000,
               "_source": false,
@@ -183,6 +184,7 @@ jobs:
               "track_total_hits": false
             }' > query-unindexed.json
           elif [ -n "${RANGE_START_UNIXTIME:-}" ] && [ -n "${RANGE_END_UNIXTIME:-}" ]; then
+            echo "Building query with range: ${RANGE_START_UNIXTIME} to ${RANGE_END_UNIXTIME}"
             jq -n --argjson start "${RANGE_START_UNIXTIME}" --argjson end "${RANGE_END_UNIXTIME}" '{
               "size": 1000,
               "_source": false,
@@ -198,6 +200,7 @@ jobs:
               "sort": [ {"_id":"desc"} ],
               "track_total_hits": false
             }' > query-unindexed.json
+            cat query-unindexed.json
           else
             echo "Provide either DAYS or both RANGE_START_UNIXTIME and RANGE_END_UNIXTIME." >&2
             exit 2
@@ -208,6 +211,8 @@ jobs:
             --header "Content-Type: application/json" \
             --data-binary @query-unindexed.json \
             -o hits.json
+
+          cat hits.json
 
           # Extract UUIDs
           jq -r '.hits.hits[]._id' hits.json | sort -u > uuids.txt || true
