@@ -183,7 +183,8 @@ jobs:
                 "must_not": [
                   { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
                   { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
-                  { "exists": { "field": "cm%3Acontent" } }
+                  { "exists": { "field": "cm%3Acontent" } },
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
                 ]
               }},
               "sort": [ {"_id":"desc"} ],
@@ -200,7 +201,8 @@ jobs:
                 "must_not": [
                   { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
                   { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
-                  { "exists": { "field": "cm%3Acontent" } }
+                  { "exists": { "field": "cm%3Acontent" } },
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
                 ]
               }},
               "sort": [ {"_id":"desc"} ],
@@ -279,9 +281,18 @@ jobs:
             SET client_min_messages TO WARNING;
             CREATE TEMP TABLE uuids (uuid text);
             \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
-            SELECT id FROM alf_node
-            WHERE store_id = 6
-              AND uuid IN (SELECT uuid FROM uuids)
+            SELECT n.id 
+            FROM alf_node AS n,
+                 alf_node_properties AS p,
+                 alf_content_data AS d,
+                 alf_content_url AS u
+            WHERE n.id=p.node_id
+              AND p.long_value=d.id
+              AND d.content_url_id=u.id
+              AND p.qname_id=(SELECT id FROM alf_qname WHERE local_name='content')
+              AND n.store_id = 6
+              AND n.uuid IN (SELECT uuid FROM uuids)
+              AND round(u.content_size/1024/1024,2) < 40;
             ORDER BY id;
           EOF
           "
@@ -334,11 +345,11 @@ jobs:
           OPEN_SEARCH_PREFIX=$(kubectl get svc --namespace ${KUBE_NAMESPACE} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }')
           OPENSEARCH_HOST=$(echo "${OPEN_SEARCH_PREFIX}.${KUBE_NAMESPACE}.svc.cluster.local")
           RELEASE="reindex-list-$(openssl rand -hex 4)"
-          helm install "$RELEASE" ./jobs/reindex-list \
-            --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
-            -f ids.values.yaml \
-            --namespace "${KUBE_NAMESPACE}"
-          echo "Installed Helm release: $RELEASE"
+          #helm install "$RELEASE" ./jobs/reindex-list \
+          #  --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
+          #  -f ids.values.yaml \
+          #  --namespace "${KUBE_NAMESPACE}"
+          #echo "Installed Helm release: $RELEASE"
 
       - name: Summary
         run: |
