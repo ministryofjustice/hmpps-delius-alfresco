@@ -275,6 +275,7 @@ jobs:
           kubectl exec -i psql-util -- /bin/sh -lc "cat > /tmp/uuids.txt" < uuids.txt
 
           # Run the mapping using a temp table and \copy
+          # Only process docs that are less than 40MB in size as larger than that won't get processed. 
           kubectl exec psql-util -- /bin/sh -c "
             export PGPASSWORD='$DB_PASS';
             psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -qAt <<'EOF' > /tmp/query_output.txt
@@ -292,8 +293,8 @@ jobs:
               AND p.qname_id=(SELECT id FROM alf_qname WHERE local_name='content')
               AND n.store_id = 6
               AND n.uuid IN (SELECT uuid FROM uuids)
-              AND round(u.content_size/1024/1024,2) < 40;
-            ORDER BY id;
+              AND round(u.content_size/1024/1024,2) < 40
+            ORDER BY n.id;
           EOF
           "
 
@@ -304,11 +305,19 @@ jobs:
           kubectl delete pod psql-util --grace-period=0 --force >/dev/null 2>&1 || true
 
           sort -n -u ids.txt -o ids.txt
-          echo "Resolved $(wc -l < ids.txt) alf_node id(s)."
+          count_reindex=$(wc -l < ids.txt)
+          echo "Resolved $count_reindex alf_node id(s)."
           if [ ! -s ids.txt ]; then
             echo "no_ids=true" >> $GITHUB_OUTPUT
           else
             echo "no_ids=false" >> $GITHUB_OUTPUT
+          fi
+
+          # There is a limit of 100 pods so check how many are running now
+          count_pods=$(kubectl get pods | wc -l)
+          if [ $count_reindex + $count_pods -gt 95 ]; then
+            echo "Found $count_reindex alf_node id(s) to reindex. There are currently $count_pods pods running, which would exceed the limit of 100 pods if we started a reindex pod for each id. Please reduce the number of ids to reindex." >&2
+            exit 1
           fi
 
       - name: Generate Helm values for reindex-list
