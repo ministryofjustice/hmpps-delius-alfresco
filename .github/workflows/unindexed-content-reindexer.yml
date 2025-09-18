@@ -88,11 +88,11 @@ on:
           - "Yes"
           - "No"
         default: "Yes"
-  #schedule:
+  schedule:
     # GitHub Actions cron uses UTC.
     # E.g. runs every night at:
     #   19:00 UTC
-    #- cron: "0 19 * * *"
+    - cron: "0 19 * * *"
 
 permissions:
   contents: read
