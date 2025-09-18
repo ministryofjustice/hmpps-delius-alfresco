@@ -325,7 +325,7 @@ jobs:
           count_pods=$(kubectl get pods --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
           if (( count_reindex + count_pods > 95 )); then
             cat ids.txt
-            echo "Found $count_reindex alf_node id(s) to reindex. There are currently $count_pods pods running, which would exceed the limit of 100 pods if we started a reindex pod for each id. Please reduce the number of ids to reindex." >&2
+            echo "Found $count_reindex alf_node ids to reindex. There are currently $count_pods pods running, which would exceed the limit of 100 pods if we started a reindex pod for each id. Please reduce the number of ids to reindex." >&2
             if [ "${{ github.event.inputs.send_slack_notification }}" == "Yes" ]; then
               # Send Slack notification
               curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
