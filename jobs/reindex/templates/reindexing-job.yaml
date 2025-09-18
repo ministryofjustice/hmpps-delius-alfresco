@@ -6,6 +6,8 @@ metadata:
   labels:
     reindex-job: "{{ .Values.fromId }}-{{ .Values.toId }}"
 spec:
+  ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished | default 3600 }}
+  backoffLimit: 0
   template:
     metadata:
       {{- with $.Values.podAnnotations }}
@@ -70,15 +72,16 @@ spec:
               value: "true"
             - name: ACTIVEMQ_POOL_SIZE
               value: "200"
+            # add -Dlogging.level.root=TRACE below to increase the level the logging
             - name: JAVA_OPTS
               value: >-
                 -Dalfresco.reindex.fromId={{ .Values.fromId }}
                 -Dalfresco.reindex.toId={{ .Values.toId }}
-                -Dalfresco.reindex.contentIndexingEnabled=true
+                -Dalfresco.reindex.contentIndexingEnabled={{ .Values.content }}
                 -Dalfresco.reindex.metadataIndexingEnabled=true
                 -Dalfresco.reindex.multithreadedStepEnabled=true
                 -Dalfresco.reindex.concurrentProcessors=30
-                -Dalfresco.reindex.batchSize=1000
+                -Dalfresco.reindex.batchSize=100
                 -Dalfresco.reindex.pageSize=10000
           ports:
               - name: http
