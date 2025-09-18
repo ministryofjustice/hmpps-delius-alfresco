@@ -50,19 +50,24 @@ on:
       days:
         description: "Look-back window in days (from today)"
         required: false
-        default: "1"
       range_start_unixtime:
         description: "Starting Unix timestamp for the range to check"
         required: false
-        default: ""
       range_end_unixtime:
         description: "Ending Unix timestamp for the range to check"
         required: false
-        default: ""             
       uuids_csv:
         description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
         required: false
         type: string
+      skip_configmap_check:
+        description: "Skip configmap check (quicker reindexing)?"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "Yes"
       restart_pods:
         description: "Restart the repo pods if more unindexed docs than threshold found?"
         required: true
@@ -75,11 +80,19 @@ on:
         description: "Threshold for restarting repo pods"
         required: true
         default: "40"
-  #schedule:
+      send_slack_notification:
+        description: "Send Slack notification"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "No"
+  schedule:
     # GitHub Actions cron uses UTC.
     # E.g. runs every night at:
-    #   19:00 UTC
-    #- cron: "0 19 * * *"
+    #   20:00 UTC
+    - cron: "0 20 * * *"
 
 permissions:
   contents: read
@@ -125,7 +138,7 @@ jobs:
 
       # if user supplied a CSV list, transform it into uuids.txt (one UUID per line)
       - name: Create uuids.txt from input (if provided)
-        if: ${{ inputs.uuids_csv != '' }}
+        if: ${{ github.event.inputs.uuids_csv != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -133,7 +146,7 @@ jobs:
           # - Replace commas/semicolons/spaces/tabs with newlines
           # - Strip CR characters (Windows line endings)
           # - Drop empty lines
-          printf "%s\n" "${{ inputs.uuids_csv }}" \
+          printf "%s\n" "${{ github.event.inputs.uuids_csv }}" \
             | tr ',;\t ' '\n' \
             | sed 's/\r//g' \
             | sed '/^$/d' \
@@ -145,7 +158,8 @@ jobs:
         if: ${{ inputs.uuids_csv == '' }}
         id: query
         env:
-          DAYS: ${{ github.event.inputs.days }}
+          # If scheduled look back 2 days, otherwise use input values
+          DAYS: ${{ github.event_name == 'schedule' && '2' || github.event.inputs.days }}
           RANGE_START_UNIXTIME: ${{ github.event.inputs.range_start_unixtime }}
           RANGE_END_UNIXTIME: ${{ github.event.inputs.range_end_unixtime }}
         run: |
@@ -166,67 +180,55 @@ jobs:
           sleep 3
 
           # Build query with now-${DAYS}d window if ${DAYS} is set
-          if [ -n "${DAYS}" ]; then
-            cat > query-unindexed.json <<'JSON'
-            {
+          if [ -n "${DAYS:-}" ]; then
+            echo "Building query with window: now-${DAYS}d"
+            jq -n --arg window "now-${DAYS}d" '{
               "size": 1000,
               "_source": false,
-                "query": {
-                "bool": {
-                  "filter": [
-                    { "range": { "cm%3Acreated": { "gte": "REPLACE_NOW_WINDOW" } } }
-                  ],
-                  "must": [
-                    { "match": { "TYPE": "nspg:offenderDocument" } }
-                  ],
-                  "must_not": [
-                    { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
-                    { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
-                    { "exists": { "field": "cm%3Acontent" } }
-                  ]
-                }
-              },
-              "sort": [ { "_id": "desc" } ],
+              "query": { "bool": {
+                "filter": [ { "range": {"cm%3Acreated": { "gte": $window }} } ],
+                "must":   [ { "match": { "TYPE": "nspg:offenderDocument" } } ],
+                "must_not": [
+                  { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
+                  { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
+                  { "exists": { "field": "cm%3Acontent" } },
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
+                ]
+              }},
+              "sort": [ {"_id":"desc"} ],
               "track_total_hits": false
-            }
-            JSON
-            sed -i.bak "s/REPLACE_NOW_WINDOW/now-${DAYS}d/" query-unindexed.json
+            }' > query-unindexed.json
+          elif [ -n "${RANGE_START_UNIXTIME:-}" ] && [ -n "${RANGE_END_UNIXTIME:-}" ]; then
+            echo "Building query with range: ${RANGE_START_UNIXTIME} to ${RANGE_END_UNIXTIME}"
+            jq -n --argjson start "${RANGE_START_UNIXTIME}" --argjson end "${RANGE_END_UNIXTIME}" '{
+              "size": 1000,
+              "_source": false,
+              "query": { "bool": {
+                "filter": [ { "range": {"METADATA_INDEXING_LAST_UPDATE": { "gte": $start, "lte": $end }} } ],
+                "must":   [ { "match": { "TYPE": "nspg:offenderDocument" } } ],
+                "must_not": [
+                  { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
+                  { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
+                  { "exists": { "field": "cm%3Acontent" } },
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
+                ]
+              }},
+              "sort": [ {"_id":"desc"} ],
+              "track_total_hits": false
+            }' > query-unindexed.json
+            cat query-unindexed.json
           else
-            cat > query-unindexed.json <<'JSON'
-            {
-              "size": 1000,
-              "_source": false,
-                "query": {
-                "bool": {
-                  "filter": [
-                    { "range": { "METADATA_INDEXING_LAST_UPDATE":{
-                        "gte": "REPLACE_START_UNIXTIME",
-                        "lte": "REPLACE_END_UNIXTIME"
-                    }}}
-                  ],
-                  "must": [
-                    { "match": { "TYPE": "nspg:offenderDocument" } }
-                  ],
-                  "must_not": [
-                    { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
-                    { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
-                    { "exists": { "field": "cm%3Acontent" } }
-                  ]
-                }
-              },
-              "sort": [ { "_id": "desc" } ],
-              "track_total_hits": false
-            }
-            JSON
-            sed -i.bak "s/REPLACE_START_UNIXTIME/${RANGE_START_UNIXTIME}/" query-unindexed.json
-            sed -i.bak "s/REPLACE_END_UNIXTIME/${RANGE_END_UNIXTIME}/" query-unindexed.json
-          end if;
+            echo "Provide either DAYS or both RANGE_START_UNIXTIME and RANGE_END_UNIXTIME." >&2
+            exit 2
+          fi
 
           # Query opensearch-proxy
           curl -sS -X POST "http://localhost:8080/alfresco/_search" \
             --header "Content-Type: application/json" \
             --data-binary @query-unindexed.json \
             -o hits.json
+
+          cat hits.json
 
           # Extract UUIDs
           jq -r '.hits.hits[]._id' hits.json | sort -u > uuids.txt || true
@@ -245,6 +247,8 @@ jobs:
       - name: Map UUIDs -> alf_node.id via ephemeral pod
         if: steps.query.outputs.no_uuids == 'false'
         id: mapids
+        env:
+          TASK_ENV: ${{ matrix.environment }}
         run: |
           set -euo pipefail
 
@@ -281,31 +285,52 @@ jobs:
           kubectl exec -i psql-util -- /bin/sh -lc "cat > /tmp/uuids.txt" < uuids.txt
 
           # Run the mapping using a temp table and \copy
+          # Only process docs that are less than 40MB in size as larger than that won't get processed. 
           kubectl exec psql-util -- /bin/sh -c "
             export PGPASSWORD='$DB_PASS';
             psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -qAt <<'EOF' > /tmp/query_output.txt
             SET client_min_messages TO WARNING;
             CREATE TEMP TABLE uuids (uuid text);
             \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
-            SELECT id FROM alf_node
-            WHERE store_id = 6
-              AND uuid IN (SELECT uuid FROM uuids)
-            ORDER BY id;
+            SELECT n.id 
+            FROM alf_node AS n,
+                 alf_node_properties AS p,
+                 alf_content_data AS d,
+                 alf_content_url AS u
+            WHERE n.id=p.node_id
+              AND p.long_value=d.id
+              AND d.content_url_id=u.id
+              AND p.qname_id=(SELECT id FROM alf_qname WHERE local_name='content')
+              AND n.store_id = 6
+              AND n.uuid IN (SELECT uuid FROM uuids)
+              AND round(u.content_size/1024/1024,2) < 40
+            ORDER BY n.id;
           EOF
           "
 
           kubectl cp psql-util:/tmp/query_output.txt ./ids.txt
 
-          cat ids.txt
-
           kubectl delete pod psql-util --grace-period=0 --force >/dev/null 2>&1 || true
 
           sort -n -u ids.txt -o ids.txt
-          echo "Resolved $(wc -l < ids.txt) alf_node id(s)."
+          count_reindex=$(wc -l < ids.txt)
+          echo "Resolved $count_reindex alf_node id(s)."
           if [ ! -s ids.txt ]; then
             echo "no_ids=true" >> $GITHUB_OUTPUT
           else
             echo "no_ids=false" >> $GITHUB_OUTPUT
+          fi
+
+          # There is a limit of 100 pods so check how many are running now
+          count_pods=$(kubectl get pods --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
+          if (( count_reindex + count_pods > 95 )); then
+            cat ids.txt
+            echo "Found $count_reindex alf_node ids to reindex. There are currently $count_pods pods running, which would exceed the limit of 100 pods if we started a reindex pod for each id. Please reduce the number of ids to reindex." >&2
+            if [ "${{ github.event.inputs.send_slack_notification }}" == "Yes" ]; then
+              # Send Slack notification
+              curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+            fi
+            exit 1
           fi
 
       - name: Generate Helm values for reindex-list
@@ -318,7 +343,7 @@ jobs:
           cat ids.values.yaml
 
       - name: Clean up previous reindex-list configmaps (static names)
-        if: steps.mapids.outputs.no_ids == 'false'
+        if: steps.mapids.outputs.no_ids == 'false' && github.event.inputs.skip_configmap_check == 'No'
         env:
           TASK_ENV: ${{ matrix.environment }}
         run: |
@@ -342,11 +367,11 @@ jobs:
           OPEN_SEARCH_PREFIX=$(kubectl get svc --namespace ${KUBE_NAMESPACE} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }')
           OPENSEARCH_HOST=$(echo "${OPEN_SEARCH_PREFIX}.${KUBE_NAMESPACE}.svc.cluster.local")
           RELEASE="reindex-list-$(openssl rand -hex 4)"
-          helm install "$RELEASE" ./jobs/reindex-list \
-            --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
-            -f ids.values.yaml \
-            --namespace "${KUBE_NAMESPACE}"
-          echo "Installed Helm release: $RELEASE"
+          #helm install "$RELEASE" ./jobs/reindex-list \
+          #  --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
+          #  -f ids.values.yaml \
+          #  --namespace "${KUBE_NAMESPACE}"
+          #echo "Installed Helm release: $RELEASE"
 
       - name: Summary
         run: |
@@ -361,7 +386,6 @@ jobs:
         env:
           TASK_ENV: ${{ matrix.environment }}
           DEPLOYMENT: alfresco-content-services-alfresco-repository
-          DAYS: ${{ github.event.inputs.days }}
           RESTART_THRESHOLD: ${{ github.event.inputs.restart_threshold }}
         run: |
           set -e
@@ -371,5 +395,7 @@ jobs:
             echo "-> Restarting deployment: ${DEPLOYMENT}"
             kubectl rollout restart deployment/${DEPLOYMENT}
           fi
-          # send Slack notification
-          curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          if [ "${{ github.event.inputs.send_slack_notification }}" == "Yes" ]; then
+            # send Slack notification
+            curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
