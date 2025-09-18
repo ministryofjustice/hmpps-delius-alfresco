@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: cronjob-restart-repository-pods
 spec:
-  schedule: "0 8 * * *"   # Every day at 8 AM
+  schedule: "0 5 * * *"   # Every day at 5 AM UTC
   successfulJobsHistoryLimit: 1   # keep only the most recent successful Job
   failedJobsHistoryLimit: 1       # keep only the most recent failed Job
   jobTemplate:
@@ -15,11 +15,12 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: restart-repo
-            image: bitnami/kubectl:1.29   # lightweight kubectl image
-            command:
-            - /bin/sh
-            - -c
+            image: public.ecr.aws/bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            command: ["/bin/sh","-c"]
+            args:
             - |
+              set -eu
               echo "Restarting deployment alfresco-content-services-alfresco-repository at $(date)"
               kubectl rollout restart deployment alfresco-content-services-alfresco-repository
             securityContext:
