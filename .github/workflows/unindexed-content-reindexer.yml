@@ -80,6 +80,14 @@ on:
         description: "Threshold for restarting repo pods"
         required: true
         default: "40"
+      send_slack_notification:
+        description: "Send Slack notification"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "Yes"
   #schedule:
     # GitHub Actions cron uses UTC.
     # E.g. runs every night at:
@@ -239,6 +247,8 @@ jobs:
       - name: Map UUIDs -> alf_node.id via ephemeral pod
         if: steps.query.outputs.no_uuids == 'false'
         id: mapids
+        env:
+          TASK_ENV: ${{ matrix.environment }}
         run: |
           set -euo pipefail
 
@@ -316,6 +326,10 @@ jobs:
           if (( count_reindex + count_pods > 95 )); then
             cat ids.txt
             echo "Found $count_reindex alf_node id(s) to reindex. There are currently $count_pods pods running, which would exceed the limit of 100 pods if we started a reindex pod for each id. Please reduce the number of ids to reindex." >&2
+            if [ "${{ github.event.inputs.send_slack_notification }}" == "Yes" ]; then
+              # Send Slack notification
+              curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+            fi
             exit 1
           fi
 
@@ -381,5 +395,7 @@ jobs:
             echo "-> Restarting deployment: ${DEPLOYMENT}"
             kubectl rollout restart deployment/${DEPLOYMENT}
           fi
-          # send Slack notification
-          curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          if [ "${{ github.event.inputs.send_slack_notification }}" == "Yes" ]; then
+            # send Slack notification
+            curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
