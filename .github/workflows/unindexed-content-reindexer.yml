@@ -87,7 +87,7 @@ on:
         options:
           - "Yes"
           - "No"
-        default: "Yes"
+        default: "No"
   schedule:
     # GitHub Actions cron uses UTC.
     # E.g. runs every night at:
