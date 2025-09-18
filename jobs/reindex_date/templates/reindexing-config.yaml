@@ -5,7 +5,7 @@ metadata:
 data:
   ELASTICSEARCH_INDEXNAME: "{{ .Values.indexName }}"
   {{ template "alfresco-search-enterprise.config.spring" . }}
-  ALFRESCO_SHAREDFILESTORE_BASEURL: https://alf-sfs.preprod.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk/alfresco/api/-default-/private/sfs/versions/1/file/
+  ALFRESCO_SHAREDFILESTORE_BASEURL: {{ (lookup "v1" "ConfigMap" .Release.Namespace .Values.sharedFileStore.sourceConfigMap).data.SFS_URL_API }}
   ALFRESCO_ACCEPTEDCONTENTMEDIATYPESCACHE_BASEURL: http://alfresco-content-services-transform-router/transform/config
   ALFRESCO_REINDEX_PATHINDEXINGENABLED: {{ .Values.pathIndexingEnabled | quote }}
   SPRING_DATASOURCE_URL: {{ .Values.postgresql.url }}

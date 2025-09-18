@@ -16,6 +16,7 @@ kind: Job
 metadata:
   name: wipe-solr-data
 spec:
+  ttlSecondsAfterFinished: 3600
   template:
     spec:
       containers:

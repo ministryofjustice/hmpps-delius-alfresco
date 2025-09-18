@@ -1,3 +1,55 @@
+# Taskfile.yml - Taskfile for managing Alfresco Content Services (ACS) deployments and operations in Kubernetes
+#
+# This Taskfile provides a set of tasks and variables to automate common operational workflows for the
+# Alfresco Content Services (ACS) platform, including Helm upgrades, scaling, reindexing, and cleanup
+# operations within Kubernetes namespaces.
+#
+# VARIABLES:
+#   - ENV: The environment name (e.g., dev, test, prod, poc). Required for most tasks.
+#   - FROM, TO: Used for specifying ID or date ranges in reindexing tasks.
+#   - FORCE, DEBUG, DRY_RUN, ATOMIC: Flags to control task behavior.
+#   - NAMESPACE: Dynamically determined namespace based on ENV.
+#   - BUCKET_NAME, OPENSEARCH_HOST, RDS_JDBC_URL, MESSAGEBROKER_URL: Fetched from Kubernetes secrets/services.
+#   - ALLOWLIST: Comma-separated allowlist for ingress whitelisting.
+#   - Various replica counts for scaling deployments (MAX_REPO_REPLICAS, MIN_REPO_REPLICAS, etc.).
+#
+# MAIN TASKS:
+#   - helm_upgrade: Performs a Helm upgrade/install of the ACS chart, updating allowlists and using dynamic values.
+#   - prepare_namespace: Prepares environment variables and prints the namespace in use.
+#   - update_allowlist/reset_allowlist: Updates or resets ingress allowlist annotations for repository and share.
+#   - helm_repo_add: Adds the Alfresco Helm repository.
+#   - helm_upgrade_install: Runs the Helm upgrade/install command with all required values and flags.
+#
+# REINDEXING TASKS:
+#   - reindex_by_id: Reindexes documents/metadata by Alfresco node ID range. Scales up deployments if range > 100,000.
+#   - reindex_by_date: Reindexes by date range (YYYYMMDDHHMM). Optionally skips content indexing.
+#   - delete_existing_reindex_configmaps_for_range: Deletes unused reindexing configmaps for a given ID range.
+#
+# CLEANUP & MAINTENANCE TASKS:
+#   - helm_uninstall_prefix: Uninstalls Helm releases by prefix.
+#   - kubectl_remove_pods_prefix: Deletes pods by prefix, with optional force.
+#   - cleanup_unused_reindex_configmaps: Deletes all unused reindexing configmaps in a namespace.
+#   - cleanup_inactive_reindex_helm_releases: Uninstalls inactive Helm releases with prefix reindex-default-*.
+#
+# SCALING & DEPLOYMENT MANAGEMENT:
+#   - restart_deployments: Restarts all ACS deployments in the namespace.
+#   - reindex_scale_up/reindex_scale_down: Temporarily scales up/down HPA minReplicas for reindexing.
+#   - scale_up_deployments: Scales up all deployments to their configured replica counts.
+#   - scale_down_deployments: Scales down all deployments to zero replicas.
+#
+# USAGE EXAMPLES:
+#   - FROM=100000 TO=200000 task reindex_by_id
+#   - FROM=201706072250 TO=201706072350 INDEX_CONTENT=false task reindex_by_date
+#
+# REQUIREMENTS:
+#   - yq, jq, kubectl, helm, and openssl must be installed and available in PATH.
+#   - Kubernetes context must be set to the target cluster.
+#   - ENV variable must be set for most tasks.
+#
+# NOTES:
+#   - Many tasks are internal and intended to be called by other tasks.
+#   - The Taskfile is designed for use with the go-task/task runner.
+#   - Secrets and configuration are dynamically loaded from Kubernetes and local YAML files.
 version: "3"
 
 vars:
@@ -42,6 +94,16 @@ vars:
   DRY_RUN_FLAG:
     sh: if [ "{{.DRY_RUN}}" = "true" ]; then echo "--dry-run"; else echo ""; fi
   CHART_VERSION: "7.0.3"
+  RELEASE_NAME: "alfresco-content-services"
+  MAX_REPO_REPLICAS:
+    sh: yq '.spec.maxReplicas' ./kustomize/{{.ENV}}/hpa-repository.yaml
+  MIN_REPO_REPLICAS:
+    sh: yq '.spec.minReplicas' ./kustomize/{{.ENV}}/hpa-repository.yaml
+  MAX_TIKA_REPLICAS:
+    sh: yq '.spec.maxReplicas' ./kustomize/{{.ENV}}/hpa-tika.yaml
+  MIN_TIKA_REPLICAS:
+    sh: yq '.spec.minReplicas' ./kustomize/{{.ENV}}/hpa-tika.yaml
+
 
 tasks:
   # Perform a helm upgrade on the alfresco-content-services chart
@@ -65,6 +127,10 @@ tasks:
           DEBUG_FLAG: "{{.DEBUG_FLAG}}"
           ATOMIC_FLAG: "{{.ATOMIC_FLAG}}"
           DRY_RUN_FLAG: "{{.DRY_RUN_FLAG}}"
+      - task: helm_dryrun_diff
+        vars:
+          DEBUG: "{{.DEBUG}}"
+          DRY_RUN: "{{.DRY_RUN}}"
       - task: reset_allowlist
     silent: true
 
@@ -83,6 +149,7 @@ tasks:
         export RDS_JDBC_URL=$(kubectl get secrets rds-instance-output --namespace ${NAMESPACE} -o json | jq -r ".data | map_values(@base64d) | .RDS_JDBC_URL")
         export EXTRACTED=$(yq 'join(",")' ./kustomize/${ENV}/allowlist.yaml)
         echo "Using namespace: ${NAMESPACE}"
+    silent: true
 
   update_allowlist:
     internal: true
@@ -92,22 +159,27 @@ tasks:
         export ALLOWLIST={{.ALLOWLIST}}
         yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-repository.yaml
         yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = strenv(ALLOWLIST)' -i ./patch-ingress-share.yaml
+    silent: true
 
   helm_repo_add:
     internal: true
     cmds:
       - helm repo add alfresco https://kubernetes-charts.alfresco.com/stable --force-update
+    silent: true
 
   helm_upgrade_install:
     internal: true
     dir: ./kustomize/{{.ENV}}
     cmds:
       - |
-        helm upgrade --install alfresco-content-services alfresco/alfresco-content-services --version {{.CHART_VERSION}} --namespace {{.NAMESPACE}} \
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+        BROKER_URL="{{.MESSAGEBROKER_URL}}"
+        echo "***** Starting Helm upgrade *****"
+        helm upgrade --install $RELEASE_NAME alfresco/$RELEASE_NAME --version {{.CHART_VERSION}} --namespace {{.NAMESPACE}} \
         --values=../base/values.yaml --values=../base/values-versions.yaml --values=values.yaml \
         --set s3connector.config.bucketName={{.BUCKET_NAME}} \
         --set database.url={{.RDS_JDBC_URL}} \
-        --set-string messageBroker.url="{{.MESSAGEBROKER_URL}}" \
+        --set-string messageBroker.url="$BROKER_URL" \
         --set global.search.url=http://{{.OPENSEARCH_HOST}}:8080 \
         --set global.search.host={{.OPENSEARCH_HOST}} \
         --wait --timeout=60m \
@@ -115,10 +187,36 @@ tasks:
         {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}} {{.DRY_RUN_FLAG}}
         echo " "
         echo "***** Helm upgrade completed *****"
-        echo "Helm revision: $(helm list -n {{.NAMESPACE}} | grep alfresco-content-services | awk '{print $10}')"
-        echo "Chart version: $(helm list -n {{.NAMESPACE}} | grep alfresco-content-services | awk '{print $9}')"
-        echo "ACS Version: $(helm list -n {{.NAMESPACE}} | grep alfresco-content-services | awk '{print $10}')"
+        echo "Helm revision: $(helm list -n {{.NAMESPACE}} | grep $RELEASE_NAME | awk '{print $10}')"
+        echo "Chart version: $(helm list -n {{.NAMESPACE}} | grep $RELEASE_NAME | awk '{print $9}')"
+        echo "ACS Version: $(helm list -n {{.NAMESPACE}} | grep $RELEASE_NAME | awk '{print $10}')"
         echo " "
+    silent: true
+
+  helm_dryrun_diff:
+    internal: true
+    dir: ./kustomize/{{.ENV}}
+    cmds:
+      - |
+        # to run diff it must have the DEBUG flag set to true and DRY_RUN to true
+        # as diff needs the resources.yaml file which is generated by helm but deleted 
+        # after the upgrade unless it is run with debug on
+        if {{.DEBUG}} && {{.DRY_RUN}}; then
+          echo "***** Comparing Helm template with live cluster *****"
+          export KUBECTL_EXTERNAL_DIFF='diff -u --color=always'
+          set +e
+          kubectl diff  -n {{.NAMESPACE}} -k .
+          ec=$?
+          set -e
+          if [ $ec -gt 1 ]; then
+            echo "kubectl diff failed with exit code $ec" >&2
+            exit $ec
+          fi
+          echo "***** Finished comparing Helm template with live cluster *****"
+        else
+          echo "Skipping helm diff as DEBUG and DRY_RUN are not both set to true"
+        fi
+    silent: true
 
   reset_allowlist:
     internal: true
@@ -126,20 +224,177 @@ tasks:
     cmds:
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-repository.yaml
       - yq '.metadata.annotations."nginx.ingress.kubernetes.io/whitelist-source-range" = "placeholder"' -i patch-ingress-share.yaml
+    silent: true
 
   # reindexes by id from the FROM_ID to the TO_ID
   # ID FORMAT: alf-node id
   reindex_by_id:
+    desc: >
+      Reindex Alfresco documents and/or metadata by ID range using Helm.
+      Requires FROM and TO environment variables to define the ID range.
+
+      Automatically scales up deployments if the ID range is greater than 100,000.
+
+      Optionally set INDEX_CONTENT to 'false' to skip content indexing and only reindex metadata.
+      Defaults to 'true'.
+
+      Example usage:
+        FROM=100000 TO=200000 task reindex_by_id
+        FROM=100000 TO=200000 INDEX_CONTENT=false task reindex_by_id
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId={{.FROM}}" --set "toId={{.TO}}" --namespace {{.NAMESPACE}}
+        if [ -z "{{.FROM}}" ]; then
+        echo "ERROR: FROM variable is not set" >&2
+          exit 1
+        fi
+        if [ -z "{{.TO}}" ]; then
+          echo "ERROR: TO variable is not set" >&2
+          exit 1
+        fi
+
+        FROM_ID="{{.FROM}}"
+        TO_ID="{{.TO}}"
+
+        INDEX_CONTENT="{{.INDEX_CONTENT}}"
+        if [ -z "$INDEX_CONTENT" ]; then
+          INDEX_CONTENT="true"
+        fi
+
+        RANGE=$((TO_ID - FROM_ID))
+        echo "📊 ID Range: $FROM_ID to $TO_ID (count: $RANGE)"
+
+        if [ "$RANGE" -gt 100000 ]; then
+          echo "🚀 Large ID range detected. Scaling up repository and tika deployments..."
+          task reindex_scale_up ENV={{.ENV}}
+        else
+          echo "ℹ️ Small ID range detected. No scaling needed."
+        fi
+
+        task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
+
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
+    silent: true
 
   # reindexes by date from the FROM_DATE to the TO_DATE
   # DATE FORMAT: YYYYMMDDHHMM
+  # To only reindex metadata, set INDEX_CONTENT to false e.g.
+  # INDEX_CONTENT=false task reindex_by_date
   reindex_by_date:
+    desc: >
+      Reindex Alfresco documents and/or metadata by date range using Helm.
+      Requires FROM and TO environment variables to define the range.
+
+      Optionally set INDEX_CONTENT to 'false' to skip content indexing and only reindex metadata.
+      Defaults to 'true' (index both content and metadata).
+
+      Example usage:
+        FROM=201706072250 TO=201706072350 task reindex_by_date
+        FROM=201706072250 TO=201706072350 INDEX_CONTENT=false task reindex_by_date    
     cmds:
       - |
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime={{.FROM}}" --set "toTime={{.TO}}" --namespace {{.NAMESPACE}}
+        if [ -z "{{.FROM}}" ]; then
+          echo "ERROR: FROM variable is not set" >&2
+          exit 1
+        fi
+        if [ -z "{{.TO}}" ]; then
+          echo "ERROR: TO variable is not set" >&2
+          exit 1
+        fi
+
+        INDEX_CONTENT="{{.INDEX_CONTENT}}"
+        if [ -z "$INDEX_CONTENT" ]; then
+          INDEX_CONTENT="true"
+        fi
+
+        FROM="{{.FROM}}"
+        TO="{{.TO}}"
+        NS="{{.NAMESPACE}}"
+
+        CM="reindexing-${FROM}-${TO}-configmap"
+        PREFIX_CM="reindexing-${FROM}-${TO}-prefixes-configmap"
+
+        echo "🔍 Looking for active pods starting with reindexing-* in namespace $NS..."
+        REINDEX_PODS=$(kubectl get pods -n "$NS" --no-headers | awk '/^reindexing-/ && $3 != "Completed" && $3 != "Failed" { print $1 }')
+
+        CM_IN_USE=false
+        for POD in $(echo "$ACTIVE_PODS" | jq -r '.items[].metadata.name'); do
+          POD_JSON=$(kubectl get pod "$POD" -n "$NS" -o json)
+
+          if echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.volumes[]?.configMap.name == $CM' >/dev/null ||
+            echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.containers[].envFrom[]?.configMapRef.name == $CM' >/dev/null ||
+            echo "$POD_JSON" | jq -e --arg CM "$PREFIX_CM" '.spec.volumes[]?.configMap.name == $CM' >/dev/null ||
+            echo "$POD_JSON" | jq -e --arg CM "$PREFIX_CM" '.spec.containers[].envFrom[]?.configMapRef.name == $CM' >/dev/null; then
+            echo "⚠️  ConfigMap $CM or $PREFIX_CM is in use by pod $POD. Skipping deletion."
+            CM_IN_USE=true
+          fi
+        done
+
+        if [ "$CM_IN_USE" = false ]; then
+          echo "✅ No active pods are using the ConfigMaps. Safe to delete."
+          kubectl delete configmap "$CM" -n "$NS" --ignore-not-found
+          kubectl delete configmap "$PREFIX_CM" -n "$NS" --ignore-not-found
+        else
+          echo "⚠️  Skipping ConfigMap deletion to avoid disrupting running pods."
+        fi
+
+        echo "Scaling up deployments before reindexing..."
+        task reindex_scale_up ENV={{.ENV}}
+
+        echo "Running Helm install to run job..."
+        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=${FROM}" --set "toTime=${TO}" --set "content=${INDEX_CONTENT}" --namespace ${NS}
+    silent: true
+
+  delete_existing_reindex_configmaps_for_range:
+    desc: "Delete existing reindexing configmaps for a specific FROM-TO ID range"
+    cmds:
+      - |
+        FROM="{{.FROM}}"
+        TO="{{.TO}}"
+        NS="{{.NAMESPACE}}"
+
+        if [ -z "$FROM" ] || [ -z "$TO" ]; then
+          echo "❌ FROM and TO must be set"
+          exit 1
+        fi
+
+        PREFIX="reindexing-${FROM}-${TO}-"
+        echo "🔍 Searching for configmaps with prefix $PREFIX in $NS..."
+
+        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}" || true)
+
+        if [ -z "$CONFIGMAPS" ]; then
+          echo "✅ No matching ConfigMaps found."
+          exit 0
+        else
+          echo "Found ConfigMaps: $CONFIGMAPS"
+        fi
+
+        # Get all active pods (not Completed or Failed)
+        ACTIVE_PODS=$(kubectl get pods -n "$NS" --field-selector=status.phase!=Succeeded,status.phase!=Failed -o json)
+
+        for CM in $CONFIGMAPS; do
+          echo "🔎 Checking if ConfigMap $CM is in use..."
+
+          CM_IN_USE=false
+          for POD in $(echo "$ACTIVE_PODS" | jq -r '.items[].metadata.name'); do
+            POD_JSON=$(kubectl get pod "$POD" -n "$NS" -o json)
+
+            if echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.volumes[]?.configMap.name == $CM' >/dev/null ||
+              echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.containers[].envFrom[]?.configMapRef.name == $CM' >/dev/null; then
+              echo "⚠️  ConfigMap $CM is in use by pod $POD"
+              CM_IN_USE=true
+              break
+            fi
+          done
+
+          if [ "$CM_IN_USE" = false ]; then
+            echo "🗑️  Deleting unused ConfigMap $CM"
+            kubectl delete configmap "$CM" -n "$NS" --ignore-not-found
+          else
+            echo "⏭️  Skipping $CM as it's currently in use"
+          fi
+        done
+    silent: true
 
   helm_uninstall_prefix:
     vars:
@@ -150,6 +405,7 @@ tasks:
           echo "Uninstalling release: $release"
           helm uninstall "$release" -n {{.NAMESPACE}}
         done
+    silent: true
 
   kubectl_remove_pods_prefix:
     vars:
@@ -162,3 +418,309 @@ tasks:
           echo "Deleting pod: $pod"
           kubectl delete pod "$pod" -n {{.NAMESPACE}} {{.FORCE_FLAG}}
         done
+    silent: true
+
+  cleanup_unused_reindex_configmaps:
+    desc: "Delete all unused reindexing-* configmaps in a given namespace"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+
+        echo "🔍 Finding all reindexing ConfigMaps in namespace $NS..."
+        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-' | wc -l)
+
+        if [ "$CONFIGMAPS" -eq 0 ]; then
+          echo "✅ No reindexing ConfigMaps found."
+          exit 0
+        else
+          CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-')
+        fi
+
+        # Get all active pods (not Completed/Failed)
+        ACTIVE_PODS=$(kubectl get pods -n "$NS" --field-selector=status.phase!=Succeeded,status.phase!=Failed -o json)
+
+        for CM in $CONFIGMAPS; do
+          echo "🔎 Checking if ConfigMap $CM is in use..."
+
+          CM_IN_USE=false
+          for POD in $(echo "$ACTIVE_PODS" | jq -r '.items[].metadata.name'); do
+            POD_JSON=$(kubectl get pod "$POD" -n "$NS" -o json)
+
+            if echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.volumes[]?.configMap.name == $CM' >/dev/null ||
+              echo "$POD_JSON" | jq -e --arg CM "$CM" '.spec.containers[].envFrom[]?.configMapRef.name == $CM' >/dev/null; then
+              echo "⚠️  In use by pod $POD"
+              CM_IN_USE=true
+              break
+            fi
+          done
+
+          if [ "$CM_IN_USE" = false ]; then
+            echo "🗑️  Deleting unused ConfigMap $CM"
+            kubectl delete configmap "$CM" -n "$NS"
+          else
+            echo "⏭️  Skipping $CM as it's in use"
+          fi
+        done
+    silent: true
+
+  restart_deployments:
+    desc: "Restart all ACS deployments in the specified namespace"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+        echo "Restarting deployments in namespace $NS"
+        # Get all deployment names, then filter only the ones that start with the release name
+        DEPLOYMENTS=$(kubectl get deployments -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-")
+        if [ -z "$DEPLOYMENTS" ]; then
+          echo "No deployments found in namespace $NS"
+          exit 0
+        fi
+
+        for DEPLOYMENT in $DEPLOYMENTS; do
+          echo "Restarting deployment: $DEPLOYMENT"
+          kubectl rollout restart deployment "$DEPLOYMENT" -n "$NS"
+        done
+    silent: true
+
+  reindex_scale_up:
+    desc: "Scale up ACS deployments to their maxReplicas when reindexing by setting HPA minReplicas to match maxReplicas"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+        MAX_REPO_REPLICAS="{{.MAX_REPO_REPLICAS}}"
+        MIN_REPO_REPLICAS="{{.MIN_REPO_REPLICAS}}"
+        MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
+        MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
+
+        echo "Updating HPA maxReplicas to match maxReplicas for Repository"
+        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+
+        echo "Updating HPA maxReplicas to match maxReplicas for Tika"
+        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
+          
+        echo "Updating HPA minReplicas to match maxReplicas for Repository"
+        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MAX_REPO_REPLICAS}}}"
+
+        echo "Updating HPA minReplicas to match maxReplicas for Tika"
+        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MAX_TIKA_REPLICAS}}}"
+    silent: true
+
+  reindex_scale_down:
+    desc: "Scale down ACS deployments to their default minReplicas after reindexing by resetting HPA minReplicas"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+        MAX_REPO_REPLICAS="{{.MAX_REPO_REPLICAS}}"
+        MIN_REPO_REPLICAS="{{.MIN_REPO_REPLICAS}}"
+        MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
+        MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
+
+        echo "Updating HPA minReplicas to original minReplicas value for Repository"
+        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}}}"
+
+        echo "Updating HPA minReplicas to original minReplicas value for Tika"
+        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}}}"
+
+        echo "Updating HPA maxReplicas to original maxReplicas value for Repository"
+        kubectl patch hpa $RELEASE_NAME-hpa-repository -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+
+        echo "Updating HPA maxReplicas to original maxReplicas value for Tika"
+        kubectl patch hpa $RELEASE_NAME-hpa-tika -n "$NS" \
+          --type='merge' \
+          -p "{\"spec\": {\"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
+    silent: true
+
+  scale_up_deployments:
+    desc: "Scale up all ACS deployments based on config file defaults"
+    dir: ./kustomize/{{.ENV}}
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+
+        # HPA configured deployments
+        MAX_REPO_REPLICAS="{{.MAX_REPO_REPLICAS}}"
+        MIN_REPO_REPLICAS="{{.MIN_REPO_REPLICAS}}"
+        MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
+        MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
+
+        # Helper: wait for an HPA to exist (up to 60s)
+        wait_for_hpa () {
+          local hpa_name="$1"
+          local tries=12
+          local i=0
+          until kubectl get hpa "$hpa_name" -n "$NS" >/dev/null 2>&1; do
+            i=$((i+1))
+            if [ "$i" -ge "$tries" ]; then
+              echo "HPA $hpa_name not found after waiting. Aborting."
+              exit 1
+            fi
+            sleep 5
+          done
+        }
+
+        # Option A (recommended): ensure HPAs are present via Helm
+        # This re-applies manifests that include the HPAs you deleted during scale-down.
+        # If your pipeline already runs Helm before scale-up, you can skip this explicit call.
+        #echo "Re-applying release to restore HPAs (no changes to values)"
+        #helm upgrade "$RELEASE_NAME" alfresco/alfresco-content-services \
+        #  -n "$NS" --reuse-values
+
+        # If you don't want to call Helm here, comment the block above and
+        # ensure some other step recreates HPAs before this script runs.
+
+        # Ensure repository deployment is at least 1 replica before re-enabling HPA (optional but tidy)
+        kubectl scale deploy "${RELEASE_NAME}-alfresco-repository" -n "$NS" --replicas="${MIN_REPO_REPLICAS}" || true
+        kubectl scale deploy "${RELEASE_NAME}-tika" -n "$NS" --replicas="${MIN_TIKA_REPLICAS}" || true
+
+        REPO_HPA="${RELEASE_NAME}-hpa-repository"
+        TIKA_HPA="${RELEASE_NAME}-hpa-tika"
+
+        #echo "Ensuring Repository HPA exists..."
+        #wait_for_hpa "$REPO_HPA"
+
+        echo "Reset HPA Replicas for Repository"
+        kubectl patch hpa "$REPO_HPA" -n "$NS" --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}, \"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+
+        #echo "Ensuring Tika HPA exists..."
+        #wait_for_hpa "$TIKA_HPA"
+
+        echo "Reset HPA Replicas for Tika"
+        kubectl patch hpa "$TIKA_HPA" -n "$NS" --type='merge' \
+          -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}, \"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
+
+        # Optional: show current targets
+        kubectl get hpa -n "$NS" | grep "^${RELEASE_NAME}-" || true
+
+        # non-HPA configured deployments
+        # Load default replica counts from values.yaml or base values.yaml
+        TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // (load("../base/values.yaml") | .["alfresco-transform-service"].transformrouter.replicaCount) // 2' values.yaml)
+
+        # The below deployments use the same transformrouter default replica count if not specified
+        BASE_TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // 2' ../base/values.yaml)
+
+        TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' ../base/values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+        IMAGEMAGICK_REPLICAS=$(yq '.["alfresco-transform-service"].imagemagick.replicaCount // ""' values.yaml); [ -z "$IMAGEMAGICK_REPLICAS" ] && IMAGEMAGICK_REPLICAS=$(yq '.["alfresco-transform-service"].imagemagick.replicaCount // ""' ../base/values.yaml); [ -z "$IMAGEMAGICK_REPLICAS" ] && IMAGEMAGICK_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+        LIBREOFFICE_REPLICAS=$(yq '.["alfresco-transform-service"].libreoffice.replicaCount // ""' values.yaml); [ -z "$LIBREOFFICE_REPLICAS" ] && LIBREOFFICE_REPLICAS=$(yq '.["alfresco-transform-service"].libreoffice.replicaCount // ""' ../base/values.yaml); [ -z "$LIBREOFFICE_REPLICAS" ] && LIBREOFFICE_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+        PDFRENDERER_REPLICAS=$(yq '.["alfresco-transform-service"].pdfrenderer.replicaCount // ""' values.yaml); [ -z "$PDFRENDERER_REPLICAS" ] && PDFRENDERER_REPLICAS=$(yq '.["alfresco-transform-service"].pdfrenderer.replicaCount // ""' ../base/values.yaml); [ -z "$PDFRENDERER_REPLICAS" ] && PDFRENDERER_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+        PATH_REPLICAS=$(yq '(.["alfresco-transform-service"].path.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.path.replicaCount) // 1' values.yaml)
+        CONTENT_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // 1' values.yaml)
+        METADATA_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // 1' values.yaml)
+        MEDIATION_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // 1' values.yaml)
+
+        SHARE_REPLICAS=$(yq '(.share.replicaCount) // (load("../base/values.yaml") | .share.replicaCount) // 1' values.yaml)
+
+        kubectl scale deployment $RELEASE_NAME-share --replicas=$SHARE_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-imagemagick --replicas=$IMAGEMAGICK_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-libreoffice --replicas=$LIBREOFFICE_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-pdfrenderer --replicas=$PDFRENDERER_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-transform-misc --replicas=$TRANSFORM_MISC_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-transform-router --replicas=$TRANSFORM_ROUTER_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-content --replicas=$CONTENT_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-metadata --replicas=$METADATA_REPLICAS
+        kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-path --replicas=$PATH_REPLICAS
+        kubectl scale statefulset alfresco-search-enterprise-mediation --replicas=$MEDIATION_REPLICAS
+    silent: true
+
+
+  scale_down_deployments:
+    desc: "Scale down all ACS deployments to 0 replicas"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+
+        echo "Scaling down deployments in namespace $NS"
+
+        # 1) Remove HPAs for this release (so they don't force replicas >= 1)
+        HPAS=$(kubectl get hpa -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
+        for hpa in $HPAS; do
+          echo "Deleting HPA: $hpa"
+          kubectl delete hpa "$hpa" -n "$NS" --wait=true
+        done
+
+        # 2) Scale Deployments to 0
+        DEPLOYMENTS=$(kubectl get deploy -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
+        for deployment in $DEPLOYMENTS; do
+          echo "Scaling down deployment: $deployment"
+          kubectl scale deployment "$deployment" -n "$NS" --replicas=0
+          kubectl rollout status deployment "$deployment" -n "$NS" --timeout=120s || true
+        done
+
+        # Scale StatefulSets (e.g., SFS, transform):
+        STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
+        for sts in $STATEFULSETS; do
+          echo "Scaling down statefulset: $sts"
+          kubectl scale statefulset "$sts" -n "$NS" --replicas=0
+          kubectl rollout status statefulset "$sts" -n "$NS" --timeout=120s || true
+        done
+    silent: true
+
+  cleanup_inactive_reindex_helm_releases:
+    desc: "Delete inactive Helm releases with prefix reindex-default-* if no active pods are running"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        PREFIX="reindex-default"
+
+        echo "🔍 Finding Helm releases with prefix $PREFIX in namespace $NS..."
+        RELEASES=$(helm list -n "$NS" -q | grep "^${PREFIX}" || true)
+
+        if [ -z "$RELEASES" ]; then
+          echo "✅ No matching Helm releases found."
+          exit 0
+        fi
+
+        for RELEASE in $RELEASES; do
+          echo "⏳ Checking release: $RELEASE"
+
+          PODS=$(kubectl get pods -n "$NS" -l "app.kubernetes.io/instance=$RELEASE" -o json)
+          ACTIVE_POD_COUNT=$(echo "$PODS" | jq '[.items[] | select(.status.phase != "Succeeded" and .status.phase != "Failed")] | length')
+
+          if [ "$ACTIVE_POD_COUNT" -eq 0 ]; then
+            if [ "{{.DRY_RUN}}" = "true" ]; then
+              echo "🧪 DRY RUN: Would uninstall $RELEASE"
+            else
+              echo "🗑️  Uninstalling release: $RELEASE"
+              helm uninstall "$RELEASE" -n "$NS"
+            fi
+          else
+            echo "⏭️  Skipping $RELEASE — $ACTIVE_POD_COUNT active pod(s) still running"
+          fi
+        done
+    silent: true
+
+  restart_repo:
+    desc: "Restart the Alfresco repository pods"
+    cmds:
+      - |
+        NS="{{.NAMESPACE}}"
+        RELEASE_NAME="{{.RELEASE_NAME}}"
+
+        echo "🔄 Restarting Alfresco repository: $RELEASE_NAME"
+
+        # Restart the deployment
+        kubectl rollout restart deployment "$RELEASE_NAME-alfresco-repository" -n "$NS"
+    silent: true

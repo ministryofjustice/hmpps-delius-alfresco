@@ -1,0 +1,401 @@
+#
+# Alfresco Unindexed Content Reindexer Workflow
+#
+# This GitHub Actions workflow automates the process of identifying and reindexing unindexed Alfresco content
+# in specified environments. It can be triggered manually (workflow_dispatch) or scheduled (cron, currently commented out).
+#
+# Workflow Overview:
+# - Accepts environment and look-back window (in days) as inputs.
+# - Finds unindexed Alfresco documents in OpenSearch within the specified time window.
+# - Maps their UUIDs to alf_node IDs via a secure ephemeral pod using database credentials from Kubernetes secrets.
+# - Generates Helm values for the list of IDs to be reindexed.
+# - Cleans up any previous reindex-list configmaps.
+# - Kicks off a Helm job to reindex each identified node.
+# - Optionally restarts the Alfresco repository deployment if the number of unindexed items exceeds a threshold.
+# - Sends a Slack notification if a restart occurs.
+#
+# Key Steps:
+# 1. Checkout repository and install required CLI tools (kubectl, helm, task).
+# 2. Configure kubectl context using secrets.
+# 3. Port-forward to the opensearch-proxy pod and query for unindexed document UUIDs.
+# 4. Map UUIDs to alf_node IDs using a temporary pod and PostgreSQL queries.
+# 5. Generate Helm values file for the IDs to be reindexed.
+# 6. Clean up any existing reindex-list configmaps.
+# 7. Deploy Helm job to perform reindexing.
+# 8. Output summary of found UUIDs and IDs.
+# 9. If the number of unindexed items exceeds a threshold, restart the repository deployment and notify via Slack.
+#
+# Notes:
+# - The workflow is designed to be safe for use in multiple environments.
+# - All sensitive data (Kubernetes and database credentials, Slack webhook) are sourced from GitHub and Kubernetes secrets.
+# - The workflow is idempotent and cleans up ephemeral resources after use.
+#
+---
+name: Alfresco Unindexed Content Reindexer
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target Environment"
+        required: true
+        type: choice
+        options:
+          - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
+      days:
+        description: "Look-back window in days (from today)"
+        required: false
+      range_start_unixtime:
+        description: "Starting Unix timestamp for the range to check"
+        required: false
+      range_end_unixtime:
+        description: "Ending Unix timestamp for the range to check"
+        required: false
+      uuids_csv:
+        description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
+        required: false
+        type: string
+      skip_configmap_check:
+        description: "Skip configmap check (quicker reindexing)?"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "Yes"
+      restart_pods:
+        description: "Restart the repo pods if more unindexed docs than threshold found?"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "Yes"
+      restart_threshold:
+        description: "Threshold for restarting repo pods"
+        required: true
+        default: "40"
+      send_slack_notification:
+        description: "Send Slack notification"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "No"
+  schedule:
+    # GitHub Actions cron uses UTC.
+    # E.g. runs every night at:
+    #   20:00 UTC
+    - cron: "0 20 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  find-and-reindex:
+    runs-on: ubuntu-latest
+    strategy:
+      # If the workflow is triggered by a scheduled event (schedule), it runs for multiple environments (e.g. poc, dev, test, stage). Otherwise, it uses the environment specified by the user input
+      matrix:
+        environment: ${{ github.event_name == 'schedule' && fromJson('["poc", "dev", "test", "stage", "preprod", "prod"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
+    environment: ${{ matrix.environment }}-preapproved
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.29.13"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.15.2"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: Configure kubectl context
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server="https://${KUBE_CLUSTER}"
+          kubectl config set-credentials deploy-user --token="${{ secrets.KUBE_TOKEN }}"
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace="${KUBE_NAMESPACE}"
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      # if user supplied a CSV list, transform it into uuids.txt (one UUID per line)
+      - name: Create uuids.txt from input (if provided)
+        if: ${{ github.event.inputs.uuids_csv != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Write the raw input, then normalize to one UUID per line:
+          # - Replace commas/semicolons/spaces/tabs with newlines
+          # - Strip CR characters (Windows line endings)
+          # - Drop empty lines
+          printf "%s\n" "${{ github.event.inputs.uuids_csv }}" \
+            | tr ',;\t ' '\n' \
+            | sed 's/\r//g' \
+            | sed '/^$/d' \
+            > uuids.txt
+
+          echo "Wrote $(wc -l < uuids.txt) UUID(s) to uuids.txt"
+
+      - name: Query UUIDs from OpenSearch
+        if: ${{ inputs.uuids_csv == '' }}
+        id: query
+        env:
+          # If scheduled look back 2 days, otherwise use input values
+          DAYS: ${{ github.event_name == 'schedule' && '2' || github.event.inputs.days }}
+          RANGE_START_UNIXTIME: ${{ github.event.inputs.range_start_unixtime }}
+          RANGE_END_UNIXTIME: ${{ github.event.inputs.range_end_unixtime }}
+        run: |
+          set -euo pipefail
+
+          # Find a running opensearch-proxy pod
+          POD=$(kubectl get pods -o name | grep opensearch-proxy-cloud-platform | head -n 1)
+          if [ -z "${POD}" ]; then
+            echo "No opensearch-proxy pod found" >&2
+            exit 1
+          fi
+
+          # Start port-forward in background
+          kubectl port-forward "${POD#pod/}" 8080:8080 >/tmp/pf.log 2>&1 &
+          PF_PID=$!
+          echo "PF_PID=$PF_PID" >> $GITHUB_OUTPUT
+          # Give it a moment
+          sleep 3
+
+          # Build query with now-${DAYS}d window if ${DAYS} is set
+          if [ -n "${DAYS:-}" ]; then
+            echo "Building query with window: now-${DAYS}d"
+            jq -n --arg window "now-${DAYS}d" '{
+              "size": 1000,
+              "_source": false,
+              "query": { "bool": {
+                "filter": [ { "range": {"cm%3Acreated": { "gte": $window }} } ],
+                "must":   [ { "match": { "TYPE": "nspg:offenderDocument" } } ],
+                "must_not": [
+                  { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
+                  { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
+                  { "exists": { "field": "cm%3Acontent" } },
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
+                ]
+              }},
+              "sort": [ {"_id":"desc"} ],
+              "track_total_hits": false
+            }' > query-unindexed.json
+          elif [ -n "${RANGE_START_UNIXTIME:-}" ] && [ -n "${RANGE_END_UNIXTIME:-}" ]; then
+            echo "Building query with range: ${RANGE_START_UNIXTIME} to ${RANGE_END_UNIXTIME}"
+            jq -n --argjson start "${RANGE_START_UNIXTIME}" --argjson end "${RANGE_END_UNIXTIME}" '{
+              "size": 1000,
+              "_source": false,
+              "query": { "bool": {
+                "filter": [ { "range": {"METADATA_INDEXING_LAST_UPDATE": { "gte": $start, "lte": $end }} } ],
+                "must":   [ { "match": { "TYPE": "nspg:offenderDocument" } } ],
+                "must_not": [
+                  { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
+                  { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
+                  { "exists": { "field": "cm%3Acontent" } },
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
+                ]
+              }},
+              "sort": [ {"_id":"desc"} ],
+              "track_total_hits": false
+            }' > query-unindexed.json
+            cat query-unindexed.json
+          else
+            echo "Provide either DAYS or both RANGE_START_UNIXTIME and RANGE_END_UNIXTIME." >&2
+            exit 2
+          fi
+
+          # Query opensearch-proxy
+          curl -sS -X POST "http://localhost:8080/alfresco/_search" \
+            --header "Content-Type: application/json" \
+            --data-binary @query-unindexed.json \
+            -o hits.json
+
+          cat hits.json
+
+          # Extract UUIDs
+          jq -r '.hits.hits[]._id' hits.json | sort -u > uuids.txt || true
+          echo "Found $(wc -l < uuids.txt) UUID(s)."
+          if [ ! -s uuids.txt ]; then
+            echo "no_uuids=true" >> $GITHUB_OUTPUT
+          else
+            echo "no_uuids=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop port-forward
+        if: steps.query.outputs.PF_PID != ''
+        run: |
+          kill -9 "${{ steps.query.outputs.PF_PID }}" || true
+
+      - name: Map UUIDs -> alf_node.id via ephemeral pod
+        if: steps.query.outputs.no_uuids == 'false'
+        id: mapids
+        env:
+          TASK_ENV: ${{ matrix.environment }}
+        run: |
+          set -euo pipefail
+
+          # Pull DB details from secret
+          JDBC_URL=$(kubectl get secret rds-instance-output -o jsonpath='{.data.RDS_JDBC_URL}' | base64 -d)
+          DB_USER=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_USERNAME}' | base64 -d)
+          DB_PASS=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_PASSWORD}' | base64 -d)
+
+          # Parse JDBC URL -> host/port/db
+          HOST=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\1#')
+          PORT=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\2#')
+          DBNM=$(echo "$JDBC_URL" | sed -E 's#jdbc:postgresql://([^:/]+):([0-9]+)/([^?]+).*#\3#')
+
+          # Create ephemeral pod with numeric UID to satisfy runAsNonRoot policy
+          kubectl run psql-util \
+            --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest \
+            --restart=Never \
+            --overrides='{
+              "spec":{
+                "securityContext":{"allowPrivilegeEscalation":false,"privileged":false,"runAsNonRoot":true,"runAsUser":999,"capabilities":{"drop":["ALL"]},"seccompProfile":{"type":"RuntimeDefault"}}
+              }
+            }' \
+            -- /bin/sh -lc "sleep 600" >/dev/null 2>&1 || true
+
+          # Wait up to 3 minutes for Ready; if it fails, show why and exit
+          if ! kubectl wait --for=condition=Ready pod/psql-util --timeout=180s; then
+            echo "Ephemeral pod failed to become Ready. Describing for diagnostics:"
+            kubectl describe pod psql-util || true
+            kubectl logs psql-util || true
+            exit 1
+          fi
+
+          # Stream UUIDs into the pod (no kubectl cp needed)
+          kubectl exec -i psql-util -- /bin/sh -lc "cat > /tmp/uuids.txt" < uuids.txt
+
+          # Run the mapping using a temp table and \copy
+          # Only process docs that are less than 40MB in size as larger than that won't get processed. 
+          kubectl exec psql-util -- /bin/sh -c "
+            export PGPASSWORD='$DB_PASS';
+            psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -qAt <<'EOF' > /tmp/query_output.txt
+            SET client_min_messages TO WARNING;
+            CREATE TEMP TABLE uuids (uuid text);
+            \\copy uuids FROM '/tmp/uuids.txt' WITH (format text);
+            SELECT n.id 
+            FROM alf_node AS n,
+                 alf_node_properties AS p,
+                 alf_content_data AS d,
+                 alf_content_url AS u
+            WHERE n.id=p.node_id
+              AND p.long_value=d.id
+              AND d.content_url_id=u.id
+              AND p.qname_id=(SELECT id FROM alf_qname WHERE local_name='content')
+              AND n.store_id = 6
+              AND n.uuid IN (SELECT uuid FROM uuids)
+              AND round(u.content_size/1024/1024,2) < 40
+            ORDER BY n.id;
+          EOF
+          "
+
+          kubectl cp psql-util:/tmp/query_output.txt ./ids.txt
+
+          kubectl delete pod psql-util --grace-period=0 --force >/dev/null 2>&1 || true
+
+          sort -n -u ids.txt -o ids.txt
+          count_reindex=$(wc -l < ids.txt)
+          echo "Resolved $count_reindex alf_node id(s)."
+          if [ ! -s ids.txt ]; then
+            echo "no_ids=true" >> $GITHUB_OUTPUT
+          else
+            echo "no_ids=false" >> $GITHUB_OUTPUT
+          fi
+
+          # There is a limit of 100 pods so check how many are running now
+          count_pods=$(kubectl get pods --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
+          if (( count_reindex + count_pods > 95 )); then
+            cat ids.txt
+            echo "Found $count_reindex alf_node ids to reindex. There are currently $count_pods pods running, which would exceed the limit of 100 pods if we started a reindex pod for each id. Please reduce the number of ids to reindex." >&2
+            if [ "${{ github.event.inputs.send_slack_notification }}" == "Yes" ]; then
+              # Send Slack notification
+              curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Found too many alf_node ids ($count_reindex) to reindex in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+            fi
+            exit 1
+          fi
+
+      - name: Generate Helm values for reindex-list
+        if: steps.mapids.outputs.no_ids == 'false'
+        run: |
+          set -euo pipefail
+          echo "idList:" > ids.values.yaml
+          awk '{print "  - " $0}' ids.txt >> ids.values.yaml
+          echo "Generated ids.values.yaml:"
+          cat ids.values.yaml
+
+      - name: Clean up previous reindex-list configmaps (static names)
+        if: steps.mapids.outputs.no_ids == 'false' && github.event.inputs.skip_configmap_check == 'No'
+        env:
+          TASK_ENV: ${{ matrix.environment }}
+        run: |
+          set -euo pipefail
+          kubectl delete configmap reindexing-list-configmap --ignore-not-found
+          kubectl delete configmap reindexing-list-prefixes-configmap --ignore-not-found
+
+          # Loop through the ids and run the task to delete existing reindex configmaps
+          while IFS= read -r id; do
+            next_id=$((id + 1))
+            task delete_existing_reindex_configmaps_for_range ENV=${TASK_ENV} FROM=${id} TO=${next_id}
+          done < ids.txt
+
+      - name: Kick off reindex (one container per ID)
+        if: steps.mapids.outputs.no_ids == 'false'
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+        run: |
+          set -euo pipefail
+
+          OPEN_SEARCH_PREFIX=$(kubectl get svc --namespace ${KUBE_NAMESPACE} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }')
+          OPENSEARCH_HOST=$(echo "${OPEN_SEARCH_PREFIX}.${KUBE_NAMESPACE}.svc.cluster.local")
+          RELEASE="reindex-list-$(openssl rand -hex 4)"
+          #helm install "$RELEASE" ./jobs/reindex-list \
+          #  --set "global.elasticsearch.host=${OPENSEARCH_HOST}" \
+          #  -f ids.values.yaml \
+          #  --namespace "${KUBE_NAMESPACE}"
+          #echo "Installed Helm release: $RELEASE"
+
+      - name: Summary
+        run: |
+          echo "UUIDs (if any):"
+          [ -f uuids.txt ] && cat uuids.txt || true
+          echo
+          echo "alf_node IDs (if any):"
+          [ -f ids.txt ] && cat ids.txt || true
+
+      - name: Repository rolling restart if threshold met
+        if: steps.mapids.outputs.no_ids == 'false' && github.event.inputs.restart_pods == 'Yes'
+        env:
+          TASK_ENV: ${{ matrix.environment }}
+          DEPLOYMENT: alfresco-content-services-alfresco-repository
+          RESTART_THRESHOLD: ${{ github.event.inputs.restart_threshold }}
+        run: |
+          set -e
+          UNINDEXED=$(wc -l < ids.txt)
+          # if UNINDEXED is greater than x then restart the repo deployment
+          if [ "$UNINDEXED" -gt "${RESTART_THRESHOLD}" ]; then
+            echo "-> Restarting deployment: ${DEPLOYMENT}"
+            kubectl rollout restart deployment/${DEPLOYMENT}
+          fi
+          if [ "${{ github.event.inputs.send_slack_notification }}" == "Yes" ]; then
+            # send Slack notification
+            curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Deployment ${DEPLOYMENT} Restarted in ${TASK_ENV}."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
