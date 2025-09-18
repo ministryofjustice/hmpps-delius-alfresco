@@ -314,8 +314,8 @@ jobs:
           fi
 
           # There is a limit of 100 pods so check how many are running now
-          count_pods=$(kubectl get pods | wc -l)
-          if [ $count_reindex + $count_pods -gt 95 ]; then
+          count_pods=$(kubectl get pods --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
+          if (( count_reindex + count_pods > 95 )); then
             echo "Found $count_reindex alf_node id(s) to reindex. There are currently $count_pods pods running, which would exceed the limit of 100 pods if we started a reindex pod for each id. Please reduce the number of ids to reindex." >&2
             exit 1
           fi
