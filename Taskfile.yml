@@ -561,30 +561,10 @@ tasks:
         MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
         MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
 
-        # Helper: wait for an HPA to exist (up to 60s)
-        wait_for_hpa () {
-          local hpa_name="$1"
-          local tries=12
-          local i=0
-          until kubectl get hpa "$hpa_name" -n "$NS" >/dev/null 2>&1; do
-            i=$((i+1))
-            if [ "$i" -ge "$tries" ]; then
-              echo "HPA $hpa_name not found after waiting. Aborting."
-              exit 1
-            fi
-            sleep 5
-          done
-        }
-
-        # Option A (recommended): ensure HPAs are present via Helm
-        # This re-applies manifests that include the HPAs you deleted during scale-down.
-        # If your pipeline already runs Helm before scale-up, you can skip this explicit call.
-        #echo "Re-applying release to restore HPAs (no changes to values)"
-        #helm upgrade "$RELEASE_NAME" alfresco/alfresco-content-services \
-        #  -n "$NS" --reuse-values
-
-        # If you don't want to call Helm here, comment the block above and
-        # ensure some other step recreates HPAs before this script runs.
+        echo "Running Helm upgrade to ensure HPAs are present"
+        # Ensure HPAs are present by running the Helm upgrade.
+        # This re-applies manifests that include the HPAs deleted during scale-down.
+        task helm_upgrade ENV={{.ENV}} DEBUG=true
 
         # Ensure repository deployment is at least 1 replica before re-enabling HPA (optional but tidy)
         kubectl scale deploy "${RELEASE_NAME}-alfresco-repository" -n "$NS" --replicas="${MIN_REPO_REPLICAS}" || true
