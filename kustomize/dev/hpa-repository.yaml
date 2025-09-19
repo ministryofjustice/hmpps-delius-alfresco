@@ -1,0 +1,39 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: alfresco-content-services-hpa-repository
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: alfresco-content-services-alfresco-repository
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+  # Autoscale pods with a target of having 50% cpu usage.
+  # In the event we've less than 50% overall it'll just scale down to
+  # the minReplicas number of pods
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  behavior:
+    # Protect against bursty scale-up
+    #scaleUp:
+    #  stabilizationWindowSeconds: 30
+    #  policies:
+    #    - type: Pods
+    #      value: 2        # Don't add more than 2 pods at once
+    #      periodSeconds: 60
+    #    - type: Percent
+    #      value: 50       # Or max 50% increase per minute
+    #      periodSeconds: 60
+    scaleDown:
+      policies:
+      # Scale down pods no quicker than removing 1 pod per 5 minutes
+      - type: Pods
+        value: 1
+        periodSeconds: 300
+      stabilizationWindowSeconds: 300 # check every 5 minutes

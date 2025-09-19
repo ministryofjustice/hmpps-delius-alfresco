@@ -1,9 +1,49 @@
 # this file overrides values defined in ./values.yaml
 alfresco-repository:
+  environment:
+  # We need s3.flatRoot=false to build the correct S3 folder structures with dates, 
+  # however this property is deprecated and may be removed in future versions.
+  # The com.sun.management.jmxremote settings are required for JMX monitoring.
+    JAVA_OPTS: >-
+      -Dindex.subsystem.name=elasticsearch
+      -Delasticsearch.indexName=alfresco
+      -Delasticsearch.createIndexIfNotExists=true
+      -Dtransform.service.enabled=true
+      -Dtransform.service.url=http://alfresco-content-services-transform-router
+      -XX:MinRAMPercentage=50
+      -XX:MaxRAMPercentage=80
+      -Dencryption.keystore.type=JCEKS
+      -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding
+      -Dencryption.keyAlgorithm=DESede
+      -Dencryption.keystore.location=/usr/local/tomcat/shared/classes/alfresco/extension/keystore/keystore
+      -Dmetadata-keystore.aliases=metadata
+      -Dmetadata-keystore.metadata.algorithm=DESede
+      -Dsystem.workflow.engine.activiti.enabled=false
+      -Dsystem.prop_table_cleaner.algorithm=V2
+      -Dsystem.delete_not_exists.read_only=false
+      -Dsystem.delete_not_exists.timeout_seconds=3600
+      -Dfilecontentstore.subsystem.name=S3
+      -Ds3.flatRoot=false
+      -Dcom.sun.management.jmxremote
+      -Dcom.sun.management.jmxremote.port=9010
+      -Dcom.sun.management.jmxremote.rmi.port=9010
+      -Dcom.sun.management.jmxremote.local.only=false
+      -Dcom.sun.management.jmxremote.authenticate=false
+      -Dcom.sun.management.jmxremote.ssl=false
+      -Djava.rmi.server.hostname=127.0.0.1
+    CATALINA_OPTS: >-
+      -Ds3.bucketLocation=eu-west-2
   replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
     tag: release_7.3.2_elasticsearch-r5.0.4-content-latest
+  resources: # requests and limits set closer together to ensure CP stability
+    requests:
+      cpu: 1
+      memory: 6Gi
+    limits:
+      cpu: 4
+      memory: 10Gi
   persistence:
     # -- Persist repository data
     enabled: false
@@ -17,6 +57,43 @@ share:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
     tag: release_7.3.2_elasticsearch-r5.0.2-chart-7.0.3-share-latest
 externalPort: 443
+alfresco-search-enterprise:
+  liveIndexing:
+  # set in value-versions yaml
+    content:
+      replicaCount: 1
+    metadata:
+      replicaCount: 1
+    mediation:
+      podSecurityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      replicaCount: 1
+alfresco-transform-service:
+  tika:
+    podSecurityContext:
+      seccompProfile:
+        type: RuntimeDefault 
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "2048Mi"
+      limits:
+        cpu: "2"
+        memory: 6Gi
+  transformrouter:
+    podSecurityContext:
+      seccompProfile:
+        type: RuntimeDefault 
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: "0.75"
+        memory: "512Mi"
+      limits:
+        cpu: "2"
+        memory: 2Gi
 global:
   known_urls:
     - https://hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
