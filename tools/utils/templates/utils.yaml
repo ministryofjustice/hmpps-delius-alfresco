@@ -6,6 +6,9 @@ metadata:
   labels:
     app: utils
 spec:
+  securityContext:
+    fsGroup: 999
+    # ensures the pvc volume is writable for UID 999 via GID
   containers:
   - name: utils
     image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-utils:latest
@@ -63,6 +66,8 @@ spec:
       - name: utils-profile
         mountPath: /etc/profile.d
         readOnly: true
+      - name: utils-home-pvc
+        mountPath: /home/job
     resources:
       requests:
         cpu: 500m
@@ -86,3 +91,6 @@ spec:
       configMap:
         name: utils-profile
         defaultMode: 0644
+    - name: utils-home-pvc
+      persistentVolumeClaim:
+        claimName: utils-home-pvc
