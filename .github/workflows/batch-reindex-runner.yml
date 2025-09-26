@@ -214,9 +214,9 @@ jobs:
           RESUME_MAX="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.next_max_id}' || true)"
 
           # AmazonMQ console creds for queue polling
-          AMQ_URL="$(kubectl -n "$NS" get secret amazonmq-broker-secret -o json | jq -r '.data.BROKER_CONSOLE_URL|@base64d')"
-          AMQ_USER="$(kubectl -n "$NS" get secret amazonmq-broker-secret -o json | jq -r '.data|map_values(@base64d)|.BROKER_USERNAME')"
-          AMQ_PASS="$(kubectl -n "$NS" get secret amazonmq-broker-secret -o json | jq -r '.data|map_values(@base64d)|.BROKER_PASSWORD')"
+          AMQ_URL="$(kubectl -n "$NS" get secret amazon-mq-broker-secret -o json | jq -r '.data.BROKER_CONSOLE_URL|@base64d')"
+          AMQ_USER="$(kubectl -n "$NS" get secret amazon-mq-broker-secret -o json | jq -r '.data|map_values(@base64d)|.BROKER_USERNAME')"
+          AMQ_PASS="$(kubectl -n "$NS" get secret amazon-mq-broker-secret -o json | jq -r '.data|map_values(@base64d)|.BROKER_PASSWORD')"
           QUEUE_NAME="acs-repo-transform-request"
 
           # Resolve starting max id
