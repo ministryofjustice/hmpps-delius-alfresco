@@ -44,6 +44,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 1440 # Set to 24 hours
     environment: ${{ inputs.environment }}-preapproved
 
     steps:
