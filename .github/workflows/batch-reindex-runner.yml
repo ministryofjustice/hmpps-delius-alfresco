@@ -158,17 +158,16 @@ jobs:
         run: |
           set -euo pipefail
           STATE_CM="reindex-runner-state-${ENV}"
-          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || \
-            kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=next_max_id=
+          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$NS" create configmap "$STATE_CM"
           PHASE1="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.phase1}' || true)"
           if [[ "$PHASE1" != "done" ]]; then
             echo "Phase 1: reindex 0..1000"
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase1":"done"}}'
             task reindex_by_id ENV="${ENV}" FROM="0" TO="1000"
-            kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=phase1=done -o yaml --dry-run=client | kubectl -n "$NS" apply -f -
           else
             echo "Phase 1 already marked done in $STATE_CM"
           fi
-
+          
       - name: Phase 2 – children of parent 738 (guarded)
         shell: bash
         env:
@@ -178,16 +177,15 @@ jobs:
           set -euo pipefail
           source helpers.sh
           STATE_CM="reindex-runner-state-${ENV}"
-          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || \
-            kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=next_max_id=
+          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$NS" create configmap "$STATE_CM"
           PHASE2="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.phase2}' || true)"
           if [[ "$PHASE2" != "done" ]]; then
             echo "Phase 2: reindex children of parent 738"
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase2":"done"}}'
             while IFS=$'\t' read -r from_id to_id; do
               [[ -z "$from_id" || -z "$to_id" ]] && continue
               task reindex_by_id ENV="${ENV}" FROM="${from_id}" TO="${to_id}"
             done < <(sql_in_utils "$NS" "SELECT aca.child_node_id, aca.child_node_id+1 FROM alf_child_assoc aca WHERE aca.parent_node_id=738 ORDER BY aca.child_node_id ASC;")
-            kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=phase2=done -o yaml --dry-run=client | kubectl -n "$NS" apply -f -
           else
             echo "Phase 2 already marked done in $STATE_CM"
           fi
@@ -279,7 +277,7 @@ jobs:
             task reindex_by_id ENV="${ENV}" FROM="${min_id}" TO="${window_max}"
 
             # persist new resume point
-            kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=next_max_id="${min_id}" -o yaml --dry-run=client | kubectl -n "$NS" apply -f -
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{\"data\":{\"next_max_id\":\"${min_id}\"}}"
 
             # throttle until AMQ transforms drain below threshold
             wait_queue
