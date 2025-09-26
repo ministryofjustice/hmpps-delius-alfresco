@@ -11,10 +11,10 @@ REGION="${AWS_REGION:-eu-west-2}"
 
 # Cutoff (strictly "later than" this date/time)
 CUTOFF_Y="${CUTOFF_Y:-2025}"
-CUTOFF_M="${CUTOFF_M:-8}"
+CUTOFF_M="${CUTOFF_M:-5}"
 CUTOFF_D="${CUTOFF_D:-12}"
-CUTOFF_H="${CUTOFF_H:-11}"
-CUTOFF_MIN="${CUTOFF_MIN:-36}"
+CUTOFF_H="${CUTOFF_H:-8}"
+CUTOFF_MIN="${CUTOFF_MIN:-46}"
 
 # Modes:
 #   ALL_VERSIONS=0 (default) -> copy current versions only (fast)

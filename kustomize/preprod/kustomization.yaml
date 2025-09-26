@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../base
+  - filestore-data-pvc.yaml
   - alf-prop-config-map.yaml
   - hpa-repository.yaml
   - hpa-tika.yaml
@@ -14,4 +15,5 @@ patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-infra-config-map.yaml
+  - path: patch-tika-config-map.yaml
 
