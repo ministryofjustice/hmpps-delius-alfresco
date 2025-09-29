@@ -1,0 +1,106 @@
+name: Batch Reindex Controller
+# This workflow sets up or modifies the ConfigMap used by the batch reindex runner.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (poc/dev/test/stage/preprod/prod)"
+        required: true
+        default: "preprod"
+        type: choice
+        options: [poc, dev, test, stage, preprod, prod]
+      enable_run_on_schedule:
+        description: "Enable the workflow being run on schedule? (sets configmap data key 'run' to 'true')"
+        required: true
+        default: "true"
+        type: choice
+        options: ["false","true"]
+      starting_id:
+        description: "STARTING_NODE_ID (highest child_node_id to begin from). Leave blank to auto-detect MAX()."
+        required: false
+        default: ""
+      ending_id:
+        description: "ENDING_NODE_ID (lowest child_node_id to stop at; exclusive of further windows)"
+        required: false
+        default: "1000"
+      force_reset_phases:
+        description: "Reset phase1/phase2 flags to empty strings in the configmap (to re-run phases)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false","true"]
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-preapproved
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.29.13"
+
+      - name: Configure kubectl context
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server="https://${KUBE_CLUSTER}"
+          kubectl config set-credentials deploy-user --token="${{ secrets.KUBE_TOKEN }}"
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace="${KUBE_NAMESPACE}"
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Set vars
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV="${{ inputs.environment }}"
+          NS="hmpps-delius-alfresco-${ENV}"
+          # Preprod/prod spelling guard preserved if you use it in your repo; adjust if needed.
+          if [[ "${ENV}" == "poc" ]]; then NS="hmpps-delius-alfrsco-${ENV}"; fi
+          echo "ns=$NS" >> $GITHUB_OUTPUT
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+
+      - name: Reset configmap values based on inputs
+        shell: bash
+        env:
+          ENV: ${{ steps.vars.outputs.env }}
+          NS:  ${{ steps.vars.outputs.ns }}
+        run: |
+          set -euo pipefail
+          STATE_CM="reindex-runner-state-${ENV}"
+
+          # Create the CM if it doesn't exist yet
+          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || \
+            kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=next_max_id=${{ inputs.starting_id }} --from-literal=ending_id=${{ inputs.ending_id }} --from-literal=phase1="" --from-literal=phase2="" --from-literal=run=${{ inputs.enable_run_on_schedule }}
+
+          # If force_reset_phases is true then reset the phase flags
+          if [[ "${{ inputs.force_reset_phases }}" == "true" ]]; then
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase1":"","phase2":""}}'
+            echo "Phase flags reset in $STATE_CM"
+          fi
+
+          # Update starting_id if provided
+          if [[ -n "${{ inputs.starting_id }}" ]]; then
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{"data":{"next_max_id":"${{ inputs.starting_id }}"}}"
+            echo "Starting ID set to ${{ inputs.starting_id }} in $STATE_CM"
+          fi
+
+          # Update ending_id if provided
+          if [[ -n "${{ inputs.ending_id }}" ]]; then
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{"data":{"ending_id":"${{ inputs.ending_id }}"}}"
+            echo "Ending ID set to ${{ inputs.ending_id }} in $STATE_CM"
+          fi
+
+          # Update the "run" key to match the input
+          kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{"data":{"run":"${{ inputs.enable_run_on_schedule }}"}}"
+          echo "Run flag set to ${{ inputs.enable_run_on_schedule }} in $STATE_CM"
+
