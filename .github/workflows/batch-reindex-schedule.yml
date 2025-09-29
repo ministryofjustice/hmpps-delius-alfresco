@@ -1,0 +1,24 @@
+name: "Alfresco: Batch Reindex Schedule"
+# This workflow triggers the batch reindex-runner workflow on a schedule.
+# It runs for the "preprod" and "prod" environments only.
+# It sets the "run_on_schedule" input to "true" so that the runner knows
+# it is being run on a schedule.
+on:
+  schedule:
+    # Run every 6 hours as GHA timeout is around 6 hours
+    #- cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  batch-reindex:
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        environment: ["preprod", "prod"]
+    uses: ./.github/workflows/batch-reindex-runner.yml
+    with:
+      environment: ${{matrix.environment}}
+      run_on_schedule: "true"
+    secrets: inherit
