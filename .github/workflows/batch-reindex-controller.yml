@@ -103,4 +103,3 @@ jobs:
           # Update the "run" key to match the input
           kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{"data":{"run":"${{ inputs.enable_run_on_schedule }}"}}"
           echo "Run flag set to ${{ inputs.enable_run_on_schedule }} in $STATE_CM"
-
