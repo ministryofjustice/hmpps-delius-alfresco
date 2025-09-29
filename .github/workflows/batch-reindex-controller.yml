@@ -1,4 +1,4 @@
-name: Batch Reindex Controller
+name: "Alfresco: Batch Reindex Controller"
 # This workflow sets up or modifies the ConfigMap used by the batch reindex runner.
 on:
   workflow_dispatch:

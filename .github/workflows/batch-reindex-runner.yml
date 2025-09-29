@@ -1,4 +1,4 @@
-name: Batch Reindex Runner (range, descending, AMQ-throttled)
+name: "Alfresco: Batch Reindex Runner (range, descending, AMQ-throttled)"
 # This workflow runs the batch reindex process in an environment.
 # It can be triggered manually or called from the schedule workflow.
 # It supports resuming from a previous run via a ConfigMap-stored state.

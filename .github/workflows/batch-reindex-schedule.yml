@@ -1,4 +1,4 @@
-name: Batch Reindex Schedule
+name: "Alfresco: Batch Reindex Schedule"
 # This workflow triggers the batch reindex-runner workflow on a schedule.
 # It runs for the "preprod" and "prod" environments only.
 # It sets the "run_on_schedule" input to "true" so that the runner knows
