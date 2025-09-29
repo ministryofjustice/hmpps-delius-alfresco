@@ -179,7 +179,7 @@ jobs:
           version: 3.x
 
       - name: Install xmllint
-        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+        run: sudo apt-get install -y libxml2-utils
 
       # --- helpers: find utils pod and retryable kubectl
       - name: Define helper functions
@@ -306,7 +306,7 @@ jobs:
           echo "QUEUE_WAIT_TIMEOUT_SEC=$tout" >> "$GITHUB_OUTPUT"
           
       # --- phase 3: descending batches with AMQ throttle + k8s-persisted state
-      - name: Phase 3 – descending batched sweep (type_qname_id=35)
+      - name: Phase 3 – descending batched sweep
         shell: bash
         env:
           NS:  ${{ steps.vars.outputs.ns }}
@@ -338,13 +338,13 @@ jobs:
           elif [[ -n "${RESUME_MAX}" ]]; then
             max_id="${RESUME_MAX}"
           else
-            max_id="$(sql_in_utils "$NS" "SELECT COALESCE(MAX(child_node_id),0) FROM alf_child_assoc WHERE type_qname_id=35;")"
+            max_id="$(sql_in_utils "$NS" "SELECT COALESCE(MAX(aca.child_node_id),0) FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition');")"
           fi
           echo "Starting max_id=${max_id}, ending_id=${ENDING_NODE_ID}"
 
           calc_window() {
             local cur="$1"
-            sql_in_utils "$NS" "WITH limited AS (SELECT child_node_id FROM alf_child_assoc WHERE type_qname_id=35 AND child_node_id <= ${cur} ORDER BY child_node_id DESC LIMIT ${BATCH_SIZE}) SELECT MIN(child_node_id) AS min_id, MAX(child_node_id) AS max_id, COUNT(*) FROM limited;"
+            sql_in_utils "$NS" "WITH limited AS (SELECT aca.child_node_id FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition') AND aca.child_node_id <= ${cur} ORDER BY child_node_id DESC LIMIT ${BATCH_SIZE}) SELECT MIN(child_node_id) AS min_id, MAX(child_node_id) AS max_id, COUNT(*) FROM limited;"
           }
 
           parse_row() { IFS='|' read -r a b c <<<"$1"; echo "$a $b $c"; }

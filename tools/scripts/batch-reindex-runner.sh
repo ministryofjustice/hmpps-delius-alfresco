@@ -9,7 +9,7 @@ set -euo pipefail
 #  2) Reindexes all children of a specific parent (parent_node_id=738) one-by-one
 #     using FROM=child_node_id and TO=child_node_id+1 (once).
 #  3) Then iterates in batches of BATCH_SIZE=100000 documents, starting from the
-#     latest (highest child_node_id where type_qname_id=35), going downward.
+#     latest (highest child_node_id), going downward.
 #  4) After each batch, waits for AMQ queue (acs-repo-transform-request) to drain
 #     below QUEUE_THRESHOLD (≈5000) before triggering the next batch.
 #  5) To avoid stale ports/tunnels, it re-establishes fresh port-forwards for RDS
@@ -38,7 +38,6 @@ ENDING_NODE_ID=814580955
 BATCH_SIZE=200000
 
 PARENT_NODE_ID_FOR_CHILDREN=738
-TYPE_QNAME_ID_FOR_DOCS=35
 
 QUEUE_THRESHOLD=1000           # proceed when queue size <= this
 INITIAL_QUEUE_SETTLE_SEC=360   # allow time after batch for queue to start filling
@@ -243,7 +242,7 @@ phase_parent_children() {
 # returns the MIN/MAX child_node_id for next batch window starting from given max
 calc_batch_window() {
   local current_max_id=$1
-  local q="WITH limited AS (SELECT child_node_id FROM alf_child_assoc WHERE type_qname_id = ${TYPE_QNAME_ID_FOR_DOCS} AND child_node_id <= ${current_max_id} ORDER BY child_node_id DESC LIMIT ${BATCH_SIZE}) SELECT MIN(child_node_id) AS min_id, MAX(child_node_id) AS max_id, COUNT(*) FROM limited;"
+  local q="WITH limited AS (SELECT aca.child_node_id FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition') AND child_node_id <= ${current_max_id} ORDER BY child_node_id DESC LIMIT ${BATCH_SIZE}) SELECT MIN(child_node_id) AS min_id, MAX(child_node_id) AS max_id, COUNT(*) FROM limited;"
   sql "$q"
 }
 
@@ -252,13 +251,13 @@ get_max_child_id() {
   if [[ -n "$STARTING_NODE_ID" ]]; then
     echo ${STARTING_NODE_ID}
   else
-    local q="SELECT COALESCE(MAX(child_node_id),0) FROM alf_child_assoc WHERE type_qname_id=${TYPE_QNAME_ID_FOR_DOCS};"
+    local q="SELECT COALESCE(MAX(aca.child_node_id),0) FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition');"
     sql "$q"
   fi
 }
 
 phase_descending_batches() {
-  log "Phase 3: Descending batches of ${BATCH_SIZE} (type_qname_id=${TYPE_QNAME_ID_FOR_DOCS})"
+  log "Phase 3: Descending batches of ${BATCH_SIZE}"
 
   # Values for checking the queue in Amazon MQ
   AMQ_BROKER_URL=$(kubectl -n "$K8S_NAMESPACE" get secrets amazon-mq-broker-secret -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
