@@ -136,6 +136,7 @@ jobs:
     needs: check_run
     if: ${{ needs.check_run.outputs.should_continue != 'false' }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-preapproved
     steps:
       - uses: actions/checkout@v4
 
