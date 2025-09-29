@@ -1,5 +1,10 @@
 name: Batch Reindex Runner (range, descending, AMQ-throttled)
-
+# This workflow runs the batch reindex process in an environment.
+# It can be triggered manually or called from the schedule workflow.
+# It supports resuming from a previous run via a ConfigMap-stored state.
+# It also supports two guarded phases for initial seeding of the hierarchy.
+# It requires a ConfigMap named reindex-runner-state-<environment> to exist in
+# the target namespace, which can be created/modified via the controller workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -37,16 +42,35 @@ on:
         default: "false"
         type: choice
         options: ["false","true"]
+      run_on_schedule:
+        description: "Flag to show whether the workflow is being run on schedule"
+        required: true
+        default: "false"
+        type: choice
+        options: ["false"]
+
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: string
+        required: true
+      run_on_schedule:
+        description: "Flag to show whether the workflow is being run on schedule"
+        type: string
+        required: true
+        default: "true"
 
 permissions:
   contents: read
 
 jobs:
-  run:
-    runs-on: ubuntu-latest
-    timeout-minutes: 1440 # Set to 24 hours
-    environment: ${{ inputs.environment }}-preapproved
 
+  check_run:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-preapproved
+    outputs:
+      should_continue: ${{ steps.check_config_run.outputs.should_continue }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,19 +78,6 @@ jobs:
         uses: azure/setup-kubectl@v4
         with:
           version: "v1.29.13"
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: "v3.15.2"
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-
-      - name: Install xmllint
-        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
 
       - name: Configure kubectl context
         run: |
@@ -88,12 +99,90 @@ jobs:
           NS="hmpps-delius-alfresco-${ENV}"
           # Preprod/prod spelling guard preserved if you use it in your repo; adjust if needed.
           if [[ "${ENV}" == "poc" ]]; then NS="hmpps-delius-alfrsco-${ENV}"; fi
-
           echo "ns=$NS" >> $GITHUB_OUTPUT
           echo "env=$ENV" >> $GITHUB_OUTPUT
 
-      # --- helpers: find utils pod and retryable kubectl (same semantics as your script)
+      - name: If run through the schedule check if configmap data key "run" exists and is set to "true"
+        id: check_config_run
+        if : ${{ inputs.run_on_schedule == 'true' }}
+        shell: bash
+        env:
+          ENV: ${{ steps.vars.outputs.env }}
+          NS:  ${{ steps.vars.outputs.ns }}
+        run: |
+          set -euo pipefail
+          STATE_CM="reindex-runner-state-${ENV}"
+          if kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1; then
+            CONTINUE="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.run}' || true)"
+            if [[ "$CONTINUE" == "true" ]]; then
+              echo "ConfigMap $STATE_CM is set to run, continuing."
+            # else if it is set to false then exit
+            elif [[ "$CONTINUE" == "false" ]]; then
+              echo "ConfigMap $STATE_CM is set to not run, exiting."
+              echo "should_continue=false" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              # otherwise set it to true and continue
+              kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"run":"true"}}'
+            fi
+          else
+            echo "ConfigMap $STATE_CM does not exist in namespace $NS. Please run the controller workflow to create it. Exiting."
+            echo "should_continue=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "should_continue=true" >> $GITHUB_OUTPUT
+
+  run_reindex:
+    needs: check_run
+    if: ${{ needs.check_run.outputs.should_continue != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.29.13"
+
+      - name: Configure kubectl context
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server="https://${KUBE_CLUSTER}"
+          kubectl config set-credentials deploy-user --token="${{ secrets.KUBE_TOKEN }}"
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace="${KUBE_NAMESPACE}"
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Set vars
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV="${{ inputs.environment }}"
+          NS="hmpps-delius-alfresco-${ENV}"
+          # Preprod/prod spelling guard preserved if you use it in your repo; adjust if needed.
+          if [[ "${ENV}" == "poc" ]]; then NS="hmpps-delius-alfrsco-${ENV}"; fi
+          echo "ns=$NS" >> $GITHUB_OUTPUT
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+          
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.15.2"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: Install xmllint
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
+      # --- helpers: find utils pod and retryable kubectl
       - name: Define helper functions
+        id: helpers
         shell: bash
         run: |
           cat > helpers.sh <<'EOF'
@@ -136,6 +225,7 @@ jobs:
           EOF
 
       - name: Reset phase flags if requested
+        id: reset_phases
         if: ${{ inputs.force_reset_phases == 'true' }}
         shell: bash
         env:
@@ -149,9 +239,10 @@ jobs:
             kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=next_max_id=
           # Reset the phase flags
           kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase1":"","phase2":""}}'
-          echo "Phase flags reset for $STATE_CM"
+          echo "Phase flags reset in $STATE_CM"
                     
       - name: Phase 1 – hierarchy 0..1000 (guarded)
+        id: phase1
         shell: bash
         env:
           ENV:  ${{ steps.vars.outputs.env }}
@@ -170,6 +261,7 @@ jobs:
           fi
           
       - name: Phase 2 – children of parent 738 (guarded)
+        id: phase2
         shell: bash
         env:
           NS:  ${{ steps.vars.outputs.ns }}
@@ -191,6 +283,27 @@ jobs:
             echo "Phase 2 already marked done in $STATE_CM"
           fi
 
+      - name: Normalize inputs
+        id: norm
+        shell: bash
+        run: |
+          set -euo pipefail
+          # fallbacks if inputs are empty / not provided (workflow_call)
+          bs="${{ inputs.batch_size }}"
+          qt="${{ inputs.queue_threshold }}"
+          settle="${{ inputs.initial_queue_settle_sec }}"
+          tout="${{ inputs.queue_wait_timeout_sec }}"
+
+          : "${bs:=200000}"
+          : "${qt:=1000}"
+          : "${settle:=360}"
+          : "${tout:=3000}"
+
+          echo "BATCH_SIZE=$bs" >> "$GITHUB_OUTPUT"
+          echo "QUEUE_THRESHOLD=$qt" >> "$GITHUB_OUTPUT"
+          echo "INITIAL_QUEUE_SETTLE_SEC=$settle" >> "$GITHUB_OUTPUT"
+          echo "QUEUE_WAIT_TIMEOUT_SEC=$tout" >> "$GITHUB_OUTPUT"
+          
       # --- phase 3: descending batches with AMQ throttle + k8s-persisted state
       - name: Phase 3 – descending batched sweep (type_qname_id=35)
         shell: bash
@@ -199,10 +312,10 @@ jobs:
           ENV: ${{ steps.vars.outputs.env }}
           STARTING_NODE_ID: ${{ inputs.starting_id }}
           ENDING_NODE_ID:   ${{ inputs.ending_id }}
-          BATCH_SIZE:       ${{ inputs.batch_size }}
-          QUEUE_THRESHOLD:  ${{ inputs.queue_threshold }}
-          INITIAL_QUEUE_SETTLE_SEC: ${{ inputs.initial_queue_settle_sec }}
-          QUEUE_WAIT_TIMEOUT_SEC:   ${{ inputs.queue_wait_timeout_sec }}
+          BATCH_SIZE:       ${{ steps.norm.outputs.BATCH_SIZE }}
+          QUEUE_THRESHOLD:  ${{ steps.norm.outputs.QUEUE_THRESHOLD }}
+          INITIAL_QUEUE_SETTLE_SEC: ${{ steps.norm.outputs.INITIAL_QUEUE_SETTLE_SEC }}
+          QUEUE_WAIT_TIMEOUT_SEC:   ${{ steps.norm.outputs.QUEUE_WAIT_TIMEOUT_SEC }}
         run: |
           set -euo pipefail
           source helpers.sh
@@ -265,19 +378,24 @@ jobs:
               break
             fi
 
-            # stop / clamp on ENDING_NODE_ID (same logic as script)
+            # stop / clamp on ENDING_NODE_ID if set
             if [[ -n "${ENDING_NODE_ID}" && "$window_max" -le "${ENDING_NODE_ID}" ]]; then
               echo "Stopping: TO=${window_max} <= ENDING_NODE_ID=${ENDING_NODE_ID}"
               break
             fi
+            # clamp min_id to ENDING_NODE_ID if set
             if [[ -n "${ENDING_NODE_ID}" && "$min_id" -lt "${ENDING_NODE_ID}" ]]; then
               min_id="${ENDING_NODE_ID}"
             fi
 
+            # throttle until AMQ transforms drain below threshold before starting next batch
+            wait_queue
+
             echo "Next batch: FROM=${min_id} TO=${window_max} (count=${count})"
             task reindex_by_id ENV="${ENV}" FROM="${min_id}" TO="${window_max}"
 
-            # persist new resume point
+            # persist new resume point if the job succeeded
+            echo "Persisting next_max_id=${min_id} to $STATE_CM"
             kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{\"data\":{\"next_max_id\":\"${min_id}\"}}"
 
             # throttle until AMQ transforms drain below threshold
