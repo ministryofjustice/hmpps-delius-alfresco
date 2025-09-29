@@ -31,7 +31,7 @@
 # - The workflow is idempotent and cleans up ephemeral resources after use.
 #
 ---
-name: Alfresco Unindexed Content Reindexer
+name: "Alfresco: Unindexed Content Reindexer"
 
 on:
   workflow_dispatch:
