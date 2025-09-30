@@ -1,3 +1,6 @@
+# This patch sets the logging level for ActiveMQ to WARN to reduce log verbosity.
+# It targets multiple deployments to ensure consistent logging behavior across services.
+# The logging level is set via the SPRING_APPLICATION_JSON environment variable.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -10,22 +13,7 @@ spec:
           env:
             - name: SPRING_APPLICATION_JSON
               value: |
-                {
-                  "logging": {
-                    "level": {
-                      "org": {
-                        "apache": {
-                          "activemq": {
-                            "transport": {
-                              "failover": { "FailoverTransport": "WARN" },
-                              "*": "WARN"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -39,22 +27,7 @@ spec:
           env:
             - name: SPRING_APPLICATION_JSON
               value: |
-                {
-                  "logging": {
-                    "level": {
-                      "org": {
-                        "apache": {
-                          "activemq": {
-                            "transport": {
-                              "failover": { "FailoverTransport": "WARN" },
-                              "*": "WARN"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,22 +41,7 @@ spec:
           env:
             - name: SPRING_APPLICATION_JSON
               value: |
-                {
-                  "logging": {
-                    "level": {
-                      "org": {
-                        "apache": {
-                          "activemq": {
-                            "transport": {
-                              "failover": { "FailoverTransport": "WARN" },
-                              "*": "WARN"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -97,22 +55,7 @@ spec:
           env:
             - name: SPRING_APPLICATION_JSON
               value: |
-                {
-                  "logging": {
-                    "level": {
-                      "org": {
-                        "apache": {
-                          "activemq": {
-                            "transport": {
-                              "failover": { "FailoverTransport": "WARN" },
-                              "*": "WARN"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -126,19 +69,4 @@ spec:
           env:
             - name: SPRING_APPLICATION_JSON
               value: |
-                {
-                  "logging": {
-                    "level": {
-                      "org": {
-                        "apache": {
-                          "activemq": {
-                            "transport": {
-                              "failover": { "FailoverTransport": "WARN" },
-                              "*": "WARN"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
