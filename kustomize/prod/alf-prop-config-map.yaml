@@ -111,3 +111,12 @@ data:
     metrics.jvmMetricsReporter.enabled=true
     metrics.restMetricsReporter.enabled=true
     metrics.restMetricsReporter.path.enabled=true
+
+  0200-increase-pdf-max-source.json: |
+    {
+      "supportedDefaults": [
+        {
+          "maxSourceSizeBytes": 26214400                 
+        }
+      ]
+    }
