@@ -350,7 +350,6 @@ jobs:
           parse_row() { IFS='|' read -r a b c <<<"$1"; echo "$a $b $c"; }
 
           wait_queue() {
-            echo "Waiting ${INITIAL_QUEUE_SETTLE_SEC}s for queue to start filling…"; sleep "${INITIAL_QUEUE_SETTLE_SEC}"
             local start=$(date +%s)
             while true; do
               # fetch XML via utils pod then parse locally with xmllint (matches your script flow)
@@ -412,6 +411,7 @@ jobs:
             echo "Persisting next_max_id=${min_id} to $STATE_CM"
             kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{\"data\":{\"next_max_id\":\"${min_id}\"}}"
 
+            echo "Waiting ${INITIAL_QUEUE_SETTLE_SEC}s for queue to start filling…"; sleep "${INITIAL_QUEUE_SETTLE_SEC}"
             # throttle until AMQ transforms drain below threshold
             wait_queue
 
