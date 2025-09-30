@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-tika
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-transform-service
+          env:
+            - name: TRANSFORM_CONFIG_FILE_PDFUPDATE
+              value: "/config/0200-increase-pdf-max-source.json"
+            - name: JAVA_OPTS
+              value: |
+                -XX:MinRAMPercentage=50 -XX:MaxRAMPercentage=80
+                -Dserver.tomcat.threads.min=4
+                -Dserver.tomcat.threads.max=12
+                -Dlogging.level.org.alfresco.transform.common.TransformerDebug=ERROR
+          volumeMounts:
+            - name: 0200-increase-pdf-max-source
+              mountPath: /config/0200-increase-pdf-max-source.json
+              subPath: 0200-increase-pdf-max-source.json
+              readOnly: true
+      volumes:
+        - name: 0200-increase-pdf-max-source
+          configMap:
+            name: alf-prop-config-map
+            items:
+              - key: 0200-increase-pdf-max-source.json
+                path: 0200-increase-pdf-max-source.json

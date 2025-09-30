@@ -14,4 +14,4 @@ patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-infra-config-map.yaml
-
+  - path: patch-tika-config-map.yaml
