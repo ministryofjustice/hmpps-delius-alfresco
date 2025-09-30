@@ -88,11 +88,11 @@ on:
           - "Yes"
           - "No"
         default: "No"
-  schedule:
+  #schedule:
     # GitHub Actions cron uses UTC.
     # E.g. runs every night at:
     #   20:00 UTC
-    - cron: "0 20 * * *"
+    #- cron: "0 20 * * *"
 
 permissions:
   contents: read
@@ -285,7 +285,7 @@ jobs:
           kubectl exec -i psql-util -- /bin/sh -lc "cat > /tmp/uuids.txt" < uuids.txt
 
           # Run the mapping using a temp table and \copy
-          # Only process docs that are less than 40MB in size as larger than that won't get processed. 
+          # Only process docs that are less than 25MB in size as larger than that won't get processed. 
           kubectl exec psql-util -- /bin/sh -c "
             export PGPASSWORD='$DB_PASS';
             psql -h '$HOST' -p '$PORT' -U '$DB_USER' -d '$DBNM' -qAt <<'EOF' > /tmp/query_output.txt
@@ -303,7 +303,7 @@ jobs:
               AND p.qname_id=(SELECT id FROM alf_qname WHERE local_name='content')
               AND n.store_id = 6
               AND n.uuid IN (SELECT uuid FROM uuids)
-              AND round(u.content_size/1024/1024,2) < 40
+              AND round(u.content_size/1024/1024,2) < 25
             ORDER BY n.id;
           EOF
           "
