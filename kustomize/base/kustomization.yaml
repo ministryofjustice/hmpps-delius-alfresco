@@ -25,3 +25,4 @@ patches:
   - path: patch-security-contexts/alfresco-content-services-pdfrenderer.yaml
   - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-path.yaml
   - path: patch-security-contexts/alfresco-content-services-tika.yaml
+  - path: patch-activemq-logging.yaml
