@@ -364,7 +364,20 @@ jobs:
               fi
               if (( $(date +%s) - start > QUEUE_WAIT_TIMEOUT_SEC )); then
                 echo "Queue did not drop below ${QUEUE_THRESHOLD} within ${QUEUE_WAIT_TIMEOUT_SEC}s (last size=${size})." >&2
-                exit 1
+                # if the repo pods haven't already been restarted in this run then do so now
+                if [[ "${restarted:-false}" != "true" ]]; then
+                  echo "Restarting repo pods now before continuing."
+                  # Restart the repo pods and reset the timer so it waits again for the queue to drain
+                  task restart_repo ENV="${ENV}"
+                  sleep 240
+                  local start=$(date +%s)
+                  local restarted=true
+                else
+                  echo "Repo pods have already been restarted in this run so exit with failure."
+                  # send Slack notification
+                  curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Repository deployment restarted in ${ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Repository deployment restarted in ${ENV} during batch reindexing. Please check the queues."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+                  exit 1
+                fi
               fi
               sleep 30
             done
