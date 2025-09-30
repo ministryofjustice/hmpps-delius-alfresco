@@ -3,5 +3,5 @@ kind: ConfigMap
 metadata:
   name: alfresco-infrastructure
 data:
-  SFS_URL: https://alf-sfs.preprod.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk/
-  SFS_URL_API: https://alf-sfs.preprod.delius-core.hmpps-preproduction.modernisation-platform.service.justice.gov.uk/alfresco/api/-default-/private/sfs/versions/1/file/
+  SFS_URL_API: http://alfresco-content-services-filestore/alfresco/api/-default-/private/sfs/versions/1/file/
+  SFS_URL: http://alfresco-content-services-filestore/
