@@ -415,6 +415,12 @@ jobs:
             # throttle until AMQ transforms drain below threshold
             wait_queue
 
+            CONTINUE="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.run}' || true)"
+            if [[ "$CONTINUE" != "true" ]]; then
+              echo "ConfigMap $STATE_CM is set to not run, exiting."
+              exit 0
+            fi
+
             # move window down
             max_id="$min_id"
           done
