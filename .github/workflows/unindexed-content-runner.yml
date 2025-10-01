@@ -29,10 +29,7 @@ permissions:
 jobs:
   find-and-reindex:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: ${{ inputs.environment }}
-    environment: ${{ matrix.environment }}-preapproved
+    environment: ${{ inputs.environment }}-preapproved
 
     steps:
       - name: Checkout repo
@@ -69,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ENV="${{ matrix.environment }}"
+          ENV="${{ inputs.environment }}"
           NS="hmpps-delius-alfresco-${ENV}"
           # Preprod/prod spelling guard preserved if you use it in your repo; adjust if needed.
           if [[ "${ENV}" == "poc" ]]; then NS="hmpps-delius-alfrsco-${ENV}"; fi
