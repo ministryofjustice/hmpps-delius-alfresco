@@ -3,6 +3,7 @@
 #
 # This GitHub Actions workflow automates the process of identifying and reindexing unindexed Alfresco content
 # in specified environments. It can be triggered manually (workflow_dispatch) or scheduled (cron, currently commented out).
+# If can also be used to just print the IDs of unindexed content without creating reindex jobs.
 #
 # Workflow Overview:
 # - Accepts environment and look-back window (in days) as inputs.
@@ -60,6 +61,14 @@ on:
         description: "Optional: Comma- or newline-separated list of UUIDs to reindex"
         required: false
         type: string
+      skip_reindex_jobs:
+        description: "Skip creating reindex jobs i.e. just print ids?"
+        required: true
+        type: choice
+        options:
+          - "Yes"
+          - "No"
+        default: "No"
       skip_configmap_check:
         description: "Skip configmap check (quicker reindexing)?"
         required: true
@@ -343,7 +352,7 @@ jobs:
           cat ids.values.yaml
 
       - name: Clean up previous reindex-list configmaps (static names)
-        if: steps.mapids.outputs.no_ids == 'false' && github.event.inputs.skip_configmap_check == 'No'
+        if: github.event.inputs.skip_reindex_jobs == 'No' && steps.mapids.outputs.no_ids == 'false' && github.event.inputs.skip_configmap_check == 'No'
         env:
           TASK_ENV: ${{ matrix.environment }}
         run: |
@@ -358,7 +367,7 @@ jobs:
           done < ids.txt
 
       - name: Kick off reindex (one container per ID)
-        if: steps.mapids.outputs.no_ids == 'false'
+        if: github.event.inputs.skip_reindex_jobs == 'No' && steps.mapids.outputs.no_ids == 'false'
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         run: |
@@ -382,7 +391,7 @@ jobs:
           [ -f ids.txt ] && cat ids.txt || true
 
       - name: Repository rolling restart if threshold met
-        if: steps.mapids.outputs.no_ids == 'false' && github.event.inputs.restart_pods == 'Yes'
+        if: github.event.inputs.skip_reindex_jobs == 'No' && steps.mapids.outputs.no_ids == 'false' && github.event.inputs.restart_pods == 'Yes'
         env:
           TASK_ENV: ${{ matrix.environment }}
           DEPLOYMENT: alfresco-content-services-alfresco-repository

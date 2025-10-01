@@ -30,9 +30,8 @@ jobs:
   find-and-reindex:
     runs-on: ubuntu-latest
     strategy:
-      # If the workflow is triggered by a scheduled event (schedule), it runs for multiple environments (e.g. dev, test, stage). Otherwise, it uses the environment specified by the user input
       matrix:
-        environment: ${{ github.event_name == 'schedule' && fromJson('["dev", "test", "stage", "preprod", "prod"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
+        environment: ${{ inputs.environment }}
     environment: ${{ matrix.environment }}-preapproved
 
     steps:
@@ -70,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ENV="${{ inputs.environment }}"
+          ENV="${{ matrix.environment }}"
           NS="hmpps-delius-alfresco-${ENV}"
           # Preprod/prod spelling guard preserved if you use it in your repo; adjust if needed.
           if [[ "${ENV}" == "poc" ]]; then NS="hmpps-delius-alfrsco-${ENV}"; fi
@@ -136,7 +135,7 @@ jobs:
             sql_in_utils "$NS" "select min(n.id) as min_id, max(n.id)+1 as max_id, count(*) as node_count
             from alf_node n 
             join alf_store s on s.id = n.store_id 
-            where n.audit_modified > (now() - interval '${HOURS} hour')::timestamptz::text 
+            where n.audit_created > (now() - interval '${HOURS} hour')::timestamptz::text 
             and s.protocol = 'workspace' 
             and s.identifier = 'SpacesStore';"
           }

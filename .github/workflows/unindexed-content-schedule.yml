@@ -18,7 +18,7 @@ jobs:
         environment: ["preprod"]
     uses: ./.github/workflows/unindexed-content-runner.yml
     with:
-      environment: ${{matrix.environment}}
+      environment: ${{ matrix.environment }}
       # Look-back window in hours
       hours: "2"
     secrets: inherit
