@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.1
+appVersion: 1.0.0
 version: 0.0.1
-description: A quickly thrown together Helm chart for deploying a job to migrate DB data
+description: Helm chart for deploying a job to migrate DB data
 name: migrate-db
