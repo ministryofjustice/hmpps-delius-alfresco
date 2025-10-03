@@ -1,0 +1,72 @@
+# This patch sets the logging level for ActiveMQ to WARN to reduce log verbosity.
+# It targets multiple deployments to ensure consistent logging behavior across services.
+# The logging level is set via the SPRING_APPLICATION_JSON environment variable.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-alfresco-repository
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-repository
+          env:
+            - name: SPRING_APPLICATION_JSON
+              value: |
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-alfresco-search-enterprise-content
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-search-enterprise-content
+          env:
+            - name: SPRING_APPLICATION_JSON
+              value: |
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-alfresco-search-enterprise-metadata
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-search-enterprise-metadata
+          env:
+            - name: SPRING_APPLICATION_JSON
+              value: |
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-alfresco-search-enterprise-path
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-search-enterprise-path
+          env:
+            - name: SPRING_APPLICATION_JSON
+              value: |
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alfresco-content-services-transform-router
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-transform-service
+          env:
+            - name: SPRING_APPLICATION_JSON
+              value: |
+                {"logging": {"level": {"org": {"apache": {"activemq": {"transport": {"failover": {"FailoverTransport": "WARN"}, "*": "WARN"}}}}}}}
