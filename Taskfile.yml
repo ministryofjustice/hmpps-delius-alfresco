@@ -634,16 +634,16 @@ tasks:
           kubectl get hpa -n "$NS" | grep "^${RELEASE_NAME}-" || true
         fi
 
-        kubectl scale deployment "${RELEASE_NAME}-share" -n "$NS" --replicas=${SHARE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-imagemagick" -n "$NS" --replicas=${IMAGEMAGICK_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-libreoffice" -n "$NS" --replicas=${LIBREOFFICE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-pdfrenderer" -n "$NS" --replicas=${PDFRENDERER_REPLICAS}
-        kubectl scale deployment "${RELEASE_NAME}-transform-misc" -n "$NS" --replicas=${TRANSFORM_MISC_REPLICAS}
-        kubectl scale deployment "${RELEASE_NAME}-transform-router" -n "$NS" --replicas=${TRANSFORM_ROUTER_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-content" -n "$NS" --replicas=${CONTENT_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-metadata" -n "$NS" --replicas=${METADATA_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-path" -n "$NS" --replicas=${PATH_REPLICAS}
         kubectl scale statefulset "alfresco-search-enterprise-mediation" -n "$NS" --replicas=${MEDIATION_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-share" -n "$NS" --replicas=${SHARE_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-transform-misc" -n "$NS" --replicas=${TRANSFORM_MISC_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-transform-router" -n "$NS" --replicas=${TRANSFORM_ROUTER_REPLICAS}
     silent: true
 
 
