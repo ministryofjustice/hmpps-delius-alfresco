@@ -28,22 +28,31 @@ main() {
     env=$1
 
     # Restrict env values to only poc, dev, test or preprod
-    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" ]]; then
+    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" && "$env" != "prod" ]]; then
         log_error "Invalid namespace. Allowed values: poc, dev, test or preprod."
         exit 1
     fi
 
+    namespace="hmpps-delius-alfresco-${env}"
     if [ "$env" == "poc" ]; then
         namespace="hmpps-delius-alfrsco-${env}"
-    else
-        namespace="hmpps-delius-alfresco-${env}"
+        LOCAL_PORT=8166
+    elif [ "$env" == "dev" ]; then
+        LOCAL_PORT=8165
+    elif [ "$env" == "test" ]; then
+        LOCAL_PORT=8164
+    elif [ "$env" == "stage" ]; then
+        LOCAL_PORT=8163
+    elif [ "$env" == "preprod" ]; then
+        LOCAL_PORT=8162
+    elif [ "$env" == "prod" ]; then
+        LOCAL_PORT=8161
     fi
     
     log_info "Connecting to AMQ Console in namespace $namespace"
 
     # get amq connection url
     URL=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
-    LOCAL_PORT=8161
 
     # extract host and port
     HOST=$(echo $URL | cut -d '/' -f 3 | cut -d ':' -f 1)
