@@ -4,7 +4,13 @@ metadata:
   name: alfresco-content-services-alfresco-repository
   annotations:
     external-dns.alpha.kubernetes.io/set-identifier: alfresco-content-services-alfresco-repository-hmpps-delius-alfresco-test-green
+    nginx.ingress.kubernetes.io/proxy-body-size: "5g"
     nginx.ingress.kubernetes.io/whitelist-source-range: "placeholder"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($request_uri ~* "^/metrics(/|$)(.*)") {
+        rewrite ^/metrics(/|$)(.*) /alfresco/s/prometheus break;
+      }
 spec:
   rules:
     - host: hmpps-delius-alfresco-test.apps.live.cloud-platform.service.justice.gov.uk

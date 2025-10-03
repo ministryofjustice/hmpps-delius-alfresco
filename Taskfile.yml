@@ -57,6 +57,7 @@ vars:
   FROM: "{{.FROM}}"
   TO: "{{.TO}}"
   FORCE: "{{.FORCE}}"
+  COUNT: "{{.COUNT}}"
   NAMESPACE:
     sh: |
       if [ -z "{{.ENV}}" ]; then
@@ -555,93 +556,94 @@ tasks:
         NS="{{.NAMESPACE}}"
         RELEASE_NAME="{{.RELEASE_NAME}}"
 
-        # HPA configured deployments
-        MAX_REPO_REPLICAS="{{.MAX_REPO_REPLICAS}}"
-        MIN_REPO_REPLICAS="{{.MIN_REPO_REPLICAS}}"
-        MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
-        MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
+        # if COUNT is set, only scale those deployments to that count
+        if [ -n "{{.COUNT}}" ]; then
+          echo "Using {{.COUNT}} for all deployments."
+          MAX_REPO_REPLICAS="{{.COUNT}}"
+          MIN_REPO_REPLICAS="{{.COUNT}}"
+          MAX_TIKA_REPLICAS="{{.COUNT}}"
+          MIN_TIKA_REPLICAS="{{.COUNT}}"
+          # Load default replica counts from values.yaml or base values.yaml
+          TRANSFORM_ROUTER_REPLICAS="{{.COUNT}}"
+          BASE_TRANSFORM_ROUTER_REPLICAS="{{.COUNT}}"
+          TRANSFORM_MISC_REPLICAS="{{.COUNT}}"
+          IMAGEMAGICK_REPLICAS="{{.COUNT}}"
+          LIBREOFFICE_REPLICAS="{{.COUNT}}"
+          PDFRENDERER_REPLICAS="{{.COUNT}}"
+          PATH_REPLICAS="{{.COUNT}}"
+          CONTENT_REPLICAS="{{.COUNT}}"
+          METADATA_REPLICAS="{{.COUNT}}"
+          MEDIATION_REPLICAS="{{.COUNT}}"
+          SHARE_REPLICAS="{{.COUNT}}"
+        else
+          echo "Running Helm upgrade to ensure HPAs are present."
+          # Ensure HPAs are present by running the Helm upgrade.
+          # This re-applies manifests that include the HPAs deleted during scale-down.
+          task helm_upgrade ENV={{.ENV}} DEBUG=true
 
-        # Helper: wait for an HPA to exist (up to 60s)
-        wait_for_hpa () {
-          local hpa_name="$1"
-          local tries=12
-          local i=0
-          until kubectl get hpa "$hpa_name" -n "$NS" >/dev/null 2>&1; do
-            i=$((i+1))
-            if [ "$i" -ge "$tries" ]; then
-              echo "HPA $hpa_name not found after waiting. Aborting."
-              exit 1
-            fi
-            sleep 5
-          done
-        }
+          # Ensure correct replica values are set from config files
+          
+          # HPA configured deployments
+          MAX_REPO_REPLICAS="{{.MAX_REPO_REPLICAS}}"
+          MIN_REPO_REPLICAS="{{.MIN_REPO_REPLICAS}}"
+          MAX_TIKA_REPLICAS="{{.MAX_TIKA_REPLICAS}}"
+          MIN_TIKA_REPLICAS="{{.MIN_TIKA_REPLICAS}}"
+          # Load default replica counts from values.yaml or base values.yaml
+          TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // (load("../base/values.yaml") | .["alfresco-transform-service"].transformrouter.replicaCount) // 2' values.yaml)
 
-        # Option A (recommended): ensure HPAs are present via Helm
-        # This re-applies manifests that include the HPAs you deleted during scale-down.
-        # If your pipeline already runs Helm before scale-up, you can skip this explicit call.
-        #echo "Re-applying release to restore HPAs (no changes to values)"
-        #helm upgrade "$RELEASE_NAME" alfresco/alfresco-content-services \
-        #  -n "$NS" --reuse-values
+          # The below deployments use the same transformrouter default replica count if not specified
+          BASE_TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // 2' ../base/values.yaml)
 
-        # If you don't want to call Helm here, comment the block above and
-        # ensure some other step recreates HPAs before this script runs.
+          TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' ../base/values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+          IMAGEMAGICK_REPLICAS=$(yq '.["alfresco-transform-service"].imagemagick.replicaCount // ""' values.yaml); [ -z "$IMAGEMAGICK_REPLICAS" ] && IMAGEMAGICK_REPLICAS=$(yq '.["alfresco-transform-service"].imagemagick.replicaCount // ""' ../base/values.yaml); [ -z "$IMAGEMAGICK_REPLICAS" ] && IMAGEMAGICK_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+          LIBREOFFICE_REPLICAS=$(yq '.["alfresco-transform-service"].libreoffice.replicaCount // ""' values.yaml); [ -z "$LIBREOFFICE_REPLICAS" ] && LIBREOFFICE_REPLICAS=$(yq '.["alfresco-transform-service"].libreoffice.replicaCount // ""' ../base/values.yaml); [ -z "$LIBREOFFICE_REPLICAS" ] && LIBREOFFICE_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+          PDFRENDERER_REPLICAS=$(yq '.["alfresco-transform-service"].pdfrenderer.replicaCount // ""' values.yaml); [ -z "$PDFRENDERER_REPLICAS" ] && PDFRENDERER_REPLICAS=$(yq '.["alfresco-transform-service"].pdfrenderer.replicaCount // ""' ../base/values.yaml); [ -z "$PDFRENDERER_REPLICAS" ] && PDFRENDERER_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
+
+          PATH_REPLICAS=$(yq '(.["alfresco-transform-service"].path.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.path.replicaCount) // 1' values.yaml)
+          CONTENT_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // 1' values.yaml)
+          METADATA_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // 1' values.yaml)
+          MEDIATION_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // 1' values.yaml)
+
+          SHARE_REPLICAS=$(yq '(.share.replicaCount) // (load("../base/values.yaml") | .share.replicaCount) // 1' values.yaml)
+        fi
 
         # Ensure repository deployment is at least 1 replica before re-enabling HPA (optional but tidy)
         kubectl scale deploy "${RELEASE_NAME}-alfresco-repository" -n "$NS" --replicas="${MIN_REPO_REPLICAS}" || true
         kubectl scale deploy "${RELEASE_NAME}-tika" -n "$NS" --replicas="${MIN_TIKA_REPLICAS}" || true
 
-        REPO_HPA="${RELEASE_NAME}-hpa-repository"
-        TIKA_HPA="${RELEASE_NAME}-hpa-tika"
+        # Check if HPAs exist, if not, exit with error
+        if ! kubectl get hpa -n "$NS" | grep -q "^${RELEASE_NAME}-hpa-"; then
+          echo "HPAs not found for release $RELEASE_NAME in namespace $NS"
+        else
+          echo "HPAs found for release $RELEASE_NAME in namespace $NS"
+          REPO_HPA="${RELEASE_NAME}-hpa-repository"
+          TIKA_HPA="${RELEASE_NAME}-hpa-tika"
 
-        #echo "Ensuring Repository HPA exists..."
-        #wait_for_hpa "$REPO_HPA"
+          echo "Reset HPA Replicas for Repository"
+          kubectl patch hpa "$REPO_HPA" -n "$NS" --type='merge' \
+            -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}, \"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
 
-        echo "Reset HPA Replicas for Repository"
-        kubectl patch hpa "$REPO_HPA" -n "$NS" --type='merge' \
-          -p "{\"spec\": {\"minReplicas\": ${MIN_REPO_REPLICAS}, \"maxReplicas\": ${MAX_REPO_REPLICAS}}}"
+          echo "Reset HPA Replicas for Tika"
+          kubectl patch hpa "$TIKA_HPA" -n "$NS" --type='merge' \
+            -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}, \"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
 
-        #echo "Ensuring Tika HPA exists..."
-        #wait_for_hpa "$TIKA_HPA"
+          # Optional: show current targets
+          kubectl get hpa -n "$NS" | grep "^${RELEASE_NAME}-" || true
+        fi
 
-        echo "Reset HPA Replicas for Tika"
-        kubectl patch hpa "$TIKA_HPA" -n "$NS" --type='merge' \
-          -p "{\"spec\": {\"minReplicas\": ${MIN_TIKA_REPLICAS}, \"maxReplicas\": ${MAX_TIKA_REPLICAS}}}"
-
-        # Optional: show current targets
-        kubectl get hpa -n "$NS" | grep "^${RELEASE_NAME}-" || true
-
-        # non-HPA configured deployments
-        # Load default replica counts from values.yaml or base values.yaml
-        TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // (load("../base/values.yaml") | .["alfresco-transform-service"].transformrouter.replicaCount) // 2' values.yaml)
-
-        # The below deployments use the same transformrouter default replica count if not specified
-        BASE_TRANSFORM_ROUTER_REPLICAS=$(yq '(.["alfresco-transform-service"].transformrouter.replicaCount) // 2' ../base/values.yaml)
-
-        TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$(yq '.["alfresco-transform-service"].transformmisc.replicaCount // ""' ../base/values.yaml); [ -z "$TRANSFORM_MISC_REPLICAS" ] && TRANSFORM_MISC_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
-
-        IMAGEMAGICK_REPLICAS=$(yq '.["alfresco-transform-service"].imagemagick.replicaCount // ""' values.yaml); [ -z "$IMAGEMAGICK_REPLICAS" ] && IMAGEMAGICK_REPLICAS=$(yq '.["alfresco-transform-service"].imagemagick.replicaCount // ""' ../base/values.yaml); [ -z "$IMAGEMAGICK_REPLICAS" ] && IMAGEMAGICK_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
-
-        LIBREOFFICE_REPLICAS=$(yq '.["alfresco-transform-service"].libreoffice.replicaCount // ""' values.yaml); [ -z "$LIBREOFFICE_REPLICAS" ] && LIBREOFFICE_REPLICAS=$(yq '.["alfresco-transform-service"].libreoffice.replicaCount // ""' ../base/values.yaml); [ -z "$LIBREOFFICE_REPLICAS" ] && LIBREOFFICE_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
-
-        PDFRENDERER_REPLICAS=$(yq '.["alfresco-transform-service"].pdfrenderer.replicaCount // ""' values.yaml); [ -z "$PDFRENDERER_REPLICAS" ] && PDFRENDERER_REPLICAS=$(yq '.["alfresco-transform-service"].pdfrenderer.replicaCount // ""' ../base/values.yaml); [ -z "$PDFRENDERER_REPLICAS" ] && PDFRENDERER_REPLICAS=$BASE_TRANSFORM_ROUTER_REPLICAS
-
-        PATH_REPLICAS=$(yq '(.["alfresco-transform-service"].path.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.path.replicaCount) // 1' values.yaml)
-        CONTENT_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // 1' values.yaml)
-        METADATA_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // 1' values.yaml)
-        MEDIATION_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // 1' values.yaml)
-
-        SHARE_REPLICAS=$(yq '(.share.replicaCount) // (load("../base/values.yaml") | .share.replicaCount) // 1' values.yaml)
-
-        kubectl scale deployment $RELEASE_NAME-share --replicas=$SHARE_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-imagemagick --replicas=$IMAGEMAGICK_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-libreoffice --replicas=$LIBREOFFICE_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-pdfrenderer --replicas=$PDFRENDERER_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-transform-misc --replicas=$TRANSFORM_MISC_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-transform-router --replicas=$TRANSFORM_ROUTER_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-content --replicas=$CONTENT_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-metadata --replicas=$METADATA_REPLICAS
-        kubectl scale deployment $RELEASE_NAME-alfresco-search-enterprise-path --replicas=$PATH_REPLICAS
-        kubectl scale statefulset alfresco-search-enterprise-mediation --replicas=$MEDIATION_REPLICAS
+        kubectl scale deployment "${RELEASE_NAME}-share" -n "$NS" --replicas=${SHARE_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-imagemagick" -n "$NS" --replicas=${IMAGEMAGICK_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-libreoffice" -n "$NS" --replicas=${LIBREOFFICE_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-pdfrenderer" -n "$NS" --replicas=${PDFRENDERER_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-transform-misc" -n "$NS" --replicas=${TRANSFORM_MISC_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-transform-router" -n "$NS" --replicas=${TRANSFORM_ROUTER_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-content" -n "$NS" --replicas=${CONTENT_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-metadata" -n "$NS" --replicas=${METADATA_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-path" -n "$NS" --replicas=${PATH_REPLICAS}
+        kubectl scale statefulset "alfresco-search-enterprise-mediation" -n "$NS" --replicas=${MEDIATION_REPLICAS}
     silent: true
 
 
@@ -669,8 +671,8 @@ tasks:
           kubectl rollout status deployment "$deployment" -n "$NS" --timeout=120s || true
         done
 
-        # Scale StatefulSets (e.g., SFS, transform):
-        STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
+        # Scale StatefulSets (e.g., mediation):
+        STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^alfresco-" || true)
         for sts in $STATEFULSETS; do
           echo "Scaling down statefulset: $sts"
           kubectl scale statefulset "$sts" -n "$NS" --replicas=0

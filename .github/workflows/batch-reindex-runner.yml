@@ -1,0 +1,428 @@
+name: "Alfresco: Batch Reindex Runner (range, descending, AMQ-throttled)"
+# This workflow runs the batch reindex process in an environment.
+# It can be triggered manually or called from the schedule workflow.
+# It supports resuming from a previous run via a ConfigMap-stored state.
+# It also supports two guarded phases for initial seeding of the hierarchy.
+# It requires a ConfigMap named reindex-runner-state-<environment> to exist in
+# the target namespace, which can be created/modified via the controller workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (poc/dev/test/stage/preprod/prod)"
+        required: true
+        type: choice
+        options: [poc, dev, test, stage, preprod, prod]
+      starting_id:
+        description: "STARTING_NODE_ID (highest child_node_id to begin from). Leave blank to auto-detect MAX()."
+        required: false
+        default: ""
+      ending_id:
+        description: "ENDING_NODE_ID (lowest child_node_id to stop at; exclusive of further windows)"
+        required: true
+      batch_size:
+        description: "Batch size (documents per window)"
+        required: false
+        default: "200000"
+      queue_threshold:
+        description: "AMQ queue threshold to proceed"
+        required: false
+        default: "1000"
+      initial_queue_settle_sec:
+        description: "Initial settle time after a batch (seconds)"
+        required: false
+        default: "360"
+      queue_wait_timeout_sec:
+        description: "Max time to wait per batch for queue to drain (seconds)"
+        required: false
+        default: "3000"
+      force_reset_phases:
+        description: "Ignore stored phase1/phase2 flags and rerun them"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false","true"]
+      run_on_schedule:
+        description: "Flag to show whether the workflow is being run on schedule"
+        required: true
+        default: "false"
+        type: choice
+        options: ["false"]
+
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: string
+        required: true
+      run_on_schedule:
+        description: "Flag to show whether the workflow is being run on schedule"
+        type: string
+        required: true
+        default: "true"
+
+permissions:
+  contents: read
+
+jobs:
+
+  check_run:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-preapproved
+    outputs:
+      should_continue: ${{ steps.check_config_run.outputs.should_continue }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.29.13"
+
+      - name: Configure kubectl context
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server="https://${KUBE_CLUSTER}"
+          kubectl config set-credentials deploy-user --token="${{ secrets.KUBE_TOKEN }}"
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace="${KUBE_NAMESPACE}"
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Set vars
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV="${{ inputs.environment }}"
+          NS="hmpps-delius-alfresco-${ENV}"
+          # Preprod/prod spelling guard preserved if you use it in your repo; adjust if needed.
+          if [[ "${ENV}" == "poc" ]]; then NS="hmpps-delius-alfrsco-${ENV}"; fi
+          echo "ns=$NS" >> $GITHUB_OUTPUT
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+
+      - name: If run through the schedule check if configmap data key "run" exists and is set to "true"
+        id: check_config_run
+        if : ${{ inputs.run_on_schedule == 'true' }}
+        shell: bash
+        env:
+          ENV: ${{ steps.vars.outputs.env }}
+          NS:  ${{ steps.vars.outputs.ns }}
+        run: |
+          set -euo pipefail
+          STATE_CM="reindex-runner-state-${ENV}"
+          if kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1; then
+            CONTINUE="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.run}' || true)"
+            if [[ "$CONTINUE" == "true" ]]; then
+              echo "ConfigMap $STATE_CM is set to run, continuing."
+            # else if it is set to false then exit
+            elif [[ "$CONTINUE" == "false" ]]; then
+              echo "ConfigMap $STATE_CM is set to not run, exiting."
+              echo "should_continue=false" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              # otherwise set it to true and continue
+              kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"run":"true"}}'
+            fi
+          else
+            echo "ConfigMap $STATE_CM does not exist in namespace $NS. Please run the controller workflow to create it. Exiting."
+            echo "should_continue=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "should_continue=true" >> $GITHUB_OUTPUT
+
+  run_reindex:
+    needs: check_run
+    if: ${{ needs.check_run.outputs.should_continue != 'false' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-preapproved
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.29.13"
+
+      - name: Configure kubectl context
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server="https://${KUBE_CLUSTER}"
+          kubectl config set-credentials deploy-user --token="${{ secrets.KUBE_TOKEN }}"
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace="${KUBE_NAMESPACE}"
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Set vars
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV="${{ inputs.environment }}"
+          NS="hmpps-delius-alfresco-${ENV}"
+          # Preprod/prod spelling guard preserved if you use it in your repo; adjust if needed.
+          if [[ "${ENV}" == "poc" ]]; then NS="hmpps-delius-alfrsco-${ENV}"; fi
+          echo "ns=$NS" >> $GITHUB_OUTPUT
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+          
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.15.2"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+
+      - name: Install xmllint
+        run: sudo apt-get install -y libxml2-utils
+
+      # --- helpers: find utils pod and retryable kubectl
+      - name: Define helper functions
+        id: helpers
+        shell: bash
+        run: |
+          cat > helpers.sh <<'EOF'
+          set -euo pipefail
+
+          kubectl_retry() {
+            local max_retries=5 delay=10 attempt=1
+            while true; do
+              if kubectl "$@"; then return 0; fi
+              echo "kubectl failed (attempt $attempt/$max_retries): kubectl $*" >&2
+              (( attempt >= max_retries )) && return 1
+              attempt=$((attempt+1)); sleep $delay
+            done
+          }
+
+          get_utils_pod() {
+            local ns="$1"
+            local pod
+            pod=$(kubectl_retry -n "$ns" get pods -l app=utils -o name 2>/dev/null | head -n1 | cut -d/ -f2 || true)
+            if [[ -z "$pod" ]]; then
+              pod=$(kubectl_retry -n "$ns" get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 -E 'utils' || true)
+            fi
+            printf "%s" "$pod"
+          }
+
+          sql_in_utils() {
+            local ns="$1" q="$2"
+            local pod; pod=$(get_utils_pod "$ns")
+            [[ -z "$pod" ]] && { echo "No utils pod in $ns" >&2; exit 1; }
+            local tmp=$(mktemp)
+            cat >"$tmp" <<'EOS'
+          #!/usr/bin/env bash
+          [[ -f /etc/profile.d/psql-utils.sh ]] && . /etc/profile.d/psql-utils.sh || true
+          psqlr --tuples-only --no-align -c "$QUERY"
+          EOS
+            kubectl -n "$ns" cp "$tmp" "$pod":/tmp/run-sql.sh >/dev/null
+            rm -f "$tmp"
+            kubectl -n "$ns" exec "$pod" -- bash -lc "chmod +x /tmp/run-sql.sh; QUERY=\"$q\" /tmp/run-sql.sh; rm -f /tmp/run-sql.sh"
+          }
+          EOF
+
+      - name: Reset phase flags if requested
+        id: reset_phases
+        if: ${{ inputs.force_reset_phases == 'true' }}
+        shell: bash
+        env:
+          ENV: ${{ steps.vars.outputs.env }}
+          NS:  ${{ steps.vars.outputs.ns }}
+        run: |
+          set -euo pipefail
+          STATE_CM="reindex-runner-state-${ENV}"
+          # Create the CM if it doesn't exist yet
+          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || \
+            kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=next_max_id=
+          # Reset the phase flags
+          kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase1":"","phase2":""}}'
+          echo "Phase flags reset in $STATE_CM"
+                    
+      - name: Phase 1 – hierarchy 0..1000 (guarded)
+        id: phase1
+        shell: bash
+        env:
+          ENV:  ${{ steps.vars.outputs.env }}
+          NS:   ${{ steps.vars.outputs.ns }}
+        run: |
+          set -euo pipefail
+          STATE_CM="reindex-runner-state-${ENV}"
+          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$NS" create configmap "$STATE_CM"
+          PHASE1="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.phase1}' || true)"
+          if [[ "$PHASE1" != "done" ]]; then
+            echo "Phase 1: reindex 0..1000"
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase1":"done"}}'
+            task reindex_by_id ENV="${ENV}" FROM="0" TO="1000"
+          else
+            echo "Phase 1 already marked done in $STATE_CM"
+          fi
+          
+      - name: Phase 2 – children of parent 738 (guarded)
+        id: phase2
+        shell: bash
+        env:
+          NS:  ${{ steps.vars.outputs.ns }}
+          ENV: ${{ steps.vars.outputs.env }}
+        run: |
+          set -euo pipefail
+          source helpers.sh
+          STATE_CM="reindex-runner-state-${ENV}"
+          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$NS" create configmap "$STATE_CM"
+          PHASE2="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.phase2}' || true)"
+          if [[ "$PHASE2" != "done" ]]; then
+            echo "Phase 2: reindex children of parent 738"
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase2":"done"}}'
+            while IFS=$'\t' read -r from_id to_id; do
+              [[ -z "$from_id" || -z "$to_id" ]] && continue
+              task reindex_by_id ENV="${ENV}" FROM="${from_id}" TO="${to_id}"
+            done < <(sql_in_utils "$NS" "SELECT aca.child_node_id, aca.child_node_id+1 FROM alf_child_assoc aca WHERE aca.parent_node_id=738 ORDER BY aca.child_node_id ASC;")
+          else
+            echo "Phase 2 already marked done in $STATE_CM"
+          fi
+
+      - name: Normalize inputs
+        id: norm
+        shell: bash
+        run: |
+          set -euo pipefail
+          # fallbacks if inputs are empty / not provided (workflow_call)
+          bs="${{ inputs.batch_size }}"
+          qt="${{ inputs.queue_threshold }}"
+          settle="${{ inputs.initial_queue_settle_sec }}"
+          tout="${{ inputs.queue_wait_timeout_sec }}"
+
+          : "${bs:=200000}"
+          : "${qt:=1000}"
+          : "${settle:=360}"
+          : "${tout:=3000}"
+
+          echo "BATCH_SIZE=$bs" >> "$GITHUB_OUTPUT"
+          echo "QUEUE_THRESHOLD=$qt" >> "$GITHUB_OUTPUT"
+          echo "INITIAL_QUEUE_SETTLE_SEC=$settle" >> "$GITHUB_OUTPUT"
+          echo "QUEUE_WAIT_TIMEOUT_SEC=$tout" >> "$GITHUB_OUTPUT"
+          
+      # --- phase 3: descending batches with AMQ throttle + k8s-persisted state
+      - name: Phase 3 – descending batched sweep
+        shell: bash
+        env:
+          NS:  ${{ steps.vars.outputs.ns }}
+          ENV: ${{ steps.vars.outputs.env }}
+          STARTING_NODE_ID: ${{ inputs.starting_id }}
+          ENDING_NODE_ID:   ${{ inputs.ending_id }}
+          BATCH_SIZE:       ${{ steps.norm.outputs.BATCH_SIZE }}
+          QUEUE_THRESHOLD:  ${{ steps.norm.outputs.QUEUE_THRESHOLD }}
+          INITIAL_QUEUE_SETTLE_SEC: ${{ steps.norm.outputs.INITIAL_QUEUE_SETTLE_SEC }}
+          QUEUE_WAIT_TIMEOUT_SEC:   ${{ steps.norm.outputs.QUEUE_WAIT_TIMEOUT_SEC }}
+        run: |
+          set -euo pipefail
+          source helpers.sh
+
+          # --- load/persist runner state in a ConfigMap (resumable across runs)
+          STATE_CM="reindex-runner-state-${ENV}"
+          kubectl -n "$NS" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$NS" create configmap "$STATE_CM" --from-literal=next_max_id=
+          RESUME_MAX="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.next_max_id}' || true)"
+
+          # AmazonMQ console creds for queue polling
+          AMQ_URL="$(kubectl -n "$NS" get secret amazon-mq-broker-secret -o json | jq -r '.data.BROKER_CONSOLE_URL|@base64d')"
+          AMQ_USER="$(kubectl -n "$NS" get secret amazon-mq-broker-secret -o json | jq -r '.data|map_values(@base64d)|.BROKER_USERNAME')"
+          AMQ_PASS="$(kubectl -n "$NS" get secret amazon-mq-broker-secret -o json | jq -r '.data|map_values(@base64d)|.BROKER_PASSWORD')"
+          QUEUE_NAME="acs-repo-transform-request"
+
+          # Resolve starting max id
+          if [[ -n "${STARTING_NODE_ID}" ]]; then
+            max_id="${STARTING_NODE_ID}"
+          elif [[ -n "${RESUME_MAX}" ]]; then
+            max_id="${RESUME_MAX}"
+          else
+            max_id="$(sql_in_utils "$NS" "SELECT COALESCE(MAX(aca.child_node_id),0) FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition');")"
+          fi
+          echo "Starting max_id=${max_id}, ending_id=${ENDING_NODE_ID}"
+
+          calc_window() {
+            local cur="$1"
+            sql_in_utils "$NS" "WITH limited AS (SELECT aca.child_node_id FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition') AND aca.child_node_id <= ${cur} ORDER BY child_node_id DESC LIMIT ${BATCH_SIZE}) SELECT MIN(child_node_id) AS min_id, MAX(child_node_id) AS max_id, COUNT(*) FROM limited;"
+          }
+
+          parse_row() { IFS='|' read -r a b c <<<"$1"; echo "$a $b $c"; }
+
+          wait_queue() {
+            local start=$(date +%s)
+            while true; do
+              # fetch XML via utils pod then parse locally with xmllint (matches your script flow)
+              local pod=$(get_utils_pod "$NS"); [[ -z "$pod" ]] && { echo "No utils pod" >&2; exit 1; }
+              xml="$(kubectl -n "$NS" exec "$pod" -- bash -lc "set -euo pipefail; [[ -f /etc/profile.d/utils-profile.sh ]] && . /etc/profile.d/utils-profile.sh || true; curl -s -k --user '${AMQ_USER}:${AMQ_PASS}' '${AMQ_URL}/admin/xml/queues.jsp'")"
+              size="$(printf "%s" "$xml" | xmllint --xpath "string(//queue[@name='${QUEUE_NAME}']/stats/@size)" - || echo 0)"
+              echo "AMQ queue '${QUEUE_NAME}' size=${size}"
+              if [[ "$size" =~ ^[0-9]+$ ]] && (( size <= QUEUE_THRESHOLD )); then
+                echo "Queue below threshold (${QUEUE_THRESHOLD}); proceeding."
+                break
+              fi
+              if (( $(date +%s) - start > QUEUE_WAIT_TIMEOUT_SEC )); then
+                echo "Queue did not drop below ${QUEUE_THRESHOLD} within ${QUEUE_WAIT_TIMEOUT_SEC}s (last size=${size})." >&2
+                # if the repo pods haven't already been restarted in this run then do so now
+                if [[ "${restarted:-false}" != "true" ]]; then
+                  echo "Restarting repo pods now before continuing."
+                  # Restart the repo pods and reset the timer so it waits again for the queue to drain
+                  task restart_repo ENV="${ENV}"
+                  sleep 240
+                  local start=$(date +%s)
+                  local restarted=true
+                else
+                  echo "Repo pods have already been restarted in this run so exit with failure."
+                  # send Slack notification
+                  curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Repository deployment restarted in ${ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Repository deployment restarted in ${ENV} during batch reindexing. Please check the queues."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+                  exit 1
+                fi
+              fi
+              sleep 30
+            done
+          }
+
+          # Main loop
+          while (( max_id > 0 )); do
+            row="$(calc_window "$max_id")" || { echo "Failed to compute batch window" >&2; exit 1; }
+            read min_id window_max count <<<"$(parse_row "$row")"
+            if [[ -z "$count" || "$count" -eq 0 ]]; then
+              echo "No more rows under max_id=${max_id}. Done."
+              break
+            fi
+
+            # stop / clamp on ENDING_NODE_ID if set
+            if [[ -n "${ENDING_NODE_ID}" && "$window_max" -le "${ENDING_NODE_ID}" ]]; then
+              echo "Stopping: TO=${window_max} <= ENDING_NODE_ID=${ENDING_NODE_ID}"
+              break
+            fi
+            # clamp min_id to ENDING_NODE_ID if set
+            if [[ -n "${ENDING_NODE_ID}" && "$min_id" -lt "${ENDING_NODE_ID}" ]]; then
+              min_id="${ENDING_NODE_ID}"
+            fi
+
+            # throttle until AMQ transforms drain below threshold before starting next batch
+            wait_queue
+
+            echo "Next batch: FROM=${min_id} TO=${window_max} (count=${count})"
+            task reindex_by_id ENV="${ENV}" FROM="${min_id}" TO="${window_max}"
+
+            # persist new resume point if the job succeeded
+            echo "Persisting next_max_id=${min_id} to $STATE_CM"
+            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{\"data\":{\"next_max_id\":\"${min_id}\"}}"
+
+            echo "Waiting ${INITIAL_QUEUE_SETTLE_SEC}s for queue to start filling…"; sleep "${INITIAL_QUEUE_SETTLE_SEC}"
+            # throttle until AMQ transforms drain below threshold
+            wait_queue
+
+            CONTINUE="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.run}' || true)"
+            if [[ "$CONTINUE" != "true" ]]; then
+              echo "ConfigMap $STATE_CM is set to not run, exiting."
+              exit 0
+            fi
+
+            # move window down
+            max_id="$min_id"
+          done
+
+          echo "All batches complete."

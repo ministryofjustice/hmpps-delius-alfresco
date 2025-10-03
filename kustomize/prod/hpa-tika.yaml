@@ -7,8 +7,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: alfresco-content-services-tika
-  minReplicas: 2
-  maxReplicas: 4
+  minReplicas: 4
+  maxReplicas: 8
   metrics:
   # Autoscale pods with a target of having 50% cpu usage.
   # In the event we've less than 50% overall it'll just scale down to
@@ -36,4 +36,4 @@ spec:
       - type: Pods
         value: 1
         periodSeconds: 300
-      stabilizationWindowSeconds: 300 # check every 5 minutes
+      stabilizationWindowSeconds: 300 # check every 5 minutess

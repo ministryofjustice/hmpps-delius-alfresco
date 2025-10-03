@@ -9,7 +9,7 @@ set -euo pipefail
 #  2) Reindexes all children of a specific parent (parent_node_id=738) one-by-one
 #     using FROM=child_node_id and TO=child_node_id+1 (once).
 #  3) Then iterates in batches of BATCH_SIZE=100000 documents, starting from the
-#     latest (highest child_node_id where type_qname_id=35), going downward.
+#     latest (highest child_node_id), going downward.
 #  4) After each batch, waits for AMQ queue (acs-repo-transform-request) to drain
 #     below QUEUE_THRESHOLD (≈5000) before triggering the next batch.
 #  5) To avoid stale ports/tunnels, it re-establishes fresh port-forwards for RDS
@@ -32,22 +32,12 @@ set -euo pipefail
 
 # ----------------------------- Configurable bits ------------------------------
 # We reindex backwards so STARTING_NODE_ID should be higher than the ENDING_NODE_ID
-STARTING_NODE_ID=
-#ENDING_NODE_ID=814580955
-ENDING_NODE_ID=1000
+STARTING_NODE_ID=814659105
+ENDING_NODE_ID=814580955
+#ENDING_NODE_ID=1000
 BATCH_SIZE=200000
 
 PARENT_NODE_ID_FOR_CHILDREN=738
-TYPE_QNAME_ID_FOR_DOCS=35
-# Label selector or name filter to locate the utils pod
-UTILS_SELECTOR="-l app=utils"
-
-# Values for checking the queue in Amazon MQ
-AMQ_BROKER_URL=$(kubectl get secrets amazon-mq-broker-secret -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
-AMQ_BROKER_USER=$(kubectl get secret amazon-mq-broker-secret -o json | jq -r ".data | map_values(@base64d) | .BROKER_USERNAME")
-AMQ_BROKER_PASSWORD=$(kubectl get secret amazon-mq-broker-secret -o json | jq -r ".data | map_values(@base64d) | .BROKER_PASSWORD")
-AMQ_QUEUE_NAME="acs-repo-transform-request"
-AMQ_QUEUE_STAT="size"
 
 QUEUE_THRESHOLD=1000           # proceed when queue size <= this
 INITIAL_QUEUE_SETTLE_SEC=360   # allow time after batch for queue to start filling
@@ -112,7 +102,7 @@ kubectl_retry() {
 get_utils_pod() {
   # First try a label selector
   local pod
-  pod=$(kubectl_retry -n "$K8S_NAMESPACE" get pods $UTILS_SELECTOR -o name 2>/dev/null | head -n1 | cut -d/ -f2)
+  pod=$(kubectl_retry -n "$K8S_NAMESPACE" get pods -l app=utils -o name 2>/dev/null | head -n1 | cut -d/ -f2)
   if [[ -z "$pod" ]]; then
     # Fallback: grep for 'utils' in pod names
     pod=$(kubectl_retry -n "$K8S_NAMESPACE" get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 -E 'utils' || true)
@@ -135,9 +125,9 @@ echo \$result
 EOF
 
   local remote="/tmp/run-sql-test.sh"
-  kubectl cp "$tmpfile" "$pod":"$remote"
+  kubectl -n "$K8S_NAMESPACE" cp "$tmpfile" "$pod":"$remote"
   rm -f "$tmpfile"
-  result=$(kubectl exec "$pod" -- bash -lc "chmod +x '$remote' && '$remote' && rm -f '$remote'")
+  result=$(kubectl -n "$K8S_NAMESPACE" exec "$pod" -- bash -lc "chmod +x '$remote' && '$remote' && rm -f '$remote'")
   echo $result
 }
 
@@ -155,9 +145,9 @@ echo "\${xml_data:-0}"
 EOF
 
   local remote="/tmp/run-curl.sh"
-  kubectl cp "$tmpfile" "$pod":"$remote"
+  kubectl -n "$K8S_NAMESPACE" cp "$tmpfile" "$pod":"$remote"
   rm -f "$tmpfile"
-  xml_data=$(kubectl exec "$pod" -- bash -lc "chmod +x '$remote' && '$remote' && rm -f '$remote'")
+  xml_data=$(kubectl -n "$K8S_NAMESPACE" exec "$pod" -- bash -lc "chmod +x '$remote' && '$remote' && rm -f '$remote'")
   # Do the xmllint locally as it's not installed in the utils pod
   queue_size=$(echo "$xml_data" | xmllint --xpath "string(//queue[@name='${AMQ_QUEUE_NAME}']/stats/@${AMQ_QUEUE_STAT})" -)
   echo "${queue_size:-0}"
@@ -252,7 +242,7 @@ phase_parent_children() {
 # returns the MIN/MAX child_node_id for next batch window starting from given max
 calc_batch_window() {
   local current_max_id=$1
-  local q="WITH limited AS (SELECT child_node_id FROM alf_child_assoc WHERE type_qname_id = ${TYPE_QNAME_ID_FOR_DOCS} AND child_node_id <= ${current_max_id} ORDER BY child_node_id DESC LIMIT ${BATCH_SIZE}) SELECT MIN(child_node_id) AS min_id, MAX(child_node_id) AS max_id, COUNT(*) FROM limited;"
+  local q="WITH limited AS (SELECT aca.child_node_id FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition') AND child_node_id <= ${current_max_id} ORDER BY child_node_id DESC LIMIT ${BATCH_SIZE}) SELECT MIN(child_node_id) AS min_id, MAX(child_node_id) AS max_id, COUNT(*) FROM limited;"
   sql "$q"
 }
 
@@ -261,19 +251,29 @@ get_max_child_id() {
   if [[ -n "$STARTING_NODE_ID" ]]; then
     echo ${STARTING_NODE_ID}
   else
-    local q="SELECT COALESCE(MAX(child_node_id),0) FROM alf_child_assoc WHERE type_qname_id=${TYPE_QNAME_ID_FOR_DOCS};"
+    local q="SELECT COALESCE(MAX(aca.child_node_id),0) FROM alf_child_assoc aca JOIN alf_qname aq ON aq.id = aca.type_qname_id WHERE aq.local_name in ('contains','content','rendition');"
     sql "$q"
   fi
 }
 
 phase_descending_batches() {
-  log "Phase 3: Descending batches of ${BATCH_SIZE} (type_qname_id=${TYPE_QNAME_ID_FOR_DOCS})"
+  log "Phase 3: Descending batches of ${BATCH_SIZE}"
+
+  # Values for checking the queue in Amazon MQ
+  AMQ_BROKER_URL=$(kubectl -n "$K8S_NAMESPACE" get secrets amazon-mq-broker-secret -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
+  AMQ_BROKER_USER=$(kubectl -n "$K8S_NAMESPACE" get secret amazon-mq-broker-secret -o json | jq -r ".data | map_values(@base64d) | .BROKER_USERNAME")
+  AMQ_BROKER_PASSWORD=$(kubectl -n "$K8S_NAMESPACE" get secret amazon-mq-broker-secret -o json | jq -r ".data | map_values(@base64d) | .BROKER_PASSWORD")
+  AMQ_QUEUE_NAME="acs-repo-transform-request"
+  AMQ_QUEUE_STAT="size"
 
   local resume_max
   resume_max=$(read_state_or_empty)
 
   local max_id
-  if [[ -n "$resume_max" ]]; then
+  # if variable STARTING_NODE_ID has a value use that for max_id
+  if [[ -n "$STARTING_NODE_ID" ]]; then
+    max_id=$STARTING_NODE_ID
+  elif [[ -n "$resume_max" ]]; then
     log "Resuming from saved next_max_id=${resume_max}"
     max_id=$resume_max
   else
@@ -300,9 +300,9 @@ phase_descending_batches() {
       break
     fi
 
-    # if ENDING_NODE_ID is set then stop if window_max is less than that
-    if [[ -n "$ENDING_NODE_ID" && "$window_max" -lt "$ENDING_NODE_ID" ]]; then
-      log "Stopping batch processing: TO=${window_max} < ENDING_NODE_ID=${ENDING_NODE_ID}"
+    # if ENDING_NODE_ID is set then stop if window_max is less than or equal to that
+    if [[ -n "$ENDING_NODE_ID" && "$window_max" -le "$ENDING_NODE_ID" ]]; then
+      log "Stopping batch processing: TO=${window_max} <= ENDING_NODE_ID=${ENDING_NODE_ID}"
       break
     fi
 
@@ -330,7 +330,7 @@ main() {
 
   # Restrict env values to only poc, dev, test, stage, preprod or prod
   if [[ "$ENV" != "poc" && "$ENV" != "dev" && "$ENV" != "test" && "$ENV" != "stage" && "$ENV" != "preprod" && "$ENV" != "prod" ]]; then
-      log_error "Invalid namespace. Allowed values: poc, dev, stage, test, preprod or prod."
+      log "Invalid namespace. Allowed values: poc, dev, stage, test, preprod or prod."
       exit 1
   fi
 

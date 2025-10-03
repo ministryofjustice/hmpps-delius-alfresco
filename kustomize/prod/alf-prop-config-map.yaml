@@ -49,8 +49,10 @@ data:
 
     # standard cache values
     caches.tx.statsEnabled=true
+
     cache.propertyValueTransactionalCache.tx.maxItems=250000
     cache.propertyValueTransactionalCache.maxItems=250000
+
     cache.propertyValueCache.tx.maxItems=250000
     cache.propertyValueCache.maxItems=250000
     cache.propertyValueCache.tx.statsEnabled=${caches.tx.statsEnabled}
@@ -108,3 +110,12 @@ data:
     metrics.jvmMetricsReporter.enabled=true
     metrics.restMetricsReporter.enabled=true
     metrics.restMetricsReporter.path.enabled=true
+
+  0200-increase-pdf-max-source.json: |
+    {
+      "supportedDefaults": [
+        {
+          "maxSourceSizeBytes": 26214400                 
+        }
+      ]
+    }
