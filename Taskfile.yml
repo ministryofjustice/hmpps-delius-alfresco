@@ -185,7 +185,7 @@ tasks:
         --set global.search.host={{.OPENSEARCH_HOST}} \
         --wait --timeout=60m \
         --post-renderer ../kustomizer.sh --post-renderer-args "{{.HELM_POST_RENDERER_ARGS}}" \
-        {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}} {{.DRY_RUN_FLAG}}
+        {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}} {{.DRY_RUN_FLAG}} | tee helm-upgrade.log
         echo " "
         echo "***** Helm upgrade completed *****"
         echo "Helm revision: $(helm list -n {{.NAMESPACE}} | grep $RELEASE_NAME | awk '{print $10}')"
