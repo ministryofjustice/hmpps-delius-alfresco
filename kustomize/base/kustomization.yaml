@@ -29,4 +29,5 @@ patches:
   - path: patch-security-contexts/alfresco-content-services-transform-misc.yaml
   - path: patch-security-contexts/alfresco-content-services-transform-router.yaml
   - path: patch-security-contexts/alfresco-search-enterprise-mediation.yaml
+  - path: patch-security-contexts/alfresco-transform-service.yaml
   - path: patch-activemq-logging.yaml
