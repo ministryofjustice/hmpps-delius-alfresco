@@ -28,7 +28,7 @@ main() {
     env=$1
 
     # Restrict env values to only poc, dev, test or preprod
-    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" ]]; then
+    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" && "$env" != "prod" ]]; then
         log_error "Invalid namespace. Allowed values: poc, dev, test or preprod."
         exit 1
     fi
