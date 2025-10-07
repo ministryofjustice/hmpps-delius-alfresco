@@ -3,7 +3,6 @@ kind: Kustomization
 
 resources:
   - ../base
-  - filestore-data-pvc.yaml
   - alf-prop-config-map.yaml
   - hpa-repository.yaml
   - hpa-tika.yaml

@@ -50,7 +50,69 @@ share:
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
     tag: release_7.3.2_elasticsearch-r5.0.2-chart-7.0.3-share-latest
+externalProtocol: https
 externalPort: 443
+alfresco-search-enterprise:
+  liveIndexing:
+  # set in value-versions yaml
+    content:
+      replicaCount: 1
+    metadata:
+      replicaCount: 1
+    mediation:
+      podSecurityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      replicaCount: 1
+alfresco-transform-service:
+  tika:
+    podSecurityContext:
+      seccompProfile:
+        type: RuntimeDefault  
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "2048Mi"
+      limits:
+        cpu: "2"
+        memory: 6Gi
+  transformrouter:
+    podSecurityContext:
+      seccompProfile:
+        type: RuntimeDefault  
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: "0.75"
+        memory: "512Mi"
+      limits:
+        cpu: "2"
+        memory: 2Gi
+  filestore:
+    # -- Declares the alfresco-shared-file-store used by the content repository
+    # and transform service
+    enabled: false
+    replicaCount: 1
+    persistence:
+      # -- Persist filestore data
+      enabled: true
+      data:
+        mountPath: "/tmp/Alfresco"
+        subPath: "alfresco-content-services/filestore-data"
+    strategy:
+      # -- Strategy must be set to Recreate when persistence supports only
+      # `ReadWriteOnce` access mode. If `ReadWriteMany` is supported, then it
+      # can be set to RollingUpdate.
+      type: Recreate
+    readinessProbe:
+      httpGet:
+        port: 80
+    livenessProbe:
+      httpGet:
+        port: 80
+    ports:
+      - containerPort: 80
 global:
   known_urls:
     - https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
