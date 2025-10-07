@@ -3,6 +3,7 @@
 .idea/
 templated/
 kustomize/base/charts/
+kustomize/**/helm-upgrade.log
 kustomize/**/charts/
 kustomize/**/helm_rendered_spec.yaml
 kustomize/**/kustomized_helm_rendered_spec.yaml

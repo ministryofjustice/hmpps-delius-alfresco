@@ -3,10 +3,12 @@ kind: Kustomization
 
 resources:
   - resources.yaml
+  - patch-repository-pdb.yaml
 
 patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
+  - path: patch-repository.yaml
   - path: patch-live-indexing-path.yaml
   - path: patch-live-indexing-metadata.yaml
   - path: patch-live-indexing-mediation.yaml
@@ -17,12 +19,14 @@ patches:
   - path: patch-transform-libreoffice.yaml
   - path: patch-transform-imagemagick.yaml
   - path: patch-security-contexts/alfresco-content-services-alfresco-repository.yaml
-  - path: patch-security-contexts/alfresco-content-services-imagemagick.yaml
-  - path: patch-security-contexts/alfresco-content-services-transform-misc.yaml
   - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-content.yaml
-  - path: patch-security-contexts/alfresco-content-services-libreoffice.yaml
   - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-metadata.yaml
-  - path: patch-security-contexts/alfresco-content-services-pdfrenderer.yaml
   - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-path.yaml
+  - path: patch-security-contexts/alfresco-content-services-imagemagick.yaml
+  - path: patch-security-contexts/alfresco-content-services-libreoffice.yaml
+  - path: patch-security-contexts/alfresco-content-services-pdfrenderer.yaml
   - path: patch-security-contexts/alfresco-content-services-tika.yaml
+  - path: patch-security-contexts/alfresco-content-services-transform-misc.yaml
+  - path: patch-security-contexts/alfresco-content-services-transform-router.yaml
+  - path: patch-security-contexts/alfresco-search-enterprise-mediation.yaml
   - path: patch-activemq-logging.yaml
