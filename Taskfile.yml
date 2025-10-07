@@ -185,7 +185,7 @@ tasks:
         --set global.search.host={{.OPENSEARCH_HOST}} \
         --wait --timeout=60m \
         --post-renderer ../kustomizer.sh --post-renderer-args "{{.HELM_POST_RENDERER_ARGS}}" \
-        {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}} {{.DRY_RUN_FLAG}}
+        {{.DEBUG_FLAG}} {{.ATOMIC_FLAG}} {{.DRY_RUN_FLAG}} | tee helm-upgrade.log
         echo " "
         echo "***** Helm upgrade completed *****"
         echo "Helm revision: $(helm list -n {{.NAMESPACE}} | grep $RELEASE_NAME | awk '{print $10}')"
@@ -576,9 +576,9 @@ tasks:
           MEDIATION_REPLICAS="{{.COUNT}}"
           SHARE_REPLICAS="{{.COUNT}}"
         else
-          echo "Running Helm upgrade to ensure HPAs are present."
-          # Ensure HPAs are present by running the Helm upgrade.
-          # This re-applies manifests that include the HPAs deleted during scale-down.
+          echo "Running Helm upgrade to ensure HPAs and PDB are present."
+          # Ensure HPAs and PDB are present by running the Helm upgrade.
+          # This re-applies manifests that include the HPAs and PDB deleted during scale-down.
           task helm_upgrade ENV={{.ENV}} DEBUG=true
 
           # Ensure correct replica values are set from config files
@@ -656,14 +656,21 @@ tasks:
 
         echo "Scaling down deployments in namespace $NS"
 
-        # 1) Remove HPAs for this release (so they don't force replicas >= 1)
+        # Remove HPAs for this release (so they don't force replicas >= 1)
         HPAS=$(kubectl get hpa -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
         for hpa in $HPAS; do
           echo "Deleting HPA: $hpa"
           kubectl delete hpa "$hpa" -n "$NS" --wait=true
         done
 
-        # 2) Scale Deployments to 0
+        # Delete the PDB if it exists (so scaling to 0 pods is allowed)
+        PDB_NAME="alfresco-repository-pdb"
+        if kubectl get pdb "$PDB_NAME" -n "$NS" >/dev/null 2>&1; then
+          echo "Deleting PodDisruptionBudget: $PDB_NAME"
+          kubectl delete pdb "$PDB_NAME" -n "$NS" --wait=true
+        fi
+
+        # Scale Deployments to 0
         DEPLOYMENTS=$(kubectl get deploy -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
         for deployment in $DEPLOYMENTS; do
           echo "Scaling down deployment: $deployment"

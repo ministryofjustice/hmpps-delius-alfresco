@@ -9,6 +9,7 @@ spec:
     name: alfresco-content-services-tika
   minReplicas: 4
   maxReplicas: 8
+  # Increasing past 8 pods doesn't seem to help with batch reindex performance
   metrics:
   # Autoscale pods with a target of having 50% cpu usage.
   # In the event we've less than 50% overall it'll just scale down to

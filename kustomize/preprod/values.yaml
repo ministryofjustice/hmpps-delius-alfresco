@@ -43,6 +43,7 @@ alfresco-repository:
       -Dsystem.delete_not_exists.timeout_seconds=3600
       -Dfilecontentstore.subsystem.name=S3
       -Ds3.flatRoot=false
+      -Dsfs.url=${SFS_URL}
       -Dcom.sun.management.jmxremote
       -Dcom.sun.management.jmxremote.port=9010
       -Dcom.sun.management.jmxremote.rmi.port=9010
@@ -107,6 +108,22 @@ alfresco-transform-service:
       limits:
         cpu: "2"
         memory: 2Gi
+  filestore:
+    # -- Declares the alfresco-shared-file-store used by the content repository
+    # and transform service
+    enabled: false
+    replicaCount: 1
+    persistence:
+      # -- Persist filestore data
+      enabled: true
+      data:
+        mountPath: "/tmp/Alfresco"
+        subPath: "alfresco-content-services/filestore-data"
+    strategy:
+      # -- Strategy must be set to Recreate when persistence supports only
+      # `ReadWriteOnce` access mode. If `ReadWriteMany` is supported, then it
+      # can be set to RollingUpdate.
+      type: Recreate
 global:
   known_urls:
    - https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk

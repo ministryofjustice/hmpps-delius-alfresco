@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  alfresco-content-services-alfresco-repository
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-repository
+          env:
+            - name: SFS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: alfresco-infrastructure
+                  key: SFS_URL

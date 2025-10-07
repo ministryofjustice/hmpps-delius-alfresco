@@ -110,6 +110,7 @@ alfresco-repository:
       -Dsystem.delete_not_exists.timeout_seconds=3600
       -Dfilecontentstore.subsystem.name=S3
       -Ds3.flatRoot=false
+      -Dsfs.url=${SFS_URL}
     CATALINA_OPTS: >-
       -Ds3.bucketLocation=eu-west-2
   nameOverride: alfresco-repository
@@ -147,7 +148,7 @@ alfresco-repository:
       existingConfigMap: alf-prop-config-map
       existingSecrets:
         - name: alfresco-license
-          key: Alfresco-ent73-NOMSNationalOffenderManagementService-Expires10.03.2025.lic
+          key: alfresco-ent73-nomsnationaloffendermanagementserviceexpiration2026-10-03.lic
           purpose: acs-license
         - name: s3-bucket-output
           key: ACCESSKEY
@@ -158,9 +159,6 @@ alfresco-repository:
         - name: s3-bucket-output
           key: BUCKET_NAME
           purpose: property:s3.bucketName
-        - name: sfs-url
-          key: SFS_URL
-          purpose: property:sfs.url
     db:
       existingConfigMap:
         name: *infrastructure_cmName
