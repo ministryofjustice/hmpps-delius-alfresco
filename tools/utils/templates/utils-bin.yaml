@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: utils-bin
+data:
+  psqlr: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Source the profile helpers if present (to pick up PG* envs, etc.)
+    [[ -f /etc/profile.d/psql-utils.sh ]] && . /etc/profile.d/psql-utils.sh || true
+    # Fall back to psql if psqlr isn't a function/alias
+    if ! type psqlr >/dev/null 2>&1; then
+      echo "psqlr not defined, falling back to psql"
+      psqlr() { psql "$@"; }
+    fi
+    psqlr "$@"
