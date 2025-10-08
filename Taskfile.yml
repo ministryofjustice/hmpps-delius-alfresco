@@ -128,6 +128,7 @@ tasks:
           DEBUG_FLAG: "{{.DEBUG_FLAG}}"
           ATOMIC_FLAG: "{{.ATOMIC_FLAG}}"
           DRY_RUN_FLAG: "{{.DRY_RUN_FLAG}}"
+      - task: install_utils
       - task: helm_dryrun_diff
         vars:
           DEBUG: "{{.DEBUG}}"
@@ -140,16 +141,11 @@ tasks:
     cmds:
       - |
         export BUCKET_NAME=$(kubectl get secrets s3-bucket-output -n {{.NAMESPACE}} -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
-        if [ "${ENV}" = "poc" ]; then
-          export NAMESPACE=hmpps-delius-alfrsco-${ENV}
-        else
-          export NAMESPACE=hmpps-delius-alfresco-${ENV}
-        fi
-        export OPENSEARCH_PREFIX=$(kubectl get svc --namespace ${NAMESPACE} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }')
-        export OPENSEARCH_HOST=${OPENSEARCH_PREFIX}.${NAMESPACE}.svc.cluster.local
-        export RDS_JDBC_URL=$(kubectl get secrets rds-instance-output --namespace ${NAMESPACE} -o json | jq -r ".data | map_values(@base64d) | .RDS_JDBC_URL")
+        export OPENSEARCH_PREFIX=$(kubectl get svc --namespace {{.NAMESPACE}} | grep 'opensearch-proxy-service-cloud-platform' | awk '{ print $1 }')
+        export OPENSEARCH_HOST=${OPENSEARCH_PREFIX}.{{.NAMESPACE}}.svc.cluster.local
+        export RDS_JDBC_URL=$(kubectl get secrets rds-instance-output --namespace {{.NAMESPACE}} -o json | jq -r ".data | map_values(@base64d) | .RDS_JDBC_URL")
         export EXTRACTED=$(yq 'join(",")' ./kustomize/${ENV}/allowlist.yaml)
-        echo "Using namespace: ${NAMESPACE}"
+        echo "Using namespace: {{.NAMESPACE}}"
     silent: true
 
   update_allowlist:
@@ -218,6 +214,21 @@ tasks:
           echo "Skipping helm diff as DEBUG and DRY_RUN are not both set to true"
         fi
     silent: true
+
+  install_utils:
+    desc: "Install/upgrade the utils toolbox chart"
+    cmds:
+      - |
+        set -euo pipefail
+        echo "Installing utils into namespace {{.NAMESPACE}} (environment={{.ENV}})"
+        if [ "{{.DRY_RUN}}" != "true" ]; then
+          helm upgrade --install utils ./tools/utils \
+            --namespace {{.NAMESPACE}} \
+            --set environment={{.ENV}} \
+            --wait --timeout=5m
+          echo "Waiting for utils rollout to complete…"
+          kubectl -n {{.NAMESPACE}} rollout status deploy/utils
+        fi
 
   reset_allowlist:
     internal: true
