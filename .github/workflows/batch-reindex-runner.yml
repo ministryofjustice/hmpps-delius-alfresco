@@ -404,16 +404,25 @@ jobs:
             # throttle until AMQ transforms drain below threshold before starting next batch
             wait_queue
 
-            echo "Next batch: FROM=${min_id} TO=${window_max} (count=${count})"
-            task reindex_by_id ENV="${ENV}" FROM="${min_id}" TO="${window_max}"
+            # check k8s jobs to see if reindex is already running
+            PREFIX="reindexing-${min_id}-${window_max}"
+            JOBS=$(kubectl get jobs -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}" || true)
+            if [[ -n "$JOBS" ]]; then
+              echo "A reindex job for this window is already running: ${JOBS}, waiting 60s…"
+              sleep 60
+              continue
+            else
+              echo "Next batch: FROM=${min_id} TO=${window_max} (count=${count})"
+              task reindex_by_id ENV="${ENV}" FROM="${min_id}" TO="${window_max}"
 
-            # persist new resume point if the job succeeded
-            echo "Persisting next_max_id=${min_id} to $STATE_CM"
-            kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{\"data\":{\"next_max_id\":\"${min_id}\"}}"
+              # persist new resume point if the job succeeded
+              echo "Persisting next_max_id=${min_id} to $STATE_CM"
+              kubectl -n "$NS" patch configmap "$STATE_CM" --type merge -p "{\"data\":{\"next_max_id\":\"${min_id}\"}}"
 
-            echo "Waiting ${INITIAL_QUEUE_SETTLE_SEC}s for queue to start filling…"; sleep "${INITIAL_QUEUE_SETTLE_SEC}"
-            # throttle until AMQ transforms drain below threshold
-            wait_queue
+              echo "Waiting ${INITIAL_QUEUE_SETTLE_SEC}s for queue to start filling…"; sleep "${INITIAL_QUEUE_SETTLE_SEC}"
+              # throttle until AMQ transforms drain below threshold
+              wait_queue
+            fi
 
             CONTINUE="$(kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.run}' || true)"
             if [[ "$CONTINUE" != "true" ]]; then
