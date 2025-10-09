@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# amq-connect-single.sh
+# Usage: ./amq-connect-single.sh <env> [local_port]
+# Example: ./amq-connect-single.sh preprod
+# - <env> can be poc, dev, test, stage, preprod or prod
+# - This script sets up port forwarding to a single AmazonMQ broker pod in the specified environment
 
 # trap (ctrl+c) and call ctrl_c()
 trap ctrl_c SIGINT
@@ -26,27 +31,30 @@ log_debug() {
 
 main() {
     env=$1
+    local_port=$2
 
     # Restrict env values to only poc, dev, test or preprod
-    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" && "$env" != "prod" ]]; then
-        log_error "Invalid namespace. Allowed values: poc, dev, test or preprod."
+    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
+        log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod or prod."
         exit 1
     fi
 
     namespace="hmpps-delius-alfresco-${env}"
+
+    # Use the port passed in or default based on env
     if [ "$env" == "poc" ]; then
         namespace="hmpps-delius-alfrsco-${env}"
-        LOCAL_PORT=8166
+        LOCAL_PORT=${local_port:-8166}
     elif [ "$env" == "dev" ]; then
-        LOCAL_PORT=8165
+        LOCAL_PORT=${local_port:-8165}
     elif [ "$env" == "test" ]; then
-        LOCAL_PORT=8164
+        LOCAL_PORT=${local_port:-8164}
     elif [ "$env" == "stage" ]; then
-        LOCAL_PORT=8163
+        LOCAL_PORT=${local_port:-8163}
     elif [ "$env" == "preprod" ]; then
-        LOCAL_PORT=8162
+        LOCAL_PORT=${local_port:-8162}
     elif [ "$env" == "prod" ]; then
-        LOCAL_PORT=8161
+        LOCAL_PORT=${local_port:-8161}
     fi
     
     log_info "Connecting to AMQ Console in namespace $namespace"
@@ -114,7 +122,7 @@ cleanup() {
 
 if [ -z "$1" ]; then
     log_info "env not provided"
-    log_info "Usage: amq-connect-single.sh <env>"
+    log_info "Usage: amq-connect-single.sh <env> <local_port>"
     exit 1
 fi
 main "$1" "$2"

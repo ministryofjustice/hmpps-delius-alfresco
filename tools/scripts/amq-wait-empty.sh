@@ -1,26 +1,25 @@
 #!/bin/bash
 # amq-wait-empty.sh
-# Usage: ./amq-wait-empty.sh <queue_name> <stop_stat> [namespace] [interval_secs]
-# Example: ./amq-wait-empty.sh acs-repo-transform-request size preprod 30
+# Usage: ./amq-wait-empty.sh <env> <queue_name> <stop_stat> [interval_secs]
+# Example: ./amq-wait-empty.sh dev acs-repo-transform-request size 30
 # - <stop_stat> is usually 'size'. The rate is always computed from dequeueCount.
 
 set -euo pipefail
 
-QUEUE_NAME=${1:-"acs-repo-transform-request"}
-STOP_STAT=${2:-"size"}
-NAMESPACE=${3:-}
+env=$1
+QUEUE_NAME=${2:-"acs-repo-transform-request"}
+STOP_STAT=${3:-"size"}
 INTERVAL=${4:-30}
 WARN_LEVEL=${5:-1000}
 
-if [[ -n "$NAMESPACE" ]]; then
-  NS_ARG="$NAMESPACE"
-else
-  NS_ARG=""
+if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
+    log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod or prod."
+    exit 1
 fi
-
+  
 get_total_for() {
   local stat="$1"
-  ./amq-totals.sh "$QUEUE_NAME" "$stat" "$NS_ARG" \
+  ./amq-totals.sh "$env" "$QUEUE_NAME" "$stat" \
     | awk '/^Total messages in stat/{print $NF}'
 }
 
