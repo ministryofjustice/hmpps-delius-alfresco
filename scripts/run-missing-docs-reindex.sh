@@ -8,12 +8,25 @@ set -euo pipefail
 # Usage: ./run-missing-docs-reindex.sh <env>
 # Example: ./run-missing-docs-reindex.sh prod
 ENV_INPUT="${1:-prod}"
+MAX_NODE_ID="${2:-}"  # optional max node_id to process (for testing)
 
 # Compute namespace from env (special-case "poc" if you ever need it)
 if [[ "${ENV_INPUT}" == "poc" ]]; then
   NS="hmpps-delius-alfrsco-${ENV_INPUT}"
 else
   NS="hmpps-delius-alfresco-${ENV_INPUT}"
+fi
+
+if [[ -n "${MAX_NODE_ID}" && ! "${MAX_NODE_ID}" =~ ^[0-9]+$ ]]; then
+  echo "Error: MAX_NODE_ID must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ -n "${MAX_NODE_ID}" ]]; then
+  echo "Limiting to node_id <= ${MAX_NODE_ID}"
+  WHERE_CLAUSE="WHERE NODE_ID <= ${MAX_NODE_ID}"
+else
+  WHERE_CLAUSE=""
 fi
 
 # Safety margin: EKS has a hard 100 pods quota; we leave 2 free for the app.
@@ -108,37 +121,8 @@ start_reindex_for_id() {
     fi
     echo "[$(date +%FT%T)] Starting reindex for id=${id} to=${next}"
 
-    # --- run the task but don't let set -e kill us here ---
-    set +e
-    out="$(task reindex_by_id ENV="${ENV_INPUT}" FROM="${id}" TO="${next}" 2>&1)"
-    rc=$?
-    set -e
-
-    if (( rc != 0 )); then
-      # Known benign Helm/Job ownership/existence issues
-      if grep -qiE 'exists and cannot be imported into the current release|already exists|cannot re-use a name that is still in use|invalid ownership metadata|annotation validation error.*meta\.helm\.sh/release-name' <<< "$out"; then
-        echo "[$(date +%FT%T)] Skip id=${id}: job appears to already exist (benign). Verifying…"
-        # If we can see the expected job, treat as done
-        if kubectl -n "${NS}" get job "${job}" >/dev/null 2>&1; then
-          echo "[$(date +%FT%T)] Confirmed ${job} exists — skipping."
-          #echo "$out"
-          return 0
-        fi
-        # Sometimes the chart names the job slightly differently; still skip
-        echo "[$(date +%FT%T)] ${job} not found, but Helm reported 'already exists' — skipping anyway."
-        echo "$out"
-        return 0
-      fi
-
-      # Unknown/non-benign failure: log and move on
-      echo "[$(date +%FT%T)] ERROR reindex id=${id} (rc=${rc})"
-      echo "$out"
-      return 0
-    fi
-
-    # Success
-    echo "$out"
-    echo "[$(date +%FT%T)] Completed reindex for id=${id}"
+    # run the task in background so we don't wait for it here
+    task reindex_by_id ENV="${ENV_INPUT}" FROM="${id}" TO="${next}" SKIP_CM_DELETION="true" 2>&1 &
   } | tee -a "${LOG_FILE}"
 }
 
@@ -146,7 +130,7 @@ start_reindex_for_id() {
 # ---- 1) query DB and write IDs to a local file -----------------------------
 
 echo "Querying database in ${NS} utils pod for missing doc node_ids…"
-sql_in_utils "select node_id from moj_os_missing_docs order by 1 desc;" \
+sql_in_utils "select node_id from moj_os_missing_docs ${WHERE_CLAUSE} order by 1 desc;" \
   | sed '/^[[:space:]]*$/d' > "${IDS_FILE}"
 
 ID_COUNT="$(wc -l < "${IDS_FILE}" | tr -d '[:space:]')"
@@ -209,7 +193,7 @@ while (( idx < total )); do
 
   echo "[`date +%FT%T`] Launched ${launched_this_round} job(s) this round (total launched: ${launched}/${total})." | tee -a "${LOG_FILE}"
   # Give the cluster a moment to create pods and reflect counts
-  sleep 60
+  sleep 15
   cleanup_finished_jobs
 done
 

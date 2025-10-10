@@ -282,7 +282,19 @@ tasks:
           echo "ℹ️ Small ID range detected. No scaling needed."
         fi
 
-        task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
+        # If SKIP_CM_DELETION is set to any value, skip deletion; otherwise, perform deletion
+        SKIP_CM_DELETION="{{.SKIP_CM_DELETION}}"
+        if [ -z "$SKIP_CM_DELETION" ]; then
+          SKIP_CM_DELETION="false"
+        else
+          SKIP_CM_DELETION="true"
+        fi
+        if [ "$SKIP_CM_DELETION" = "true" ]; then
+          echo "⚠️  Skipping deletion of existing reindexing configmaps as SKIP_CM_DELETION is set to true"
+        else
+          echo "🗑️ Deleting existing reindexing configmaps for range $FROM_ID to $TO_ID..."
+          task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
+        fi
 
         helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
     silent: true
