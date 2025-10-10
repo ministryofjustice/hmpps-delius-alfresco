@@ -31,6 +31,7 @@ if [ "$APPEND_ROWS" != "true" ]; then
     uuid varchar(36) PRIMARY KEY
   );
 SQL
+fi
 
 # 2) Bulk load from the provided file (one ID per line)
 psqlr -v f="$FILE" <<'SQL'
