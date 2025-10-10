@@ -9,10 +9,10 @@
 #   (poc, dev, test, or preprod). Logs are aggregated into a timestamped file.
 #
 # Usage:
-#   ./stream-alfresco-logs.sh <poc|dev|test|preprod>
+#   ./stream-alfresco-logs.sh <poc|dev|test|stage|preprod|prod>
 #
 # Arguments:
-#   <environment>   The target environment/namespace (must be one of: poc, dev, test, preprod)
+#   <environment>   The target environment/namespace (must be one of: poc, dev, test, stage, preprod, prod)
 #
 # Features:
 #   - Validates the environment argument.
@@ -22,7 +22,7 @@
 #   - Handles cleanup on exit (stops all background log streams).
 #
 # Output:
-#   - Logs are saved to ../../../alfresco-logs/alfresco-repo-logs-<timestamp>.log
+#   - Logs are saved to logs/alfresco-repo-logs-<timestamp>.log
 #
 # Notes:
 #   - Requires kubectl to be configured with access to the target cluster.
@@ -37,7 +37,7 @@ trap 'echo; echo "Stopping log streams…"; kill $(jobs -p) 2>/dev/null' EXIT
 
 
 if [ -z "${1:-}" ]; then
-  echo "❌ No environment specified. Usage: $0 <poc|dev|test|preprod>"
+  echo "❌ No environment specified. Usage: $0 <poc|dev|test|stage|preprod|prod>"
   exit 1
 fi
 
@@ -45,9 +45,9 @@ fi
 # Namespace to watch
 env=$1
 
-# Restrict env values to only poc, dev, test or preprod
-if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" ]]; then
-    log_error "Invalid namespace. Allowed values: poc, dev, test or preprod."
+# Restrict env values to only poc, dev, test, stage, preprod or prod
+if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
+    log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod or prod."
     exit 1
 fi
 

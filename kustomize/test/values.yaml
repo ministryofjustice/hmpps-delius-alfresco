@@ -22,6 +22,10 @@ alfresco-repository:
       -Dindex.subsystem.name=elasticsearch
       -Delasticsearch.indexName=alfresco
       -Delasticsearch.createIndexIfNotExists=true
+      -Delasticsearch.max.total.connections=200
+      -Delasticsearch.max.host.connections=100
+      -Delasticsearch.http.connection.timeout=10000
+      -Delasticsearch.http.socket.timeout=120000
       -Dtransform.service.enabled=true
       -Dtransform.service.url=http://alfresco-content-services-transform-router
       -XX:MinRAMPercentage=50
