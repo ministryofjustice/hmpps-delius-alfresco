@@ -381,7 +381,7 @@ tasks:
           exit 1
         fi
 
-        PREFIX="reindexing-${FROM}-${TO}-"
+        PREFIX="reindexing-${FROM}-${TO}"
         echo "🔍 Searching for configmaps with prefix $PREFIX in $NS..."
 
         CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}" || true)
@@ -416,6 +416,30 @@ tasks:
             kubectl delete configmap "$CM" -n "$NS" --ignore-not-found
           else
             echo "⏭️  Skipping $CM as it's currently in use"
+          fi
+        done
+
+        JOBS=$(kubectl get jobs -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}" || true)
+        for JOB in $JOBS; do
+          echo "🔎 Checking if Job $JOB is in use..."
+
+          JOB_IN_USE=false
+          for POD in $(echo "$ACTIVE_PODS" | jq -r '.items[].metadata.name'); do
+            POD_JSON=$(kubectl get pod "$POD" -n "$NS" -o json)
+
+            if echo "$POD_JSON" | jq -e --arg JOB "$JOB" '.spec.volumes[]?.configMap.name == $JOB' >/dev/null ||
+              echo "$POD_JSON" | jq -e --arg JOB "$JOB" '.spec.containers[].envFrom[]?.configMapRef.name == $JOB' >/dev/null; then
+              echo "⚠️  In use by pod $POD"
+              JOB_IN_USE=true
+              break
+            fi
+          done
+
+          if [ "$JOB_IN_USE" = false ]; then
+            echo "🗑️  Deleting unused Job $JOB"
+            kubectl delete job "$JOB" -n "$NS"
+          else
+            echo "⏭️  Skipping $JOB as it's in use"
           fi
         done
     silent: true
@@ -505,6 +529,13 @@ tasks:
           echo "Restarting deployment: $DEPLOYMENT"
           kubectl rollout restart deployment "$DEPLOYMENT" -n "$NS"
         done
+
+        STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^alfresco-" || true)
+        for sts in $STATEFULSETS; do
+          kubectl scale statefulset "$sts" -n "$NS" --replicas=0
+          kubectl rollout status statefulset "$sts" -n "$NS" --timeout=120s || true
+        done
+
     silent: true
 
   reindex_scale_up:
