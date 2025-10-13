@@ -180,11 +180,11 @@ while (( idx < total )); do
       start_reindex_for_id "$id"
       # Increment counters
       launched=$(( launched + 1 ))
-      echo "Incremented launched count to ${launched}" | tee -a "${LOG_FILE}"
+      #echo "Incremented launched count to ${launched}" | tee -a "${LOG_FILE}"
       launched_this_round=$(( launched_this_round + 1 ))
-      echo "Incremented launched_this_round count to ${launched_this_round}" | tee -a "${LOG_FILE}"
+      #echo "Incremented launched_this_round count to ${launched_this_round}" | tee -a "${LOG_FILE}"
       idx=$(( idx + 1 ))
-      echo "Incremented idx to ${idx}" | tee -a "${LOG_FILE}"
+      #echo "Incremented idx to ${idx}" | tee -a "${LOG_FILE}"
     else
       echo "Skipping non-numeric id: $id" | tee -a "${LOG_FILE}"
       idx=$(( idx + 1 ))
