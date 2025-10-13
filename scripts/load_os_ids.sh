@@ -15,6 +15,7 @@
 # -----------------------------------------------------------------------------
 FILE="${1:-./ids.txt}"
 APPEND_ROWS=${2:-false}  # set to true to append to existing table instead of recreating
+TABLE_NAME="${3:-moj_os_doc_ids}"
 
 # sanity check the file exists
 if [[ ! -f "$FILE" ]]; then
@@ -24,16 +25,15 @@ fi
 
 # 1) Recreate staging table (UNLOGGED, single column, indexed via PK)
 if [ "$APPEND_ROWS" != "true" ]; then
-  echo "Recreating table public.moj_os_doc_ids..."
-  psqlr -v f="$FILE" <<'SQL'
-  DROP TABLE IF EXISTS public.moj_os_doc_ids;
-  CREATE UNLOGGED TABLE public.moj_os_doc_ids (
+  echo "Recreating table public.${TABLE_NAME}..."
+  psqlr --variable=t=$TABLE_NAME <<'SQL'
+  DROP TABLE IF EXISTS public.:"t";
+  CREATE UNLOGGED TABLE public.:"t" (
     uuid varchar(36) PRIMARY KEY
   );
 SQL
 fi
 
 # 2) Bulk load from the provided file (one ID per line)
-psqlr -v f="$FILE" <<'SQL'
-\copy public.moj_os_doc_ids(uuid) FROM 'ids.txt' WITH (FORMAT text)
-SQL
+# psql does not support :variable substitution within psql backslash commands
+psqlr -c "\\copy public.$TABLE_NAME(uuid) FROM '$FILE' WITH (FORMAT text)"
