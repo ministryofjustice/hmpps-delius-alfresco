@@ -27,6 +27,7 @@ alfresco-repository:
       -Dsystem.delete_not_exists.timeout_seconds=3600
       -Dfilecontentstore.subsystem.name=S3
       -Ds3.flatRoot=false
+      -Dsfs.url=${SFS_URL}
       -Dcom.sun.management.jmxremote
       -Dcom.sun.management.jmxremote.port=9010
       -Dcom.sun.management.jmxremote.rmi.port=9010
