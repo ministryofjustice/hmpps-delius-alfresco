@@ -49,13 +49,6 @@ alfresco-repository:
     limits:
       cpu: 4
       memory: 10Gi
-  persistence:
-    # -- Persist repository data
-    enabled: false
-    baseSize: 100Gi
-    # -- Specify a storageClass for dynamic provisioning
-    accessModes:
-      - ReadWriteOnce
 share:
   replicaCount: 1
   image:
