@@ -60,6 +60,13 @@ main() {
     log_info "Connecting to AMQ Console in namespace $namespace"
 
     # get amq connection url
+    # if BROKER_CONSOLE_URL is null then try the multi-broker approach
+    CHECK_URL=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL" | grep null || true)
+    if [ -n "$CHECK_URL" ]; then
+        log_error "No single AMQ URL found in secret, please use amq-connect.sh for multi-broker setup"
+        exit 1
+    fi
+
     URL=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
 
     # extract host and port
