@@ -532,7 +532,7 @@ tasks:
 
         STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^alfresco-" || true)
         for sts in $STATEFULSETS; do
-          kubectl scale statefulset "$sts" -n "$NS" --replicas=0
+          kubectl scale statefulset "$sts" -n "$NS" --replicas=1
           kubectl rollout status statefulset "$sts" -n "$NS" --timeout=120s || true
         done
 
