@@ -15,3 +15,17 @@ patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-infra-config-map.yaml
+  # Set filestore strategy to Recreate as we use a persistent volume with RWO access mode
+  # We have to override the base kustomization which uses a strategic merge patch
+  # as that doesn't support changing the strategy type from RollingUpdate to Recreate
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: alfresco-content-services-filestore
+    patch: |-
+      - op: remove
+        path: /spec/strategy/rollingUpdate
+      - op: replace
+        path: /spec/strategy/type
+        value: Recreate

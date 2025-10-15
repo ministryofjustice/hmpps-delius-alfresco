@@ -96,7 +96,7 @@ alfresco-transform-service:
   filestore:
     # -- Declares the alfresco-shared-file-store used by the content repository
     # and transform service
-    enabled: false
+    enabled: true
     replicaCount: 1
     persistence:
       # -- Persist filestore data
