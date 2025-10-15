@@ -355,7 +355,7 @@ jobs:
               # fetch XML via utils pod then parse locally with xmllint (matches your script flow)
               local pod=$(get_utils_pod "$NS"); [[ -z "$pod" ]] && { echo "No utils pod" >&2; exit 1; }
               xml="$(kubectl -n "$NS" exec "$pod" -- bash -lc "set -euo pipefail; [[ -f /etc/profile.d/utils-profile.sh ]] && . /etc/profile.d/utils-profile.sh || true; curl -s -k --user '${AMQ_USER}:${AMQ_PASS}' '${AMQ_URL}/admin/xml/queues.jsp'")"
-              last_size="$size"
+              last_size="${size:-0}"
               size="$(printf "%s" "$xml" | xmllint --xpath "string(//queue[@name='${QUEUE_NAME}']/stats/@size)" - || echo 0)"
               echo "AMQ queue '${QUEUE_NAME}' size=${size}"
               if [[ "$size" =~ ^[0-9]+$ ]] && (( size <= QUEUE_THRESHOLD )); then
