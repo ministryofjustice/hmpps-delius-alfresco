@@ -38,7 +38,7 @@ alfresco-repository:
       -Djava.rmi.server.hostname=127.0.0.1
     CATALINA_OPTS: >-
       -Ds3.bucketLocation=eu-west-2
-  replicaCount: 1
+  replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
     tag: release_7.3.2_elasticsearch-r5.0.4-content-latest
@@ -73,7 +73,7 @@ alfresco-transform-service:
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault  
-    replicaCount: 1
+    replicaCount: 2
     resources:
       requests:
         cpu: "0.5"
@@ -85,7 +85,7 @@ alfresco-transform-service:
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault  
-    replicaCount: 1
+    replicaCount: 2
     resources:
       requests:
         cpu: "0.75"
