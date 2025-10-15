@@ -35,7 +35,7 @@ on:
       queue_wait_timeout_sec:
         description: "Max time to wait per batch for queue to drain (seconds)"
         required: false
-        default: "3000"
+        default: "3600"
       force_reset_phases:
         description: "Ignore stored phase1/phase2 flags and rerun them"
         required: false
@@ -355,6 +355,7 @@ jobs:
               # fetch XML via utils pod then parse locally with xmllint (matches your script flow)
               local pod=$(get_utils_pod "$NS"); [[ -z "$pod" ]] && { echo "No utils pod" >&2; exit 1; }
               xml="$(kubectl -n "$NS" exec "$pod" -- bash -lc "set -euo pipefail; [[ -f /etc/profile.d/utils-profile.sh ]] && . /etc/profile.d/utils-profile.sh || true; curl -s -k --user '${AMQ_USER}:${AMQ_PASS}' '${AMQ_URL}/admin/xml/queues.jsp'")"
+              last_size="$size"
               size="$(printf "%s" "$xml" | xmllint --xpath "string(//queue[@name='${QUEUE_NAME}']/stats/@size)" - || echo 0)"
               echo "AMQ queue '${QUEUE_NAME}' size=${size}"
               if [[ "$size" =~ ^[0-9]+$ ]] && (( size <= QUEUE_THRESHOLD )); then
@@ -363,19 +364,26 @@ jobs:
               fi
               if (( $(date +%s) - start > QUEUE_WAIT_TIMEOUT_SEC )); then
                 echo "Queue did not drop below ${QUEUE_THRESHOLD} within ${QUEUE_WAIT_TIMEOUT_SEC}s (last size=${size})." >&2
-                # if the repo pods haven't already been restarted in this run then do so now
-                if [[ "${restarted:-false}" != "true" ]]; then
-                  echo "Restarting repo pods now before continuing."
-                  # Restart the repo pods and reset the timer so it waits again for the queue to drain
-                  task restart_repo ENV="${ENV}"
-                  sleep 240
-                  local start=$(date +%s)
-                  local restarted=true
+                # if the last size is the same as the current size then the queue isn't draining
+                if [[ "${last_size:-0}" == "${size:-0}" ]]; then
+                  echo "Queue size has not changed since last check, indicating a stall." >&2
+                  echo "Attempting to restart repo pods to recover."
+                  # if the repo pods haven't already been restarted in this run then do so now
+                  if [[ "${restarted:-false}" != "true" ]]; then
+                    echo "Restarting repo pods now before continuing."
+                    # Restart the repo pods and reset the timer so it waits again for the queue to drain
+                    task restart_repo ENV="${ENV}"
+                    sleep 240
+                    local start=$(date +%s)
+                    local restarted=true
+                  else
+                    echo "Repo pods have already been restarted in this run so exit with failure."
+                    # send Slack notification
+                    curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Repository deployment restarted in ${ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Repository deployment restarted in ${ENV} during batch reindexing. Please check the queues."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
+                    exit 1
+                  fi
                 else
-                  echo "Repo pods have already been restarted in this run so exit with failure."
-                  # send Slack notification
-                  curl --silent -X POST -H 'Content-type: application/json' --data '{"blocks":[{"type":"header","text":{"type":"plain_text","text":":white_check_mark: Repository deployment restarted in ${ENV}"}},{"type":"divider"},{"type":"section","text":{"type":"mrkdwn","text":"Repository deployment restarted in ${ENV} during batch reindexing. Please check the queues."},"accessory":{"type":"button","text":{"type":"plain_text","text":":github: View Job","emoji":true},"value":"view-job","url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","action_id":"button-action"}}]}' ${{ secrets.SLACK_WEBHOOK_URL }}
-                  exit 1
+                  echo "Queue size has changed since last check, indicating slow progress." >&2
                 fi
               fi
               sleep 30
