@@ -2,9 +2,9 @@ name: "Alfresco: Unindexed Content Reindexing Schedule"
 # This workflow triggers the reindexing of unindexed content on a schedule.
 # It runs for the "preprod" and "prod" environments only.
 on:
-  schedule:
+  #schedule:
     # Run every hour
-    - cron: '0 * * * *'
+    #- cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,8 +14,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        #environment: ["preprod", "prod"]
-        environment: ["preprod"]
+        environment: ["preprod", "prod"]
     uses: ./.github/workflows/unindexed-content-runner.yml
     with:
       environment: ${{ matrix.environment }}
