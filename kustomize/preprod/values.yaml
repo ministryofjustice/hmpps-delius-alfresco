@@ -115,7 +115,7 @@ alfresco-transform-service:
   filestore:
     # -- Declares the alfresco-shared-file-store used by the content repository
     # and transform service
-    enabled: false
+    enabled: true
     replicaCount: 1
     persistence:
       # -- Persist filestore data
@@ -128,6 +128,14 @@ alfresco-transform-service:
       # `ReadWriteOnce` access mode. If `ReadWriteMany` is supported, then it
       # can be set to RollingUpdate.
       type: Recreate
+    readinessProbe:
+      httpGet:
+        port: 80
+    livenessProbe:
+      httpGet:
+        port: 80
+    ports:
+      - containerPort: 80
 global:
   known_urls:
    - https://hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk

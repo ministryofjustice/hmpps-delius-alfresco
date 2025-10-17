@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: filestore-default-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: "500Gi" 
+      # if you want to modify the size then note you can only do it once per six hours due to AWS limits
+      # if you need to modify it again sooner then you have to delete the PVC and let it be recreated
+      # be aware that deleting the PVC will also delete the data in the volume
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  alfresco-content-services-filestore
+spec:
+  template:
+    spec:
+      containers:
+        - name: alfresco-transform-service
+          volumeMounts:
+          - mountPath: /tmp/Alfresco
+            name: data
+            subPath: alfresco-content-services/filestore-default-pvc
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              # 3h retention (10800000 ms), cleanup every hour (3600000 ms).
+              value: >-
+                -Dscheduler.content.age.millis=10800000
+                -Dscheduler.cleanup.interval=3600000
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: filestore-default-pvc
