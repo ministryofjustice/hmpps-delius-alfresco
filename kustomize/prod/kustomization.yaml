@@ -6,12 +6,28 @@ resources:
   - alf-prop-config-map.yaml
   - hpa-repository.yaml
   - hpa-tika.yaml
-  - cronjob-restart-repo.yaml
-  - role-restart-repo.yaml
-  - rolebinding-restart-repo.yaml
+# No need to restart repo pods as we are not using remote SFS config that requires a restart
+#  - cronjob-restart-repo.yaml
+#  - role-restart-repo.yaml
+#  - rolebinding-restart-repo.yaml
 
 patches:
+  - path: patch-pvc-filestore.yaml
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-infra-config-map.yaml
   - path: patch-tika-config-map.yaml
+  # Set filestore strategy to Recreate as we use a persistent volume with RWO access mode
+  # We have to override the base kustomization which uses a strategic merge patch
+  # as that doesn't support changing the strategy type from RollingUpdate to Recreate
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: alfresco-content-services-filestore
+    patch: |-
+      - op: remove
+        path: /spec/strategy/rollingUpdate
+      - op: replace
+        path: /spec/strategy/type
+        value: Recreate
