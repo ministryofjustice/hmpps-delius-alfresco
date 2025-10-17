@@ -63,7 +63,6 @@ data:
     cache.spgUserToSchemaVersionCache.maxItems=500
     cache.spgUserToSchemaVersionCache.timeToLiveSeconds=0
     cache.spgUserToSchemaVersionCache.maxIdleSeconds=0
-    cache.spgUserToSchemaVersionCache.cluster.type=local
     cache.spgUserToSchemaVersionCache.backup-count=1
     cache.spgUserToSchemaVersionCache.eviction-policy=LRU
     cache.spgUserToSchemaVersionCache.eviction-percentage=25

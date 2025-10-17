@@ -1,7 +1,7 @@
 #
 # Alfresco Unindexed Content Runner
 #
-# This GitHub Actions workflow automates the process of reindexing Alfresco content created or modified
+# This GitHub Actions workflow automates the process of reindexing Alfresco content created
 # within a specified time window (in hours). It is run from the scheduler file.
 #
 # Workflow Overview:
@@ -12,7 +12,7 @@
 name: "Alfresco: Unindexed Content Runner"
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       environment:
         description: "Target Environment"
@@ -111,16 +111,15 @@ jobs:
           [[ -f /etc/profile.d/psql-utils.sh ]] && . /etc/profile.d/psql-utils.sh || true
           psqlr --tuples-only --no-align -c "$QUERY"
           EOS
-            kubectl -n "$ns" cp "$tmp" "$pod":/tmp/run-sql.sh >/dev/null
+            kubectl_retry -n "$ns" cp "$tmp" "$pod":/tmp/run-sql.sh >/dev/null
             rm -f "$tmp"
-            kubectl -n "$ns" exec "$pod" -- bash -lc "chmod +x /tmp/run-sql.sh; QUERY=\"$q\" /tmp/run-sql.sh; rm -f /tmp/run-sql.sh"
+            kubectl_retry -n "$ns" exec "$pod" -- bash -lc "chmod +x /tmp/run-sql.sh; QUERY=\"$q\" /tmp/run-sql.sh; rm -f /tmp/run-sql.sh"
           }
           EOF
 
       - name: Query ID range from Database
         id: query
         env:
-          # If scheduled look back 2 hours, otherwise use input values
           HOURS: ${{ inputs.hours }}
           ENV: ${{ steps.vars.outputs.env }}
           NS:  ${{ steps.vars.outputs.ns }}
@@ -129,7 +128,8 @@ jobs:
           source helpers.sh
 
           get_window() {
-            sql_in_utils "$NS" "select min(n.id) as min_id, max(n.id)+1 as max_id, count(*) as node_count
+            sql_in_utils "$NS" "select min(n.id) as min_id, max(n.id)+1 as max_id, count(*) as node_count, 
+            (extract (epoch from ((now() - interval '${HOURS} hour')::timestamptz))::double precision*1000)::bigint as window_start
             from alf_node n 
             join alf_store s on s.id = n.store_id 
             where n.audit_created > (now() - interval '${HOURS} hour')::timestamptz::text 
@@ -137,16 +137,14 @@ jobs:
             and s.identifier = 'SpacesStore';"
           }
 
-          parse_row() { IFS='|' read -r a b c <<<"$1"; echo "$a $b $c"; }
+          parse_row() { IFS='|' read -r a b c d <<<"$1"; echo "$a $b $c $d"; }
 
           row="$(get_window)" || { echo "Failed to compute batch window" >&2; exit 1; }
 
-          read from_id to_id node_count <<<"$(parse_row "$row")"
-          
-          # if no rows found, exit
+          read from_id to_id node_count window_start <<<"$(parse_row "$row")"
+
           if [[ -z "$node_count" || "$node_count" -eq 0 ]]; then
-            echo "No new rows in the last ${HOURS} hours (to_id=${to_id}). Done."
-            break
+            echo "No new rows in the last ${HOURS} hours. Done."
           else
             echo "Run batch: FROM=${from_id} TO=${to_id} (count=${node_count})"
             task reindex_by_id ENV="${ENV}" FROM="${from_id}" TO="${to_id}"

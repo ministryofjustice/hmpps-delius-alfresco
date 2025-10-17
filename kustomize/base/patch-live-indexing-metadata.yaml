@@ -23,3 +23,11 @@ spec:
                 configMapKeyRef:
                   name: alfresco-infrastructure
                   key: SFS_URL_API
+            - name: ALFRESCO_CONTENT_EVENT_RETRY_MAXALLOWED
+              value: "10"
+            - name: ALFRESCO_CONTENT_EVENT_RETRY_DELAY
+              value: "1000"          # 1s initial
+            - name: ALFRESCO_CONTENT_EVENT_RETRY_BACKOFF
+              value: "2.0"           # exponential
+            - name: ALFRESCO_CONTENT_EVENT_RETRY_MAXDELAY
+              value: "60000"         # cap at 60s

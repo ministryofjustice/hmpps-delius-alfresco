@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# amq-connect-single.sh
+# Usage: ./amq-connect-single.sh <env> [local_port]
+# Example: ./amq-connect-single.sh preprod
+# - <env> can be poc, dev, test, stage, preprod or prod
+# - This script sets up port forwarding to a single AmazonMQ broker pod in the specified environment
 
 # trap (ctrl+c) and call ctrl_c()
 trap ctrl_c SIGINT
@@ -26,24 +31,43 @@ log_debug() {
 
 main() {
     env=$1
+    local_port=$2
 
     # Restrict env values to only poc, dev, test or preprod
-    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "preprod" && "$env" != "prod" ]]; then
-        log_error "Invalid namespace. Allowed values: poc, dev, test or preprod."
+    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
+        log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod or prod."
         exit 1
     fi
 
+    namespace="hmpps-delius-alfresco-${env}"
+
+    # Use the port passed in or default based on env
     if [ "$env" == "poc" ]; then
         namespace="hmpps-delius-alfrsco-${env}"
-    else
-        namespace="hmpps-delius-alfresco-${env}"
+        LOCAL_PORT=${local_port:-8166}
+    elif [ "$env" == "dev" ]; then
+        LOCAL_PORT=${local_port:-8165}
+    elif [ "$env" == "test" ]; then
+        LOCAL_PORT=${local_port:-8164}
+    elif [ "$env" == "stage" ]; then
+        LOCAL_PORT=${local_port:-8163}
+    elif [ "$env" == "preprod" ]; then
+        LOCAL_PORT=${local_port:-8162}
+    elif [ "$env" == "prod" ]; then
+        LOCAL_PORT=${local_port:-8161}
     fi
     
     log_info "Connecting to AMQ Console in namespace $namespace"
 
     # get amq connection url
+    # if BROKER_CONSOLE_URL is null then try the multi-broker approach
+    CHECK_URL=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL" | grep null || true)
+    if [ -n "$CHECK_URL" ]; then
+        log_error "No single AMQ URL found in secret, please use amq-connect.sh for multi-broker setup"
+        exit 1
+    fi
+
     URL=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
-    LOCAL_PORT=8161
 
     # extract host and port
     HOST=$(echo $URL | cut -d '/' -f 3 | cut -d ':' -f 1)
@@ -105,7 +129,7 @@ cleanup() {
 
 if [ -z "$1" ]; then
     log_info "env not provided"
-    log_info "Usage: amq-connect-single.sh <env>"
+    log_info "Usage: amq-connect-single.sh <env> <local_port>"
     exit 1
 fi
 main "$1" "$2"
