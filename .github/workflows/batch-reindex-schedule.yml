@@ -4,9 +4,9 @@ name: "Alfresco: Batch Reindex Schedule"
 # It sets the "run_on_schedule" input to "true" so that the runner knows
 # it is being run on a schedule.
 on:
-  schedule:
+  #schedule:
     # Run every 6 hours as GHA timeout is around 6 hours
-    - cron: '0 */6 * * *'
+    #- cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
