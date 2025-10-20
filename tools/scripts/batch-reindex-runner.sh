@@ -32,9 +32,8 @@ set -euo pipefail
 
 # ----------------------------- Configurable bits ------------------------------
 # We reindex backwards so STARTING_NODE_ID should be higher than the ENDING_NODE_ID
-STARTING_NODE_ID=${2:-20562467}
-ENDING_NODE_ID=${3:-14992824}
-#ENDING_NODE_ID=1000
+STARTING_NODE_ID=
+ENDING_NODE_ID=${2:-1000}
 BATCH_SIZE=200000
 
 PARENT_NODE_ID_FOR_CHILDREN=738
