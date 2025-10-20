@@ -8,6 +8,7 @@ on:
         required: true
         type: choice
         options:
+          - preprod
           - prod 
       ssm_prefix:
         description: "SSM Parameter Store prefix for legacy RDS credentials"
