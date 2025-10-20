@@ -8,7 +8,7 @@ spec:
   storageClassName: gp3
   resources:
     requests:
-      storage: "500Gi" 
+      storage: "600Gi" 
       # if you want to modify the size then note you can only do it once per six hours due to AWS limits
       # if you need to modify it again sooner then you have to delete the PVC and let it be recreated
       # be aware that deleting the PVC will also delete the data in the volume
