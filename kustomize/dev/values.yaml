@@ -41,7 +41,7 @@ alfresco-repository:
   replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: release_7.3.2_elasticsearch-r5.0.4-content-latest
+    tag: release_7.3.2_elasticsearch-r5.0.6-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
       cpu: 1
