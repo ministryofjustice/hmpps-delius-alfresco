@@ -179,6 +179,8 @@ def list_ids_with_scroll(base_http: str, index: str, size: int, outfile: str, sc
       "filter_path": "_scroll_id,hits.hits._id"
     }
     search_url = f"{join_url(base_http, index, '_search')}?{urllib.parse.urlencode(params)}"
+# Initially ran in prod with "gte": "1566226791861" to get docs created after 20th Aug 2019.
+# After reindexing, we want to get all docs before that, so use "lte" instead.
     body = {
       "size": size,
       "sort": [{"cm%3Acreated": "desc"}],
@@ -189,7 +191,7 @@ def list_ids_with_scroll(base_http: str, index: str, size: int, outfile: str, sc
           "filter": [
             { "range": { 
                 "METADATA_INDEXING_LAST_UPDATE":{
-                    "gte": "1566226791861"
+                    "gte": "0"
                     }
                 }   
             }

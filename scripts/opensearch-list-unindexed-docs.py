@@ -213,7 +213,7 @@ def list_ids_with_scroll(base_http: str, index: str, size: int, outfile: str, sc
             ],
             "filter": [
                 { "range": { "cm%3Acontent%2Esize": { "lte": "26214400" }}},
-                { "range": { "METADATA_INDEXING_LAST_UPDATE": {"gte": "1499390026734"}}}
+                { "range": { "METADATA_INDEXING_LAST_UPDATE": {"gte": "0"}}}
             ]  
             }
         }
