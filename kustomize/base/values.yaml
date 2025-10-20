@@ -261,9 +261,9 @@ alfresco-transform-service:
   filestore:
     # -- Declares the alfresco-shared-file-store used by the content repository
     # and transform service
-    # due to platform constraints, the filestore is in MP
-    enabled: false
-    replicaCount: 0
+    enabled: true
+    # Only ever have one filestore pod as the PVC can only be mounted RW by a single node
+    replicaCount: 1
     image:
       repository: quay.io/alfresco/alfresco-shared-file-store
       tag: 4.0.1
@@ -273,6 +273,19 @@ alfresco-transform-service:
       data:
         mountPath: "/tmp/Alfresco"
         subPath: "alfresco-content-services/filestore-data"
+    strategy:
+      # -- Strategy must be set to Recreate when persistence supports only
+      # `ReadWriteOnce` access mode. If `ReadWriteMany` is supported, then it
+      # can be set to RollingUpdate.
+      type: Recreate
+    readinessProbe:
+      httpGet:
+        port: 80
+    livenessProbe:
+      httpGet:
+        port: 80
+    ports:
+      - containerPort: 80
 share:
   # -- toggle deploying Alfresco Share UI
   enabled: true

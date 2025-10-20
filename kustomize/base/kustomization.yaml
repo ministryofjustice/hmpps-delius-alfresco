@@ -22,6 +22,7 @@ patches:
   - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-content.yaml
   - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-metadata.yaml
   - path: patch-security-contexts/alfresco-content-services-alfresco-search-enterprise-path.yaml
+  - path: patch-security-contexts/alfresco-content-services-filestore.yaml
   - path: patch-security-contexts/alfresco-content-services-imagemagick.yaml
   - path: patch-security-contexts/alfresco-content-services-libreoffice.yaml
   - path: patch-security-contexts/alfresco-content-services-pdfrenderer.yaml
@@ -30,3 +31,17 @@ patches:
   - path: patch-security-contexts/alfresco-content-services-transform-router.yaml
   - path: patch-security-contexts/alfresco-search-enterprise-mediation.yaml
   - path: patch-activemq-logging.yaml
+  # Set filestore strategy to Recreate as we use a persistent volume with RWO access mode
+  # We have to override the base config using this method as it doesn't support changing
+  # the strategy type from RollingUpdate to Recreate using the strategic merge patch method.
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: alfresco-content-services-filestore
+    patch: |-
+      - op: remove
+        path: /spec/strategy/rollingUpdate
+      - op: replace
+        path: /spec/strategy/type
+        value: Recreate
