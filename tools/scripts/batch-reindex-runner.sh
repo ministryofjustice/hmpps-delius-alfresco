@@ -32,8 +32,8 @@ set -euo pipefail
 
 # ----------------------------- Configurable bits ------------------------------
 # We reindex backwards so STARTING_NODE_ID should be higher than the ENDING_NODE_ID
-STARTING_NODE_ID=814659105
-ENDING_NODE_ID=814580955
+STARTING_NODE_ID=${2:-20562467}
+ENDING_NODE_ID=${3:-14992824}
 #ENDING_NODE_ID=1000
 BATCH_SIZE=200000
 
@@ -82,6 +82,8 @@ kubectl_retry() {
   local max_retries=5
   local delay=10
   local attempt=1
+  # Re-establish kubectl context namespace to avoid stale connections
+  kubectl config set-context --current --namespace=${K8S_NAMESPACE} >/dev/null
 
   while true; do
     if kubectl "$@"; then
@@ -113,6 +115,8 @@ get_utils_pod() {
 # Run a SQL query and echo rows (tab-separated, unaligned) to stdout
 sql() {
   query="$1"
+  # Re-establish kubectl context namespace to avoid stale connections
+  kubectl config set-context --current --namespace=${K8S_NAMESPACE} >/dev/null
   local pod; pod=$(get_utils_pod)
   [[ -z "$pod" ]] && fatal "Could not locate a 'utils' pod in namespace $K8S_NAMESPACE"
 
@@ -132,6 +136,8 @@ EOF
 }
 
 amq() {
+  # Re-establish kubectl context namespace to avoid stale connections
+  kubectl config set-context --current --namespace=${K8S_NAMESPACE} >/dev/null
   local pod; pod=$(get_utils_pod)
   [[ -z "$pod" ]] && fatal "Could not locate a 'utils' pod in namespace $K8S_NAMESPACE"
   local tmpfile=$(mktemp)
@@ -155,9 +161,9 @@ EOF
 
 # Wait until the AMQ queue is at or below QUEUE_THRESHOLD
 wait_queue_below_threshold() {
-  log "Waiting ${INITIAL_QUEUE_SETTLE_SEC}s for queue to start filling after batch …"
-  sleep "${INITIAL_QUEUE_SETTLE_SEC}"
-  
+  log "Waiting ${1}s for queue to start filling after batch …"
+  sleep "${1}"
+
   local start_ts now count
   start_ts=$(date +%s)
 
@@ -200,16 +206,17 @@ run_reindex_task() {
 # State management (JSON stored very simply without jq to avoid dependency)
 write_state() {
   local next_max=$1
-  printf '{"next_max_id":%s,"updated":"%s"}\n' "$next_max" "$(date -Iseconds)" >"${STATE_FILE}.tmp"
-  mv "${STATE_FILE}.tmp" "${STATE_FILE}"
+  # persist new resume point if the job succeeded
+  echo "Persisting next_max_id=${next_max} to $STATE_CM"
+  kubectl -n "$K8S_NAMESPACE" patch configmap "$STATE_CM" --type merge -p "{\"data\":{\"next_max_id\":\"${next_max}\"}}"
 }
 
 read_state_or_empty() {
-  if [[ -f "${STATE_FILE}" ]]; then
-    awk -F '[,:}]' '/next_max_id/{gsub(/[^0-9]/, "", $2); print $2}' "${STATE_FILE}" | head -n1
-  else
-    echo ""
-  fi
+  # --- load/persist runner state in a ConfigMap (resumable across runs)
+  RESUME_MAX=9999999999
+  kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$K8S_NAMESPACE" create configmap "$STATE_CM" --from-literal=next_max_id=
+  RESUME_MAX="$(kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" -o jsonpath='{.data.next_max_id}' || true)"
+  echo "$RESUME_MAX"
 }
 
 # ---- Fix for parsing batch window output ----
@@ -223,19 +230,31 @@ parse_batch_row() {
 
 # ---------------------------- Phase 1: hierarchy ------------------------------
 phase_hierarchy() {
-  log "Phase 1: Reindex hierarchy ids 0..1000"
-  run_reindex_task 0 1000
+  kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$K8S_NAMESPACE" create configmap "$STATE_CM"
+  PHASE1="$(kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" -o jsonpath='{.data.phase1}' || true)"
+  if [[ "$PHASE1" != "done" ]]; then
+    echo "Phase 1: reindex 0..1000"
+    kubectl -n "$K8S_NAMESPACE" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase1":"done"}}'
+    run_reindex_task 0 1000
+  else
+    echo "Phase 1 already marked done in $STATE_CM"
+  fi
 }
 
 # ---------------------- Phase 2: specific parent children ---------------------
 phase_parent_children() {
-  log "Phase 2: Reindex all children of parent_node_id=${PARENT_NODE_ID_FOR_CHILDREN}"
-  local q="SELECT aca.child_node_id, aca.child_node_id+1 AS to_id\n          FROM alf_child_assoc aca\n          WHERE aca.parent_node_id = ${PARENT_NODE_ID_FOR_CHILDREN}\n          ORDER BY aca.child_node_id ASC;"
-  while IFS=$'\t' read -r from_id to_id; do
-    [[ -z "$from_id" || -z "$to_id" ]] && continue
-    log "Reindexing children of parent_node_id=${PARENT_NODE_ID_FOR_CHILDREN}: FROM=${from_id} TO=${to_id}"
-    run_reindex_task "$from_id" "$to_id"
-  done < <(sql "$q")
+  kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$K8S_NAMESPACE" create configmap "$STATE_CM"
+  PHASE2="$(kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" -o jsonpath='{.data.phase2}' || true)"
+  if [[ "$PHASE2" != "done" ]]; then
+    echo "Phase 2: reindex children of parent ${PARENT_NODE_ID_FOR_CHILDREN}"
+    kubectl -n "$K8S_NAMESPACE" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase2":"done"}}'
+    while IFS=$'\t' read -r from_id to_id; do
+      [[ -z "$from_id" || -z "$to_id" ]] && continue
+      run_reindex_task "$from_id" "$to_id"
+    done < <(sql "SELECT aca.child_node_id, aca.child_node_id+1 FROM alf_child_assoc aca WHERE aca.parent_node_id=${PARENT_NODE_ID_FOR_CHILDREN} ORDER BY aca.child_node_id ASC;")
+  else
+    echo "Phase 2 already marked done in $STATE_CM"
+  fi
 }
 
 # ---------------------- Phase 3: batched descending loop ----------------------
@@ -256,8 +275,8 @@ get_max_child_id() {
   fi
 }
 
-phase_descending_batches() {
-  log "Phase 3: Descending batches of ${BATCH_SIZE}"
+batches_phase() {
+  log "Phase 3: batches of ${BATCH_SIZE}"
 
   # Values for checking the queue in Amazon MQ
   AMQ_BROKER_URL=$(kubectl -n "$K8S_NAMESPACE" get secrets amazon-mq-broker-secret -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
@@ -265,6 +284,11 @@ phase_descending_batches() {
   AMQ_BROKER_PASSWORD=$(kubectl -n "$K8S_NAMESPACE" get secret amazon-mq-broker-secret -o json | jq -r ".data | map_values(@base64d) | .BROKER_PASSWORD")
   AMQ_QUEUE_NAME="acs-repo-transform-request"
   AMQ_QUEUE_STAT="size"
+
+  # We're going to use a sql query to get the batch windows rather than using stored values.
+  # If the count of nodes in the batch is > 10000 then we need to wait for the queue to drain
+  # before proceeding to the next batch. Otherwise we can start a new batch immediately if the number of pods is less than MAX_PODS (which is 100).
+
 
   local resume_max
   resume_max=$(read_state_or_empty)
@@ -288,7 +312,12 @@ phase_descending_batches() {
     log "Starting from node id=${max_id}"
   fi
 
+  wait_queue_below_threshold 0
+
   while (( max_id > 0 )); do
+    # Re-establish kubectl context namespace to avoid stale connections
+  	kubectl config set-context --current --namespace=${K8S_NAMESPACE}
+
     log "Computing window ≤ ${max_id} …"
     local row
     row=$(calc_batch_window "$max_id") || fatal "Failed to compute batch window"
@@ -315,7 +344,7 @@ phase_descending_batches() {
     run_reindex_task "$min_id" "$window_max"
     write_state "$min_id"
 
-    wait_queue_below_threshold
+    wait_queue_below_threshold ${INITIAL_QUEUE_SETTLE_SEC}
 
     # Prepare for next window: use the previous min_id as new max bound
     max_id=$min_id
@@ -339,30 +368,19 @@ main() {
   else
       K8S_NAMESPACE="hmpps-delius-alfresco-${ENV}"
   fi
-  STATE_FILE="${LOG_DIR}/reindex_state.${ENV}.json"
+  STATE_CM="reindex-runner-state-${ENV}"
 
   ensure_tools
   export KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
   export KUBECTL_NAMESPACE_OVERRIDE="${K8S_NAMESPACE}"
 
   log "Starting reindex runner for ENV=${ENV} in namespace ${K8S_NAMESPACE} …"
+  # Establish kubectl context namespace to avoid stale connections
+	kubectl config set-context --current --namespace=${K8S_NAMESPACE}
 
-  # Phase 1 & 2 should run only once; guard with simple sentinels
-  if [[ ! -f ${LOG_DIR}/phase1.${ENV}.done ]]; then
-    phase_hierarchy
-    touch ${LOG_DIR}/phase1.${ENV}.done
-  else
-    log "Phase 1 already completed (marker ${LOG_DIR}/phase1.${ENV}.done exists)."
-  fi
-
-  if [[ ! -f ${LOG_DIR}/phase2.${ENV}.done ]]; then
-    phase_parent_children
-    touch ${LOG_DIR}/phase2.${ENV}.done
-  else
-    log "Phase 2 already completed (marker ${LOG_DIR}/phase2.${ENV}.done exists)."
-  fi
-
-  phase_descending_batches
+  phase_hierarchy
+  phase_parent_children
+  batches_phase
 }
 
 main "$@"
