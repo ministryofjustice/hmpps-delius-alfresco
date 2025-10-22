@@ -622,6 +622,7 @@ tasks:
           BASE_TRANSFORM_ROUTER_REPLICAS="{{.COUNT}}"
           TRANSFORM_MISC_REPLICAS="{{.COUNT}}"
           IMAGEMAGICK_REPLICAS="{{.COUNT}}"
+          FILESTORE_REPLICAS="{{.COUNT}}"
           LIBREOFFICE_REPLICAS="{{.COUNT}}"
           PDFRENDERER_REPLICAS="{{.COUNT}}"
           PATH_REPLICAS="{{.COUNT}}"
@@ -660,6 +661,7 @@ tasks:
           CONTENT_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // 1' values.yaml)
           METADATA_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // 1' values.yaml)
           MEDIATION_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // 1' values.yaml)
+          FILESTORE_REPLICAS=1  # Filestore is always 1 replica
 
           SHARE_REPLICAS=$(yq '(.share.replicaCount) // (load("../base/values.yaml") | .share.replicaCount) // 1' values.yaml)
         fi
@@ -689,6 +691,7 @@ tasks:
         fi
 
         kubectl scale deployment "${RELEASE_NAME}-imagemagick" -n "$NS" --replicas=${IMAGEMAGICK_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-filestore" -n "$NS" --replicas=${FILESTORE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-libreoffice" -n "$NS" --replicas=${LIBREOFFICE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-pdfrenderer" -n "$NS" --replicas=${PDFRENDERER_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-content" -n "$NS" --replicas=${CONTENT_REPLICAS}
