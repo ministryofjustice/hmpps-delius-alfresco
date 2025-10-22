@@ -282,7 +282,19 @@ tasks:
           echo "ℹ️ Small ID range detected. No scaling needed."
         fi
 
-        task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
+        # If SKIP_CM_DELETION is set to any value, skip deletion; otherwise, perform deletion
+        SKIP_CM_DELETION="{{.SKIP_CM_DELETION}}"
+        if [ -z "$SKIP_CM_DELETION" ]; then
+          SKIP_CM_DELETION="false"
+        else
+          SKIP_CM_DELETION="true"
+        fi
+        if [ "$SKIP_CM_DELETION" = "true" ]; then
+          echo "⚠️  Skipping deletion of existing reindexing configmaps as SKIP_CM_DELETION is set to true"
+        else
+          echo "🗑️ Deleting existing reindexing configmaps for range $FROM_ID to $TO_ID..."
+          task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
+        fi
 
         helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
     silent: true
@@ -369,7 +381,7 @@ tasks:
           exit 1
         fi
 
-        PREFIX="reindexing-${FROM}-${TO}-"
+        PREFIX="reindexing-${FROM}-${TO}"
         echo "🔍 Searching for configmaps with prefix $PREFIX in $NS..."
 
         CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}" || true)
@@ -404,6 +416,30 @@ tasks:
             kubectl delete configmap "$CM" -n "$NS" --ignore-not-found
           else
             echo "⏭️  Skipping $CM as it's currently in use"
+          fi
+        done
+
+        JOBS=$(kubectl get jobs -n "$NS" -o json | jq -r '.items[].metadata.name' | grep "^${PREFIX}" || true)
+        for JOB in $JOBS; do
+          echo "🔎 Checking if Job $JOB is in use..."
+
+          JOB_IN_USE=false
+          for POD in $(echo "$ACTIVE_PODS" | jq -r '.items[].metadata.name'); do
+            POD_JSON=$(kubectl get pod "$POD" -n "$NS" -o json)
+
+            if echo "$POD_JSON" | jq -e --arg JOB "$JOB" '.spec.volumes[]?.configMap.name == $JOB' >/dev/null ||
+              echo "$POD_JSON" | jq -e --arg JOB "$JOB" '.spec.containers[].envFrom[]?.configMapRef.name == $JOB' >/dev/null; then
+              echo "⚠️  In use by pod $POD"
+              JOB_IN_USE=true
+              break
+            fi
+          done
+
+          if [ "$JOB_IN_USE" = false ]; then
+            echo "🗑️  Deleting unused Job $JOB"
+            kubectl delete job "$JOB" -n "$NS"
+          else
+            echo "⏭️  Skipping $JOB as it's in use"
           fi
         done
     silent: true
@@ -493,6 +529,13 @@ tasks:
           echo "Restarting deployment: $DEPLOYMENT"
           kubectl rollout restart deployment "$DEPLOYMENT" -n "$NS"
         done
+
+        STATEFULSETS=$(kubectl get sts -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^alfresco-" || true)
+        for sts in $STATEFULSETS; do
+          kubectl scale statefulset "$sts" -n "$NS" --replicas=1
+          kubectl rollout status statefulset "$sts" -n "$NS" --timeout=120s || true
+        done
+
     silent: true
 
   reindex_scale_up:
@@ -579,6 +622,7 @@ tasks:
           BASE_TRANSFORM_ROUTER_REPLICAS="{{.COUNT}}"
           TRANSFORM_MISC_REPLICAS="{{.COUNT}}"
           IMAGEMAGICK_REPLICAS="{{.COUNT}}"
+          FILESTORE_REPLICAS="{{.COUNT}}"
           LIBREOFFICE_REPLICAS="{{.COUNT}}"
           PDFRENDERER_REPLICAS="{{.COUNT}}"
           PATH_REPLICAS="{{.COUNT}}"
@@ -617,6 +661,7 @@ tasks:
           CONTENT_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.content.replicaCount) // 1' values.yaml)
           METADATA_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // 1' values.yaml)
           MEDIATION_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // 1' values.yaml)
+          FILESTORE_REPLICAS=1  # Filestore is always 1 replica
 
           SHARE_REPLICAS=$(yq '(.share.replicaCount) // (load("../base/values.yaml") | .share.replicaCount) // 1' values.yaml)
         fi
@@ -645,16 +690,17 @@ tasks:
           kubectl get hpa -n "$NS" | grep "^${RELEASE_NAME}-" || true
         fi
 
-        kubectl scale deployment "${RELEASE_NAME}-share" -n "$NS" --replicas=${SHARE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-imagemagick" -n "$NS" --replicas=${IMAGEMAGICK_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-filestore" -n "$NS" --replicas=${FILESTORE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-libreoffice" -n "$NS" --replicas=${LIBREOFFICE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-pdfrenderer" -n "$NS" --replicas=${PDFRENDERER_REPLICAS}
-        kubectl scale deployment "${RELEASE_NAME}-transform-misc" -n "$NS" --replicas=${TRANSFORM_MISC_REPLICAS}
-        kubectl scale deployment "${RELEASE_NAME}-transform-router" -n "$NS" --replicas=${TRANSFORM_ROUTER_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-content" -n "$NS" --replicas=${CONTENT_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-metadata" -n "$NS" --replicas=${METADATA_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-path" -n "$NS" --replicas=${PATH_REPLICAS}
         kubectl scale statefulset "alfresco-search-enterprise-mediation" -n "$NS" --replicas=${MEDIATION_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-share" -n "$NS" --replicas=${SHARE_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-transform-misc" -n "$NS" --replicas=${TRANSFORM_MISC_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-transform-router" -n "$NS" --replicas=${TRANSFORM_ROUTER_REPLICAS}
     silent: true
 
 

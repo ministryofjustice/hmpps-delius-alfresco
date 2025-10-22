@@ -1,6 +1,6 @@
-- "3.10.104.193" # legacy delius-stage-az1-nat-gateway
-- "3.11.26.150" # legacy delius-stage-az2-nat-gateway
-- "18.130.189.137" # legacy delius-stage-az3-nat-gateway
+- "52.56.240.62" # delius-pre-prod-az1-nat-gateway
+- "18.130.110.168" # delius-pre-prod-az2-nat-gateway
+- "35.178.44.184" # delius-pre-prod-az3-nat-gateway
 - "35.178.209.113" # Cloud Platform live-1-eu-west-2a
 - "3.8.51.207" # Cloud Platform live-1-eu-west-2c
 - "35.177.252.54" # Cloud Platform live-1-eu-west-2b
@@ -44,3 +44,6 @@
 - "128.77.75.64/26" # Prisma access corporate
 - "128.77.75.0/26" # Prisma access third party
 - "128.77.75.128/26" # Prisma access residents
+- "54.195.74.96/32" # Analytical Platform Tools
+- "79.125.36.56/32" # Analytical Platform Tools
+- "63.35.122.32/32" # Analytical Platform Tools

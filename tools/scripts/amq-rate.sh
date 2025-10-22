@@ -1,8 +1,9 @@
 #!/bin/bash
-# amq-wait-empty.sh
-# Usage: ./amq-wait-empty.sh <env> <queue_name> <stop_stat> [interval_secs]
-# Example: ./amq-wait-empty.sh dev acs-repo-transform-request size 30
+# amq-rate.sh
+# Usage: ./amq-rate.sh <env> <queue_name> <stop_stat> [interval_secs]
+# Example: ./amq-rate.sh dev acs-repo-transform-request size preprod 30
 # - <stop_stat> is usually 'size'. The rate is always computed from dequeueCount.
+# This is a simpler version of amq-wait-empty.sh that just prints the rate and doesn't wait for the queue to empty.
 
 set -euo pipefail
 
@@ -10,13 +11,12 @@ env=$1
 QUEUE_NAME=${2:-"acs-repo-transform-request"}
 STOP_STAT=${3:-"size"}
 INTERVAL=${4:-30}
-WARN_LEVEL=${5:-1000}
 
 if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
     log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod or prod."
     exit 1
 fi
-  
+
 get_total_for() {
   local stat="$1"
   ./amq-totals.sh "$env" "$QUEUE_NAME" "$stat" \
@@ -70,16 +70,6 @@ while true; do
   fi
 
   echo "$line"
-
-  if [[ "$size_total" -lt "$WARN_LEVEL" ]]; then
-    echo "Queue ${QUEUE_NAME} is almost empty."
-    osascript -e 'tell application "System Events" to display dialog "Queue is almost empty." with title "Alert Box"'
-  fi
-
-  if [[ "$size_total" -eq 0 ]]; then
-    echo "Queue ${QUEUE_NAME} is empty."
-    exit 0
-  fi
 
   prev_deq="$deq_total"
   prev_ts="$now_ts"

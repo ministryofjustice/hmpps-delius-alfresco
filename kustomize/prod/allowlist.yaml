@@ -1,6 +1,6 @@
-- "3.10.104.193" # legacy delius-stage-az1-nat-gateway
-- "3.11.26.150" # legacy delius-stage-az2-nat-gateway
-- "18.130.189.137" # legacy delius-stage-az3-nat-gateway
+- "52.56.115.146" # delius-pre-prod-az1-nat-gateway
+- "35.178.104.253" # delius-pre-prod-az2-nat-gateway
+- "35.177.47.45" # delius-pre-prod-az3-nat-gateway
 - "35.178.209.113" # Cloud Platform live-1-eu-west-2a
 - "3.8.51.207" # Cloud Platform live-1-eu-west-2c
 - "35.177.252.54" # Cloud Platform live-1-eu-west-2b

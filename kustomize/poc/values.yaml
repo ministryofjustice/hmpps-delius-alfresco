@@ -8,6 +8,10 @@ alfresco-repository:
       -Dindex.subsystem.name=elasticsearch
       -Delasticsearch.indexName=alfresco
       -Delasticsearch.createIndexIfNotExists=true
+      -Delasticsearch.max.total.connections=200
+      -Delasticsearch.max.host.connections=100
+      -Delasticsearch.http.connection.timeout=10000
+      -Delasticsearch.http.socket.timeout=120000
       -Dtransform.service.enabled=true
       -Dtransform.service.url=http://alfresco-content-services-transform-router
       -XX:MinRAMPercentage=50
@@ -37,7 +41,7 @@ alfresco-repository:
   replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: release_7.3.2_elasticsearch-r5.0.4-content-latest
+    tag: release_7.3.2_elasticsearch-r5.0.6-content-latest
   persistence:
     # -- Persist repository data
     enabled: false
@@ -69,7 +73,7 @@ alfresco-transform-service:
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault  
-    replicaCount: 1
+    replicaCount: 2
     resources:
       requests:
         cpu: "0.5"
@@ -81,7 +85,7 @@ alfresco-transform-service:
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault  
-    replicaCount: 1
+    replicaCount: 2
     resources:
       requests:
         cpu: "0.75"
@@ -89,30 +93,6 @@ alfresco-transform-service:
       limits:
         cpu: "2"
         memory: 2Gi
-  filestore:
-    # -- Declares the alfresco-shared-file-store used by the content repository
-    # and transform service
-    enabled: false
-    replicaCount: 1
-    persistence:
-      # -- Persist filestore data
-      enabled: true
-      data:
-        mountPath: "/tmp/Alfresco"
-        subPath: "alfresco-content-services/filestore-data"
-    strategy:
-      # -- Strategy must be set to Recreate when persistence supports only
-      # `ReadWriteOnce` access mode. If `ReadWriteMany` is supported, then it
-      # can be set to RollingUpdate.
-      type: Recreate
-    readinessProbe:
-      httpGet:
-        port: 80
-    livenessProbe:
-      httpGet:
-        port: 80
-    ports:
-      - containerPort: 80
 global:
   known_urls:
     - https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk

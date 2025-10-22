@@ -3,15 +3,12 @@ kind: Kustomization
 
 resources:
   - ../base
-  - filestore-data-pvc.yaml
   - alf-prop-config-map.yaml
   - hpa-repository.yaml
   - hpa-tika.yaml
-  - cronjob-restart-repo.yaml
-  - role-restart-repo.yaml
-  - rolebinding-restart-repo.yaml
 
 patches:
+  - path: patch-pvc-filestore.yaml
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-infra-config-map.yaml

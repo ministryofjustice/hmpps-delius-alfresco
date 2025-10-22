@@ -7,6 +7,10 @@ alfresco-repository:
       -Dindex.subsystem.name=elasticsearch
       -Delasticsearch.indexName=alfresco
       -Delasticsearch.createIndexIfNotExists=true
+      -Delasticsearch.max.total.connections=200
+      -Delasticsearch.max.host.connections=100
+      -Delasticsearch.http.connection.timeout=10000
+      -Delasticsearch.http.socket.timeout=120000
       -Dtransform.service.enabled=true
       -Dtransform.service.url=http://alfresco-content-services-transform-router
       -XX:MinRAMPercentage=50
@@ -23,6 +27,7 @@ alfresco-repository:
       -Dsystem.delete_not_exists.timeout_seconds=3600
       -Dfilecontentstore.subsystem.name=S3
       -Ds3.flatRoot=false
+      -Dsfs.url=${SFS_URL}
       -Dcom.sun.management.jmxremote
       -Dcom.sun.management.jmxremote.port=9010
       -Dcom.sun.management.jmxremote.rmi.port=9010
@@ -35,7 +40,7 @@ alfresco-repository:
   replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: release_7.3.2_elasticsearch-r5.0.4-content-latest
+    tag: release_7.3.2_elasticsearch-r5.0.6-content-latest
   resources: # requests and limits set closer together to ensure CP stability
     requests:
       cpu: 1

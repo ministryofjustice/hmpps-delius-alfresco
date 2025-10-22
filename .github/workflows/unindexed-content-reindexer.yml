@@ -195,13 +195,25 @@ jobs:
               "size": 1000,
               "_source": false,
               "query": { "bool": {
-                "filter": [ { "range": {"cm%3Acreated": { "gte": $window }} } ],
+                "filter": [ { "range": {"cm%3Acreated": { "gte": $window }}},
+                  { "range": { "cm%3Acontent%2Esize": { "lte": "26214400" }}} ],
                 "must":   [ { "match": { "TYPE": "nspg:offenderDocument" } } ],
                 "must_not": [
-                  { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
-                  { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
-                  { "exists": { "field": "cm%3Acontent" } },
-                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}},
+                  { "match" : { "cm%3Aname": "YSW*"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "application/octet-stream"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/gif"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/bmp"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "video/mp4"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/mpeg"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/x-wav"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/mp4"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/tiff"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "video/quicktime"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/x-flac"}},
+                  { "exists": { "field": "cm%3Acontent" }}
                 ]
               }},
               "sort": [ {"_id":"desc"} ],
@@ -213,13 +225,25 @@ jobs:
               "size": 1000,
               "_source": false,
               "query": { "bool": {
-                "filter": [ { "range": {"METADATA_INDEXING_LAST_UPDATE": { "gte": $start, "lte": $end }} } ],
-                "must":   [ { "match": { "TYPE": "nspg:offenderDocument" } } ],
+                "filter": [ { "range": {"METADATA_INDEXING_LAST_UPDATE": { "gte": $start, "lte": $end }}},
+                  { "range": { "cm%3Acontent%2Esize": { "lte": "26214400" }}} ],
+                "must":   [ { "match": { "TYPE": "nspg:offenderDocument" }} ],
                 "must_not": [
-                  { "match": {"cm%3Acontent%2Emimetype":"image/jpeg"} },
-                  { "match": {"cm%3Acontent%2Emimetype":"image/png"} },
-                  { "exists": { "field": "cm%3Acontent" } },
-                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}}
+                  { "match" : { "cm%3Acontent%2Etr_status": "TRANSFORM_FAILED"}},
+                  { "match" : { "cm%3Aname": "YSW*"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/jpeg"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/png"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "application/octet-stream"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/gif"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/bmp"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "video/mp4"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/mpeg"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/x-wav"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/mp4"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "image/tiff"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "video/quicktime"}},
+                  { "match" : { "cm%3Acontent%2Emimetype": "audio/x-flac"}},
+                  { "exists": { "field": "cm%3Acontent" }}
                 ]
               }},
               "sort": [ {"_id":"desc"} ],
