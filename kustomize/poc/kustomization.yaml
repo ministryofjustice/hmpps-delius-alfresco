@@ -6,6 +6,7 @@ resources:
   - alf-prop-config-map.yaml
   - hpa-repository.yaml
   - hpa-tika.yaml
+  - reindexing.yaml
 
 patches:
   - path: patch-pvc-filestore.yaml
