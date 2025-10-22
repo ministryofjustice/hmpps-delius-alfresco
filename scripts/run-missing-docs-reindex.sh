@@ -111,7 +111,8 @@ cleanup_finished_jobs() {
 # Start one reindex job by node id (non-blocking) with graceful error handling
 start_reindex_for_id() {
   local id="$1"
-  local next=$(( id + 1 ))
+  # use $2 for the next id if passed in, otherwise calculate next as id+1
+  local next=${2:-$(( id + 1 ))}
   local job="reindexing-${id}-${next}"
 
   {
@@ -156,6 +157,8 @@ total="${#IDS[@]}"
 echo "Total IDs to process: ${total}" | tee -a "${LOG_FILE}"
 
 while (( idx < total )); do
+  # Re-establish kubectl context namespace to avoid stale connections
+  kubectl config set-context --current --namespace=${NS}
   # Current pod usage
   current="$(count_pods)"
   # Available headroom (never negative)
