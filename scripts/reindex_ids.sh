@@ -41,7 +41,6 @@ while IFS= read -r ID; do
     --alfresco.reindex.toId="$((ID + 1))" \
     --alfresco.reindex.concurrentProcessors="$CONCURRENT" \
     >/dev/null 2>&1 || echo "⚠️  Failed for ID: $ID (continuing)"
-    exit 0
 done < "$ID_FILE"
 
 echo "✅ All IDs processed."
