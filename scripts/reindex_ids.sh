@@ -27,11 +27,12 @@ PAGESIZE=100
 BATCHSIZE=100
 CONCURRENT=2
 LOG_FILE="/tmp/reindex_ids.log"
+TOMCAT_LOG_FILE="/tmp/tomcat.log"
 
 while IFS= read -r ID; do
   # skip blank lines
   [[ -z "$ID" ]] && continue
-
+  rm -rf /tmp/tomcat.*  # clean up temp and log files between runs
   echo "Reindexing ID: $ID" | tee -a "$LOG_FILE"
   java -jar app.jar \
     --alfresco.reindex.jobName=reindexByIds \
@@ -39,8 +40,8 @@ while IFS= read -r ID; do
     --alfresco.reindex.batchSize="$BATCHSIZE" \
     --alfresco.reindex.fromId="$ID" \
     --alfresco.reindex.toId="$((ID + 1))" \
-    --alfresco.reindex.concurrentProcessors="$CONCURRENT" \
-    >/dev/null 2>&1 || echo "⚠️  Failed for ID: $ID (continuing)"
+    --alfresco.reindex.concurrentProcessors="$CONCURRENT" | tee -a "$TOMCAT_LOG_FILE"
+    #>/dev/null 2>&1 || echo "⚠️  Failed for ID: $ID (continuing)"
 done < "$ID_FILE"
 
 echo "✅ All IDs processed."
