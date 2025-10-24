@@ -23,6 +23,12 @@ spec:
           - mountPath: /tmp/Alfresco
             name: data
             subPath: alfresco-content-services/filestore-default-pvc
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              # 3h retention (10800000 ms), cleanup every hour (3600000 ms).
+              value: >-
+                -Dscheduler.content.age.millis=10800000
+                -Dscheduler.cleanup.interval=3600000
       volumes:
       - name: data
         persistentVolumeClaim:
