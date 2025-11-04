@@ -25,7 +25,7 @@ jobs:
     
     strategy:
       matrix:
-        environment: ${{ github.event_name == 'schedule' && fromJson('["poc", "dev", "test", "stage", "preprod"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
+        environment: ${{ github.event_name == 'schedule' && fromJson('["poc", "dev", "test", "stage", "preprod", "prod"]') || fromJson(format('["{0}"]', github.event.inputs.environment)) }}
 
     environment: ${{ matrix.environment }}-preapproved
     
