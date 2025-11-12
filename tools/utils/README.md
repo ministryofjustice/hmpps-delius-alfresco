@@ -22,6 +22,10 @@ The Utils Pod provides an interactive container with essential utilities for tro
 
 ### Deploying the Utils Pod
 
+The utils pod is required by some of the Github Actions for running SQL statements, etc, so it has been added to the taskfile (as task install_utils), which is called when there is a new deployment. That means that the utils pod is now automatically deployed to the namespace and is always running.
+
+However if it ever needs to be deployed manually (as it was in the past), these are the steps:
+
 ```bash
 # Navigate to the utils directory
 cd tools/utils
@@ -37,7 +41,8 @@ helm upgrade --install utils . --set environment=<env>
 Once deployed you can access the pod using:
 
 ```bash
-kubectl exec -it utils -- /bin/bash -l
+UTILS=$(kubectl -n "$ns" get pods -l app=utils -o name 2>/dev/null | cut -d/ -f2)
+kubectl exec -it ${UTILS} -- /bin/bash -l
 ```
 
 ### Connecting to the Database
