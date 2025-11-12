@@ -1,8 +1,8 @@
 #
 # Alfresco Unindexed Content Runner
 #
-# This GitHub Actions workflow automates the process of reindexing Alfresco docs modified
-# or created within a specified time window (in hours). It is run from the scheduler file.
+# This GitHub Actions workflow automates the process of reindexing Alfresco docs 
+# created within a specified time window (in hours). It is run from the scheduler file.
 #
 # Workflow Overview:
 # - Accepts environment and look-back window (in hours) as inputs.
@@ -148,8 +148,7 @@ jobs:
             (extract (epoch from ((now() - interval '${HOURS} hour')::timestamptz))::double precision*1000)::bigint as window_start
             from alf_node n 
             join alf_store s on s.id = n.store_id 
-            where (n.audit_modified > (now() - interval '${HOURS} hour')::timestamptz::text
-              or n.audit_created > (now() - interval '${HOURS} hour')::timestamptz::text)
+            where n.audit_created > (now() - interval '${HOURS} hour')::timestamptz::text
             and s.protocol = 'workspace' 
             and s.identifier = 'SpacesStore';"
           }
