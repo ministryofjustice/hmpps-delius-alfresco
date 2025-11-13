@@ -78,7 +78,7 @@ copy_prefix_current() {
 copy_prefix_all_versions() {
   local src_prefix="$1" dest_prefix="$2"
   log "Enumerating versions under s3://$SRC_BUCKET/$src_prefix"
-  local token="" total=0
+  local token="" total=0 skipped=0
   while :; do
     local page
     if [[ -n "$token" ]]; then
@@ -91,10 +91,12 @@ copy_prefix_all_versions() {
         --prefix "$src_prefix")
     fi
 
+    # Extract delete markers to identify keys that have been deleted
+    delete_marker_keys=$(jq -r '.DeleteMarkers[]? | .Key' <<<"$page" | sort -u)
+    
     # Build list of {Key,VersionId} for both Versions and DeleteMarkers (we cannot copy delete markers faithfully)
     versions=$(jq -c '[ (.Versions[]? | {Key:.Key, VersionId:.VersionId}) ]' <<<"$page")
     count=$(jq 'length' <<<"$versions")
-    (( total += count ))
 
     if (( count > 0 )); then
       # Copy each version one by one
@@ -103,6 +105,15 @@ copy_prefix_all_versions() {
       while IFS= read -r item; do
         key=$(jq -r '.Key' <<<"$item")
         vid=$(jq -r '.VersionId' <<<"$item")
+        
+        # Skip this key if it doesn't have a delete marker
+        if ! grep -qxF "$key" <<<"$delete_marker_keys"; then
+          (( skipped++ ))
+          continue
+        fi
+        
+        (( total++ ))
+        
         # map the destination key 1:1
         dest_key="$key"
         # Replace the leading src_prefix with dest_prefix if they differ
@@ -128,7 +139,7 @@ copy_prefix_all_versions() {
     token=$(jq -r '.NextToken // empty' <<<"$page")
     [[ -n "$token" ]] || break
   done
-  log "Finished copying versions under '$src_prefix' (versions copied: $total)"
+  log "Finished copying versions under '$src_prefix' (versions copied: $total, skipped: $skipped)"
 }
 
 process_prefix() {
