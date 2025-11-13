@@ -1,0 +1,24 @@
+name: "Alfresco: Daily Index Schedule"
+# This workflow triggers the reindexing of docs modified or created within a specified time window (in hours).
+# It runs for the "preprod" and "prod" environments only.
+on:
+  schedule:
+    # Run every night at 1am
+    - cron: '0 1 * * *'
+  #workflow_dispatch:
+
+jobs:
+  batch-reindex:
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        environment: ["preprod", "prod"]
+    uses: ./.github/workflows/daily-index-runner.yml
+    with:
+      environment: ${{ matrix.environment }}
+      # Look-back window in hours
+      hours: "48"
+      run_on_schedule: "true"
+    secrets: inherit

@@ -720,12 +720,12 @@ tasks:
           kubectl delete hpa "$hpa" -n "$NS" --wait=true
         done
 
-        # Delete the PDB if it exists (so scaling to 0 pods is allowed)
-        PDB_NAME="alfresco-repository-pdb"
-        if kubectl get pdb "$PDB_NAME" -n "$NS" >/dev/null 2>&1; then
-          echo "Deleting PodDisruptionBudget: $PDB_NAME"
-          kubectl delete pdb "$PDB_NAME" -n "$NS" --wait=true
-        fi
+        # Delete PDBs if they exist so scaling to 0 pods is allowed
+        PDBS=$(kubectl get pdb -n "$NS" -o jsonpath='{.items[*].metadata.name}' || true)
+        for pdb in $PDBS; do
+          echo "Deleting PodDisruptionBudget: $pdb"
+          kubectl delete pdb "$pdb" -n "$NS" --wait=true
+        done
 
         # Scale Deployments to 0
         DEPLOYMENTS=$(kubectl get deploy -n "$NS" -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep "^${RELEASE_NAME}-" || true)
