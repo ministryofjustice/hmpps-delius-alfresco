@@ -3,11 +3,9 @@ kind: Kustomization
 
 resources:
   - resources.yaml
-  - patch-ingress-share-pdb.yaml
   - patch-live-indexing-content-pdb.yaml
   - patch-live-indexing-metadata-pdb.yaml
   - patch-live-indexing-path-pdb.yaml
-  - patch-pvc-filestore-pdb.yaml
   - patch-repository-pdb.yaml
   - patch-router-pdb.yaml
   - patch-tika-pdb.yaml

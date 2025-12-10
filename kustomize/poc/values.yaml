@@ -68,6 +68,8 @@ alfresco-search-enterprise:
         seccompProfile:
           type: RuntimeDefault
       replicaCount: 1
+    path:
+      replicaCount: 2
 alfresco-transform-service:
   tika:
     podSecurityContext:
