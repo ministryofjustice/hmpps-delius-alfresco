@@ -60,9 +60,9 @@ alfresco-search-enterprise:
   liveIndexing:
   # set in value-versions yaml
     content:
-      replicaCount: 1
+      replicaCount: 2
     metadata:
-      replicaCount: 1
+      replicaCount: 2
     mediation:
       podSecurityContext:
         seccompProfile:

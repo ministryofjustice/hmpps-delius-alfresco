@@ -7,5 +7,5 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/instance: alfresco-content-services
-      app.kubernetes.io/name: alfresco-search-enterprise-metadata
+      app.kubernetes.io/name: alfresco-search-enterprise
       app.kubernetes.io/component: metadata-indexing
