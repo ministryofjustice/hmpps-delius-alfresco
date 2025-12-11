@@ -1,11 +1,10 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: alfresco-search-enterprise-path-pdb
+  name: transform-misc-pdb
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/instance: alfresco-content-services
-      app.kubernetes.io/name: alfresco-search-enterprise
-      app.kubernetes.io/component: path-indexing
+      app.kubernetes.io/name: transform-misc

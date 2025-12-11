@@ -1,10 +1,11 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: pdfrenderer-pdb
+  name: alfresco-search-enterprise-content-pdb
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/instance: alfresco-content-services
-      app.kubernetes.io/name: pdfrenderer
+      app.kubernetes.io/name: alfresco-search-enterprise
+      app.kubernetes.io/component: content-indexing
