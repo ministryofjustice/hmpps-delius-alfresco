@@ -3,7 +3,17 @@ kind: Kustomization
 
 resources:
   - resources.yaml
-  - patch-repository-pdb.yaml
+  - live-indexing-content-pdb.yaml
+  - live-indexing-metadata-pdb.yaml
+  - live-indexing-path-pdb.yaml
+  - repository-pdb.yaml
+  - router-pdb.yaml
+  - tika-pdb.yaml
+  - transform-imagemagick-pdb.yaml
+  - transform-libreoffice-pdb.yaml
+  - transform-misc-pdb.yaml
+  - transform-pdfrenderer-pdb.yaml
+
 
 patches:
   - path: patch-ingress-repository.yaml
