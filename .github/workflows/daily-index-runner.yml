@@ -163,5 +163,10 @@ jobs:
             echo "No new rows in the last ${HOURS} hours. Done."
           else
             echo "Run batch: FROM=${from_id} TO=${to_id} (count=${node_count})"
-            task reindex_by_id ENV="${ENV}" FROM="${from_id}" TO="${to_id}"
+            task reindex_by_id ENV="${ENV}" FROM="${from_id}" TO="${to_id}" COUNT="${node_count}"
+            if [ "$node_count" -gt 100000 ]; then
+              sleep 900 # wait for 15 minutes before scaling down
+              echo "Scaling down repository and tika deployments..."
+              task reindex_scale_down ENV={{.ENV}}
+            fi
           fi

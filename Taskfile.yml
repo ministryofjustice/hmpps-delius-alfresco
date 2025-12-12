@@ -272,7 +272,10 @@ tasks:
           INDEX_CONTENT="true"
         fi
 
-        RANGE=$((TO_ID - FROM_ID))
+        RANGE="{{.COUNT}}"
+        if [ -z "$RANGE" ]; then
+          RANGE=$((TO_ID - FROM_ID))
+        fi
         echo "📊 ID Range: $FROM_ID to $TO_ID (count: $RANGE)"
 
         if [ "$RANGE" -gt 100000 ]; then
@@ -630,6 +633,7 @@ tasks:
           METADATA_REPLICAS="{{.COUNT}}"
           MEDIATION_REPLICAS="{{.COUNT}}"
           SHARE_REPLICAS="{{.COUNT}}"
+          REINDEXING_REPLICAS="{{.COUNT}}"
         else
           echo "Running Helm upgrade to ensure HPAs and PDB are present."
           # Ensure HPAs and PDB are present by running the Helm upgrade.
@@ -662,6 +666,7 @@ tasks:
           METADATA_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.metadata.replicaCount) // 1' values.yaml)
           MEDIATION_REPLICAS=$(yq '(.["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // (load("../base/values.yaml") | .["alfresco-search-enterprise"].liveIndexing.mediation.replicaCount) // 1' values.yaml)
           FILESTORE_REPLICAS=1  # Filestore is always 1 replica
+          REINDEXING_REPLICAS=1  # Reindexing is always 1 replica
 
           SHARE_REPLICAS=$(yq '(.share.replicaCount) // (load("../base/values.yaml") | .share.replicaCount) // 1' values.yaml)
         fi
@@ -697,6 +702,7 @@ tasks:
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-content" -n "$NS" --replicas=${CONTENT_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-metadata" -n "$NS" --replicas=${METADATA_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-path" -n "$NS" --replicas=${PATH_REPLICAS}
+        kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-reindexing" -n "$NS" --replicas=${REINDEXING_REPLICAS}
         kubectl scale statefulset "alfresco-search-enterprise-mediation" -n "$NS" --replicas=${MEDIATION_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-share" -n "$NS" --replicas=${SHARE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-transform-misc" -n "$NS" --replicas=${TRANSFORM_MISC_REPLICAS}
