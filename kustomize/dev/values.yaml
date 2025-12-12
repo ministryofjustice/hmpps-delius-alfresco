@@ -59,20 +59,22 @@ alfresco-search-enterprise:
   liveIndexing:
   # set in value-versions yaml
     content:
-      replicaCount: 1
+      replicaCount: 2
     metadata:
-      replicaCount: 1
+      replicaCount: 2
     mediation:
       podSecurityContext:
         seccompProfile:
           type: RuntimeDefault
       replicaCount: 1
+    path:
+      replicaCount: 2
 alfresco-transform-service:
   tika:
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault 
-    replicaCount: 1
+    replicaCount: 2
     resources:
       requests:
         cpu: "0.5"
@@ -84,7 +86,7 @@ alfresco-transform-service:
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault 
-    replicaCount: 1
+    replicaCount: 2
     resources:
       requests:
         cpu: "0.75"

@@ -235,20 +235,24 @@ alfresco-transform-service:
     # -- Declares the alfresco-pdf-renderer service used by the content repository
     # to transform pdf files
     enabled: true
+    replicaCount: 2
     # image: set by environment values file
   imagemagick:
     # -- Declares the alfresco-imagemagick service used by the content repository
     # to transform image files
+    replicaCount: 2
     enabled: true
     # image: set by environment values file
   libreoffice:
     # -- Declares the alfresco-libreoffice service used by the content repository
     # to transform office files
+    replicaCount: 2
     enabled: true
     # image: set by environment values file
   tika:
     # -- Declares the alfresco-tika service used by the content repository
     # to transform office files
+    replicaCount: 2
     enabled: true
     # image: set by environment values file
   transformmisc:
@@ -388,15 +392,15 @@ alfresco-search-enterprise:
     content:
       image:
         tag: 4.0.0.1
-      replicaCount: 1
+      replicaCount: 2
     metadata:
       image:
         tag: 4.0.0.1
-      replicaCount: 1
+      replicaCount: 2
     path:
       image:
         tag: 4.0.0.1
-      replicaCount: 1
+      replicaCount: 2
   reindexing:
     enabled: false # leave as false - reindexing job is now standalone
     repository:
