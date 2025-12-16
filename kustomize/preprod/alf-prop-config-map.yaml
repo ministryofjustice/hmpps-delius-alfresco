@@ -4,6 +4,9 @@ metadata:
   name: alf-prop-config-map
 data:
   alfresco-global.properties: |
+    # Skip this database upgrade script as we will run them manually during a maintenance window
+    system.new-node-transaction-indexes.ignored=true
+
     deployment.method=HELM_CHART
     alfresco.cluster.enabled=true
     alfresco.host=hmpps-delius-alfresco-preprod.apps.live.cloud-platform.service.justice.gov.uk
