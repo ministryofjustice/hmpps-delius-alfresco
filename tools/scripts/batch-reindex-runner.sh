@@ -131,7 +131,10 @@ EOF
   kubectl -n "$K8S_NAMESPACE" cp "$tmpfile" "$pod":"$remote"
   rm -f "$tmpfile"
   result=$(kubectl -n "$K8S_NAMESPACE" exec "$pod" -- bash -lc "chmod +x '$remote' && '$remote' && rm -f '$remote'")
-  echo $result
+  # Output each row on a separate line for proper line-by-line reading
+  echo "$result" | tr ' ' '\n'
+  #log "SQL query executed: ${query} "
+  #log "Result: ${result} "
 }
 
 amq() {
@@ -198,7 +201,7 @@ wait_queue_below_threshold() {
 run_reindex_task() {
   local from_id=$1
   local to_id=$2
-  log "Launching: task reindex_by_id ENV=${ENV} FROM=${from_id} TO=${to_id} …"
+  log "Launching: task reindex_by_id ENV=${ENV} FROM=${from_id} TO=${to_id}"
   task reindex_by_id ENV="${ENV}" FROM="${from_id}" TO="${to_id}"
 }
 
@@ -245,12 +248,11 @@ phase_parent_children() {
   kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" >/dev/null 2>&1 || kubectl -n "$K8S_NAMESPACE" create configmap "$STATE_CM"
   PHASE2="$(kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" -o jsonpath='{.data.phase2}' || true)"
   if [[ "$PHASE2" != "done" ]]; then
-    echo "Phase 2: reindex children of parent ${PARENT_NODE_ID_FOR_CHILDREN}"
-    kubectl -n "$K8S_NAMESPACE" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase2":"done"}}'
-    while IFS=$'\t' read -r from_id to_id; do
+    while IFS='|' read -r from_id to_id; do
       [[ -z "$from_id" || -z "$to_id" ]] && continue
       run_reindex_task "$from_id" "$to_id"
     done < <(sql "SELECT aca.child_node_id, aca.child_node_id+1 FROM alf_child_assoc aca WHERE aca.parent_node_id=${PARENT_NODE_ID_FOR_CHILDREN} ORDER BY aca.child_node_id ASC;")
+    kubectl -n "$K8S_NAMESPACE" patch configmap "$STATE_CM" --type merge -p '{"data":{"phase2":"done"}}'
   else
     echo "Phase 2 already marked done in $STATE_CM"
   fi
@@ -275,6 +277,13 @@ get_max_child_id() {
 }
 
 batches_phase() {
+  # check for the 'run' variable in the config map to see if we should run phase 3
+  RUN3="$(kubectl -n "$K8S_NAMESPACE" get configmap "$STATE_CM" -o jsonpath='{.data.run}' || true)"
+  if [[ "$RUN3" != "true" ]]; then
+    log "Phase 3 skipped as 'run' is not set to 'true' in $STATE_CM"
+    return 0
+  fi
+
   log "Phase 3: batches of ${BATCH_SIZE}"
 
   # Values for checking the queue in Amazon MQ
