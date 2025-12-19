@@ -12,6 +12,7 @@ on:
           - dev
           - test
           - stage
+          - training
           - preprod
       enable:
         description: Enable (true) or disable (false) read-only mode

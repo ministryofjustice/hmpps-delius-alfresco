@@ -15,7 +15,7 @@ jobs:
   release:
     strategy:
       matrix:
-        environment: [poc, dev, test, stage, preprod, prod]
+        environment: [poc, dev, test, stage, training, preprod, prod]
         ref:
           - ${{ contains(github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') }}
         exclude:
@@ -23,6 +23,12 @@ jobs:
             environment: test
           - ref: false
             environment: stage
+          - ref: false
+            environment: training
+          - ref: false
+            environment: preprod
+          - ref: false
+            environment: prod
     name: Deploy to ${{ matrix.environment }}
     # Get this GitHub environment populated with action secrets by raising a CP pull request. See docs at:
     # https://github.com/ministryofjustice/cloud-platform-terraform-serviceaccount?tab=readme-ov-file#input_github_environments

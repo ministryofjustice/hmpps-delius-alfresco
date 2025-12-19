@@ -12,6 +12,7 @@ on:
           - dev
           - test
           - stage
+          - training
           - preprod
           - prod
       deployment:
