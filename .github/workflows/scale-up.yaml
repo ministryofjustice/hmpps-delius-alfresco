@@ -12,8 +12,8 @@ on:
           - dev
           - test
           - stage
+          - training
           - preprod
-          - prod
 
   workflow_call:
     inputs:

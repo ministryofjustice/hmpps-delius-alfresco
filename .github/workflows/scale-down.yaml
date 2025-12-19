@@ -14,8 +14,8 @@ on:
           - dev
           - test
           - stage
+          - training
           - preprod
-          - prod
 jobs:
   scale-down:
     runs-on: ubuntu-latest

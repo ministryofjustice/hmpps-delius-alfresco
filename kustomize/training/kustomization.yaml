@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../base
+  - alf-prop-config-map.yaml
+  - hpa-repository.yaml
+  - hpa-tika.yaml
+
+patches:
+  - path: patch-pvc-filestore.yaml
+  - path: patch-ingress-repository.yaml
+  - path: patch-ingress-share.yaml
+  - path: patch-infra-config-map.yaml
