@@ -7,6 +7,22 @@ data:
   entrypoint.sh: |-
     #!/bin/bash
     set -e
+    trap 'send_slack_notification $?' EXIT
+
+    function send_slack_notification() {
+      STATUS=$1
+      if [ "$STATUS" -eq 0 ]; then
+        JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) job succeeded" '{text: $text}')
+      else
+        JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) job failed" '{text: $text}')
+      fi
+      if [ -n "$SLACK_WEBHOOK_URL" ]; then
+        curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
+      else
+        echo "SLACK_WEBHOOK_URL is not set, cannot send notification: ${JSON_PAYLOAD}"
+      fi
+    }
+
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
     chmod 0600 ~/.pgpass
@@ -21,12 +37,20 @@ data:
     psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "create schema public;"
 
     # Restore the source database dump to the destination database
-    pg_restore --jobs=8 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump
+    pg_restore --jobs=6 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump
+
+    if [ -n "$SLACK_WEBHOOK_URL" ]; then
+      JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) completed. Starting post-migration steps" '{text: $text}')
+      curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
+    fi
 
     echo "Write the following SQL statements to a file in /tmp and execute them"
     cat > /tmp/alf-patches.sql <<'EOF'
+      \timing
 
       -- patch.db-V4.2-metadata-query-indexes
+      -- These indexes should already exist if the DB is at version 6.0 or higher but as the script 
+      -- is marked as having been skipped we need to ensure they are created.
       CREATE INDEX idx_alf_node_mdq ON alf_node (store_id, type_qname_id, id);
       CREATE INDEX idx_alf_node_cor ON alf_node (audit_creator, store_id, type_qname_id, id);
       CREATE INDEX idx_alf_node_crd ON alf_node (audit_created, store_id, type_qname_id, id);
@@ -46,11 +70,12 @@ data:
           'patch.db-V4.2-metadata-query-indexes', 'Manually executed script upgrade V4.2: Updates for metadata query',
           0, 6023, -1, 6024, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
         );
+      COMMIT;
 
       -- patch.db-V5.1-metadata-query-indexes
-      CREATE INDEX idx_alf_nprop_b ON alf_node_properties (qname_id, boolean_value, node_id);  --(optional)
-      CREATE INDEX idx_alf_nprop_f ON alf_node_properties (qname_id, float_value, node_id);  --(optional)
-      CREATE INDEX idx_alf_nprop_d ON alf_node_properties (qname_id, double_value, node_id);  --(optional)
+      CREATE INDEX idx_alf_nprop_b ON alf_node_properties (qname_id, boolean_value, node_id);
+      CREATE INDEX idx_alf_nprop_f ON alf_node_properties (qname_id, float_value, node_id);
+      CREATE INDEX idx_alf_nprop_d ON alf_node_properties (qname_id, double_value, node_id);
 
       INSERT INTO alf_applied_patch
         (id, description, fixes_from_schema, fixes_to_schema, applied_to_schema, target_schema, applied_on_date, applied_to_server, was_executed, succeeded, report)
@@ -59,6 +84,7 @@ data:
           'patch.db-V5.1-metadata-query-indexes', 'Manually executed script upgrade V5.1: Updates for metadata query',
           0, 9003, -1, 9004, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
         );
+      COMMIT;
 
       -- patch.db-V5.2-remove-jbpm-tables-from-db
       ALTER TABLE JBPM_ACTION DROP CONSTRAINT fk_action_actndel; -- (optional)
@@ -192,12 +218,14 @@ data:
           'patch.db-V5.2-remove-jbpm-tables-from-db', 'Removes all JBPM related tables from the database.',
           0, 10051, -1, 10052, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
         );
+      COMMIT;
 
       -- patch.db-V6.3-add-indexes-node-transaction
-      CREATE INDEX idx_alf_node_ver ON alf_node (version);
-      CREATE INDEX idx_alf_node_txn ON alf_node (transaction_id);
-      CREATE INDEX idx_alf_txn_ctms_sc ON alf_transaction (commit_time_ms);
-      CREATE INDEX idx_alf_txn_id_ctms ON alf_transaction (id, commit_time_ms);
+      -- Use CONCURRENTLY to avoid locking the tables for writes as that enable minimal downtime
+      CREATE INDEX CONCURRENTLY idx_alf_node_ver ON alf_node (version);
+      CREATE INDEX CONCURRENTLY idx_alf_node_txn ON alf_node (transaction_id);
+      CREATE INDEX CONCURRENTLY idx_alf_txn_ctms_sc ON alf_transaction (commit_time_ms);
+      CREATE INDEX CONCURRENTLY idx_alf_txn_id_ctms ON alf_transaction (id, commit_time_ms);
 
       --
       -- Record script finish
@@ -209,6 +237,7 @@ data:
           'patch.db-V6.3-add-indexes-node-transaction', 'Create aditional indexes on alf_node and alf_transaction',
           0, 14001, -1, 14002, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
         );
+      COMMIT;
 
       -- patch.db-V7.1.0-remove-alf_server-table
       ALTER TABLE alf_transaction
@@ -228,12 +257,18 @@ data:
           'patch.db-V7.1.0-remove-alf_server-table', 'Removes alf_server table and constraints',
           0, 15000, -1, 15001, now(), 'UNKNOWN', TRUE, TRUE, 'alf_server table and constraints removed'
         );
+      COMMIT;
     EOF
 
     echo "Executing patches SQL script …"
-    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patches.sql
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patches.sql -a
 
     rm -rv /home/job/db-dump ~/.pgpass 2>/dev/null || true
+
+    if [ -n "$SLACK_WEBHOOK_URL" ]; then
+      JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) post-migration steps completed." '{text: $text}')
+      curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
+    fi
 
     echo "Migration complete, sleeping to allow for review of log before pod termination …"
     sleep 3600
@@ -299,6 +334,10 @@ spec:
                 secretKeyRef:
                   name: rds-instance-output
                   key: RDS_INSTANCE_ADDRESS
+            - name: SLACK_WEBHOOK_URL
+              value: "{{ .Values.slackWebhookUrl }}"
+            - name: DST_ENV
+              value: "{{ .Values.environment }}"
           volumeMounts:
             - name: migrate-db-script
               mountPath: /bin/entrypoint.sh

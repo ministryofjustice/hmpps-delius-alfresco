@@ -267,6 +267,11 @@ tasks:
         FROM_ID="{{.FROM}}"
         TO_ID="{{.TO}}"
 
+        # Optional: adjust these as needed
+        PAGESIZE=100
+        BATCHSIZE=100
+        CONCURRENT=2
+
         INDEX_CONTENT="{{.INDEX_CONTENT}}"
         if [ -z "$INDEX_CONTENT" ]; then
           INDEX_CONTENT="true"
@@ -299,7 +304,23 @@ tasks:
           task delete_existing_reindex_configmaps_for_range ENV={{.ENV}} FROM=${FROM_ID} TO=${TO_ID}
         fi
 
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
+        # check for the reindexing pod already running
+        REINDEX_POD=$(kubectl -n {{.NAMESPACE}} get pods -o name 2>/dev/null | grep -i reindex | head -n1 | cut -d/ -f2 || true)
+        if [[ -z "$REINDEX_POD" ]]; then
+          helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
+        else
+          echo "📦 Reindexing on pod: $REINDEX_POD"
+          kubectl -n {{.NAMESPACE}} exec "$REINDEX_POD" -- bash -c "
+            rm -rf /tmp/tomcat.* 2>/dev/null || true
+            java -jar /opt/app.jar \
+              --alfresco.reindex.jobName=reindexByIds \
+              --alfresco.reindex.pageSize=$PAGESIZE \
+              --alfresco.reindex.batchSize=$BATCHSIZE \
+              --alfresco.reindex.fromId=$FROM_ID \
+              --alfresco.reindex.toId=$TO_ID \
+              --alfresco.reindex.concurrentProcessors=$CONCURRENT" 2>&1
+        fi
+
     silent: true
 
   # reindexes by date from the FROM_DATE to the TO_DATE
@@ -367,8 +388,24 @@ tasks:
         echo "Scaling up deployments before reindexing..."
         task reindex_scale_up ENV={{.ENV}}
 
-        echo "Running Helm install to run job..."
-        helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=${FROM}" --set "toTime=${TO}" --set "content=${INDEX_CONTENT}" --namespace ${NS}
+        # check for the reindexing pod already running
+        REINDEX_POD=$(kubectl -n $NS get pods -o name 2>/dev/null | grep -i reindex | head -n1 | cut -d/ -f2 || true)
+        if [[ -z "$REINDEX_POD" ]]; then
+          echo "Running Helm install to run job..."
+          helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=${FROM}" --set "toTime=${TO}" --set "content=${INDEX_CONTENT}" --namespace ${NS}
+        else
+          echo "📦 Reindexing on pod: $REINDEX_POD"
+          kubectl -n ${NS} exec "$REINDEX_POD" -- bash -c "
+            rm -rf /tmp/tomcat.* 2>/dev/null || true
+            java -jar /opt/app.jar \
+              --alfresco.reindex.jobName=reindexByIds \
+              --alfresco.reindex.pageSize=$PAGESIZE \
+              --alfresco.reindex.batchSize=$BATCHSIZE \
+              --alfresco.reindex.fromTime=$FROM \
+              --alfresco.reindex.toTime=$TO \
+              --alfresco.reindex.concurrentProcessors=$CONCURRENT" 2>&1
+        fi
+
     silent: true
 
   delete_existing_reindex_configmaps_for_range:
@@ -478,20 +515,13 @@ tasks:
         NS="{{.NAMESPACE}}"
 
         echo "🔍 Finding all reindexing ConfigMaps in namespace $NS..."
-        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-' | wc -l)
-
-        if [ "$CONFIGMAPS" -eq 0 ]; then
-          echo "✅ No reindexing ConfigMaps found."
-          exit 0
-        else
-          CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-')
-        fi
-
+        CONFIGMAPS=$(kubectl get configmaps -n "$NS" -o json | jq -r '.items[].metadata.name' | grep '^reindexing-')
+        
         # Get all active pods (not Completed/Failed)
         ACTIVE_PODS=$(kubectl get pods -n "$NS" --field-selector=status.phase!=Succeeded,status.phase!=Failed -o json)
 
         for CM in $CONFIGMAPS; do
-          echo "🔎 Checking if ConfigMap $CM is in use..."
+          #echo "🔎 Checking if ConfigMap $CM is in use..."
 
           CM_IN_USE=false
           for POD in $(echo "$ACTIVE_PODS" | jq -r '.items[].metadata.name'); do
