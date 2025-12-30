@@ -30,6 +30,10 @@ log() {
   printf '[%s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOGFILE" >&2
 }
 
+debug() {
+  [[ "$DRY_RUN" == "1" ]] && echo "DEBUG: $*" >&2
+}
+
 # ======= REQUIREMENTS =======
 command -v aws >/dev/null || { log "aws CLI not found"; exit 1; }
 command -v jq  >/dev/null || { log "jq not found"; exit 1; }
@@ -38,9 +42,11 @@ command -v jq  >/dev/null || { log "jq not found"; exit 1; }
 tuple_cmp() {
   local a=("$1" "$2" "$3" "$4" "$5")
   local b=("$6" "$7" "$8" "$9" "${10}")
+  debug "tuple_cmp called with a=($1 $2 $3 $4 $5) b=($6 $7 $8 $9 ${10})"
   for i in {0..4}; do
-    if   (( a[i] > b[i] )); then echo 1; return
-    elif (( a[i] < b[i] )); then echo -1; return
+    debug "Comparing a[$i]=${a[i]} with b[$i]=${b[i]}"
+    if   (( 10#${a[i]} > 10#${b[i]} )); then echo 1; return
+    elif (( 10#${a[i]} < 10#${b[i]} )); then echo -1; return
     fi
   done
   echo 0
