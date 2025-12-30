@@ -33,28 +33,40 @@ main() {
     fi
     # generate random hex string
     RANDOM_HEX=$(openssl rand -hex 4)
-    # start port forwarding
-    kubectl run port-forward-pod-${RANDOM_HEX} --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT} --env="REMOTE_HOST=$HOST" --env="LOCAL_PORT=$LOCAL_PORT" --env="REMOTE_PORT=$REMOTE_PORT" --namespace ${namespace}; 
-    # wait for pod to start
-    kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX} --timeout=30s --namespace ${namespace}
-    printf "\nPort forwarding started, connecting to $HOST:$REMOTE_PORT \n"
-    printf "\n****************************************************\n"
+    # check for existing port-forward pod and use that if found
+    existing_pod=$(kubectl get pods --namespace ${namespace} -o json | jq -r ".items[] | select(.metadata.name | startswith(\"port-forward-pod-\")) | .metadata.name" | head -n1)
+    if [ -n "$existing_pod" ]; then
+        echo "Found existing port-forwarding pod: $existing_pod"
+        POD_NAME=$existing_pod
+    else
+        POD_NAME="port-forward-pod-${RANDOM_HEX}"
+        # start port forwarding
+        kubectl run $POD_NAME --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT} --env="REMOTE_HOST=$HOST" --env="LOCAL_PORT=$LOCAL_PORT" --env="REMOTE_PORT=$REMOTE_PORT" --namespace ${namespace}; 
+        # wait for pod to start
+        kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX} --timeout=30s --namespace ${namespace}
+    fi
+    printf "\n****************************************************\n"   
     printf "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT/$DATABASE_NAME locally\n"
     printf "Press Ctrl+C to stop port forwarding \n"
     printf "****************************************************\n\n"
     # start the local port forwarding session
-    kubectl port-forward --namespace ${namespace} port-forward-pod-${RANDOM_HEX} $LOCAL_PORT:$LOCAL_PORT;
+    kubectl port-forward --namespace ${namespace} $POD_NAME $LOCAL_PORT:$LOCAL_PORT;
+    if [ $? -ne 0 ]; then
+        fail
+    fi
 }
 
 fail() {
     printf "\n\nPort forwarding failed"
-    kubectl delete pod port-forward-pod-${RANDOM_HEX} --force --grace-period=0 --namespace ${namespace}
     exit 1
 }
 
 ctrl_c() {
     printf "\n\nStopping port forwarding"
-    kubectl delete pod port-forward-pod-${RANDOM_HEX} --force --grace-period=0  --namespace ${namespace}
+    if [ -n "$POD_NAME" ]; then
+        printf "\nDeleting port forwarding pod $POD_NAME"
+        kubectl delete pod $POD_NAME --force --grace-period=0  --namespace ${namespace}
+    fi
     exit 0
 }
 
