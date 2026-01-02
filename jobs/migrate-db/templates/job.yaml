@@ -29,6 +29,7 @@ data:
     chown job:job ~/.pgpass
     set -x
 
+    # Drop the destination database schema whilst the export is running
     psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;" &
 
     # Dump the source database
