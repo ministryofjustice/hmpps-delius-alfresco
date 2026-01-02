@@ -333,14 +333,15 @@ data:
       ALTER TABLE alf_node_properties SET (autovacuum_enabled = on);
     EOF
     echo "Executing alf-custom-indexes SQL script …"
-    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-analyze.sql -a &
-
-    rm -rv /home/job/db-dump ~/.pgpass 2>/dev/null || true
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-analyze.sql -a
 
     if [ -n "$SLACK_WEBHOOK_URL" ]; then
       JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) post-migration steps completed." '{text: $text}')
       curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
     fi
+
+    # cleanup files
+    rm -rv /home/job/db-dump ~/.pgpass 2>/dev/null || true
 
     echo "Migration complete, sleeping to allow for review of log before pod termination …"
     sleep 3600
