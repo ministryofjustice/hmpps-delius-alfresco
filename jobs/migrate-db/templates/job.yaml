@@ -7,34 +7,99 @@ data:
   entrypoint.sh: |-
     #!/bin/bash
     set -e
+    trap 'send_slack_notification $?' EXIT
+
+    function send_slack_notification() {
+      STATUS=$1
+      if [ "$STATUS" -eq 0 ]; then
+        JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) job succeeded" '{text: $text}')
+      else
+        JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) job failed" '{text: $text}')
+      fi
+      if [ -n "$SLACK_WEBHOOK_URL" ]; then
+        curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
+      else
+        echo "SLACK_WEBHOOK_URL is not set, cannot send notification: ${JSON_PAYLOAD}"
+      fi
+    }
+
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
     chmod 0600 ~/.pgpass
     chown job:job ~/.pgpass
     set -x
 
-    # Dump the source database
-    pg_dump --jobs=8 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump
+    # Drop the destination database schema whilst the export is running
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;" &
 
-    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;"
+    # Dump the source database
+    pg_dump --jobs=8 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump --compress=1
 
     psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "create schema public;"
 
     # Restore the source database dump to the destination database
     pg_restore --jobs=8 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump
 
+    if [ -n "$SLACK_WEBHOOK_URL" ]; then
+      JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) completed. Starting post-migration steps" '{text: $text}')
+      curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
+    fi
+
+    # Start the index builds for the alf_node_properties table that will be skipped during the upgrade scripts.
+    # Split the patch into 3 parts to speed up index creation by creating them in parallel.
+    # Disable autovacuum on the alf_node_properties table to prevent it from interfering with the startup of the repo node
+    # as the repo runs a query which will take along time to run if autovacuum is running on that table. 
+    # Instead we will analyze the table after the indexes are created as that should around 3-4 mins to run, 
+    # and then the repo query will run using the right indexes.
+    cat > /tmp/alf-patch-db-V5.1-metadata-query-index1.sql <<'EOF'
+      \timing
+      ALTER TABLE alf_node_properties SET (autovacuum_enabled = off);
+      -- patch.db-V5.1-metadata-query-indexes
+      CREATE INDEX IF NOT EXISTS idx_alf_nprop_b ON alf_node_properties (qname_id, boolean_value, node_id);
+    EOF
+    echo "Executing db-V5.1-metadata-query-index1 patch SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patch-db-V5.1-metadata-query-index1.sql -a &
+
+    cat > /tmp/alf-patch-db-V5.1-metadata-query-index2.sql <<'EOF'
+      \timing
+      CREATE INDEX IF NOT EXISTS idx_alf_nprop_f ON alf_node_properties (qname_id, float_value, node_id);
+    EOF
+    echo "Executing db-V5.1-metadata-query-index2 patch SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patch-db-V5.1-metadata-query-index2.sql -a &
+
+    cat > /tmp/alf-patch-db-V5.1-metadata-query-index3.sql <<'EOF'
+      \timing
+      CREATE INDEX IF NOT EXISTS idx_alf_nprop_d ON alf_node_properties (qname_id, double_value, node_id);
+      INSERT INTO alf_applied_patch
+        (id, description, fixes_from_schema, fixes_to_schema, applied_to_schema, target_schema, applied_on_date, applied_to_server, was_executed, succeeded, report)
+        VALUES
+        (
+          'patch.db-V5.1-metadata-query-indexes', 'Manually executed script upgrade V5.1: Updates for metadata query',
+          0, 9003, -1, 9004, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
+        )
+        ON CONFLICT (id) DO NOTHING;
+      COMMIT;
+    EOF
+    echo "Executing db-V5.1-metadata-query-index3 patch SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patch-db-V5.1-metadata-query-index3.sql -a &
+
+    # Other patch scripts that were skipped and need to be run manually will now run.
+    # These don't take long to run.
     echo "Write the following SQL statements to a file in /tmp and execute them"
-    cat > /tmp/alf-patches.sql <<'EOF'
+    cat > /tmp/alf-patch-db-V4.2-metadata-query-indexes.sql <<'EOF'
+      \timing
 
       -- patch.db-V4.2-metadata-query-indexes
-      CREATE INDEX idx_alf_node_mdq ON alf_node (store_id, type_qname_id, id);
-      CREATE INDEX idx_alf_node_cor ON alf_node (audit_creator, store_id, type_qname_id, id);
-      CREATE INDEX idx_alf_node_crd ON alf_node (audit_created, store_id, type_qname_id, id);
-      CREATE INDEX idx_alf_node_mor ON alf_node (audit_modifier, store_id, type_qname_id, id);
-      CREATE INDEX idx_alf_node_mod ON alf_node (audit_modified, store_id, type_qname_id, id);
-      CREATE INDEX idx_alf_nprop_s ON alf_node_properties (qname_id, string_value, node_id);
-      CREATE INDEX idx_alf_nprop_l ON alf_node_properties (qname_id, long_value, node_id);
-      CREATE INDEX idx_alf_conturl_sz ON alf_content_url (content_size, id);
+      -- These indexes should already exist if the DB is at version 6.0 or higher but as the script 
+      -- is marked as having been skipped we need to ensure they are created.
+      CREATE INDEX IF NOT EXISTS idx_alf_node_mdq ON alf_node (store_id, type_qname_id, id);
+      CREATE INDEX IF NOT EXISTS idx_alf_node_cor ON alf_node (audit_creator, store_id, type_qname_id, id);
+      CREATE INDEX IF NOT EXISTS idx_alf_node_crd ON alf_node (audit_created, store_id, type_qname_id, id);
+      CREATE INDEX IF NOT EXISTS idx_alf_node_mor ON alf_node (audit_modifier, store_id, type_qname_id, id);
+      CREATE INDEX IF NOT EXISTS idx_alf_node_mod ON alf_node (audit_modified, store_id, type_qname_id, id);
+      CREATE INDEX IF NOT EXISTS idx_alf_nprop_s ON alf_node_properties (qname_id, string_value, node_id);
+      CREATE INDEX IF NOT EXISTS idx_alf_nprop_l ON alf_node_properties (qname_id, long_value, node_id);
+      CREATE INDEX IF NOT EXISTS idx_alf_conturl_sz ON alf_content_url (content_size, id);
 
       --
       -- Record script finish
@@ -45,141 +110,134 @@ data:
         (
           'patch.db-V4.2-metadata-query-indexes', 'Manually executed script upgrade V4.2: Updates for metadata query',
           0, 6023, -1, 6024, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
-        );
+        )
+        ON CONFLICT (id) DO NOTHING;
+      COMMIT;
+    EOF
+    echo "Executing db-V4.2-metadata-query-indexes patch SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patch-db-V4.2-metadata-query-indexes.sql -a &
 
-      -- patch.db-V5.1-metadata-query-indexes
-      CREATE INDEX idx_alf_nprop_b ON alf_node_properties (qname_id, boolean_value, node_id);  --(optional)
-      CREATE INDEX idx_alf_nprop_f ON alf_node_properties (qname_id, float_value, node_id);  --(optional)
-      CREATE INDEX idx_alf_nprop_d ON alf_node_properties (qname_id, double_value, node_id);  --(optional)
-
-      INSERT INTO alf_applied_patch
-        (id, description, fixes_from_schema, fixes_to_schema, applied_to_schema, target_schema, applied_on_date, applied_to_server, was_executed, succeeded, report)
-        VALUES
-        (
-          'patch.db-V5.1-metadata-query-indexes', 'Manually executed script upgrade V5.1: Updates for metadata query',
-          0, 9003, -1, 9004, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
-        );
-
+    cat > /tmp/alf-patch-db-V5.2-remove-jbpm-tables-from-db.sql <<'EOF'
+      \timing
       -- patch.db-V5.2-remove-jbpm-tables-from-db
-      ALTER TABLE JBPM_ACTION DROP CONSTRAINT fk_action_actndel; -- (optional)
-      ALTER TABLE JBPM_ACTION DROP CONSTRAINT FK_ACTION_EVENT; -- (optional)
-      ALTER TABLE JBPM_ACTION DROP CONSTRAINT FK_ACTION_EXPTHDL; -- (optional)
-      ALTER TABLE JBPM_ACTION DROP CONSTRAINT FK_ACTION_PROCDEF; -- (optional)
-      ALTER TABLE JBPM_ACTION DROP CONSTRAINT FK_ACTION_REFACT; -- (optional)
-      ALTER TABLE JBPM_ACTION DROP CONSTRAINT fk_crtetimeract_ta; -- (optional)
-      ALTER TABLE JBPM_BYTEARRAY DROP CONSTRAINT FK_BYTEARR_FILDEF; -- (optional)
-      ALTER TABLE JBPM_BYTEBLOCK DROP CONSTRAINT FK_BYTEBLOCK_FILE; -- (optional)
-      ALTER TABLE JBPM_COMMENT DROP CONSTRAINT FK_COMMENT_TOKEN; -- (optional)
-      ALTER TABLE JBPM_COMMENT DROP CONSTRAINT FK_COMMENT_TSK; -- (optional)
-      ALTER TABLE JBPM_DECISIONCONDITIONS DROP CONSTRAINT FK_DECCOND_DEC; -- (optional)
-      ALTER TABLE JBPM_DELEGATION DROP CONSTRAINT FK_DELEGATION_PRCD; -- (optional)
-      ALTER TABLE JBPM_EVENT DROP CONSTRAINT FK_EVENT_NODE; -- (optional)
-      ALTER TABLE JBPM_EVENT DROP CONSTRAINT FK_EVENT_PROCDEF; -- (optional)
-      ALTER TABLE JBPM_EVENT DROP CONSTRAINT FK_EVENT_TASK; -- (optional)
-      ALTER TABLE JBPM_EVENT DROP CONSTRAINT FK_EVENT_TRANS; -- (optional)
-      ALTER TABLE JBPM_JOB DROP CONSTRAINT FK_JOB_ACTION; -- (optional)
-      ALTER TABLE JBPM_JOB DROP CONSTRAINT FK_JOB_NODE; -- (optional)
-      ALTER TABLE JBPM_JOB DROP CONSTRAINT FK_JOB_PRINST; -- (optional)
-      ALTER TABLE JBPM_JOB DROP CONSTRAINT FK_JOB_TOKEN; -- (optional)
-      ALTER TABLE JBPM_JOB DROP CONSTRAINT FK_JOB_TSKINST; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_ACTION; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_CHILDTOKEN; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_DESTNODE; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_NEWBYTES; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_NODE; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_OLDBYTES; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_PARENT; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_TASKINST; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_TOKEN; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_TRANSITION; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_SOURCENODE; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_SWIMINST; -- (optional)
-      ALTER TABLE JBPM_LOG DROP CONSTRAINT FK_LOG_VARINST; -- (optional)
-      ALTER TABLE JBPM_MODULEDEFINITION DROP CONSTRAINT FK_MODDEF_PROCDEF; -- (optional)
-      ALTER TABLE JBPM_MODULEDEFINITION DROP CONSTRAINT FK_TSKDEF_START; -- (optional)
-      ALTER TABLE JBPM_MODULEINSTANCE DROP CONSTRAINT FK_MODINST_PRCINST; -- (optional)
-      ALTER TABLE JBPM_MODULEINSTANCE DROP CONSTRAINT FK_TASKMGTINST_TMD; -- (optional)
-      ALTER TABLE JBPM_NODE DROP CONSTRAINT FK_NODE_ACTION; -- (optional)
-      ALTER TABLE JBPM_NODE DROP CONSTRAINT FK_DECISION_DELEG; -- (optional)
-      ALTER TABLE JBPM_NODE DROP CONSTRAINT FK_NODE_PROCDEF; -- (optional)
-      ALTER TABLE JBPM_NODE DROP CONSTRAINT FK_NODE_SCRIPT; -- (optional)
-      ALTER TABLE JBPM_NODE DROP CONSTRAINT FK_NODE_SUPERSTATE; -- (optional)
-      ALTER TABLE JBPM_NODE DROP CONSTRAINT FK_PROCST_SBPRCDEF; -- (optional)
-      ALTER TABLE JBPM_POOLEDACTOR DROP CONSTRAINT FK_POOLEDACTOR_SLI; -- (optional)
-      ALTER TABLE JBPM_PROCESSDEFINITION DROP CONSTRAINT FK_PROCDEF_STRTSTA; -- (optional)
-      ALTER TABLE JBPM_PROCESSINSTANCE DROP CONSTRAINT FK_PROCIN_PROCDEF; -- (optional)
-      ALTER TABLE JBPM_PROCESSINSTANCE DROP CONSTRAINT FK_PROCIN_ROOTTKN; -- (optional)
-      ALTER TABLE JBPM_PROCESSINSTANCE DROP CONSTRAINT FK_PROCIN_SPROCTKN; -- (optional)
-      ALTER TABLE JBPM_RUNTIMEACTION DROP CONSTRAINT FK_RTACTN_ACTION; -- (optional)
-      ALTER TABLE JBPM_RUNTIMEACTION DROP CONSTRAINT FK_RTACTN_PROCINST; -- (optional)
-      ALTER TABLE JBPM_SWIMLANE DROP CONSTRAINT FK_SWL_ASSDEL; -- (optional)
-      ALTER TABLE JBPM_SWIMLANE DROP CONSTRAINT FK_SWL_TSKMGMTDEF; -- (optional)
-      ALTER TABLE JBPM_SWIMLANEINSTANCE DROP CONSTRAINT FK_SWIMLANEINST_SL; -- (optional)
-      ALTER TABLE JBPM_SWIMLANEINSTANCE DROP CONSTRAINT FK_SWIMLANEINST_TM; -- (optional)
-      ALTER TABLE JBPM_TASK DROP CONSTRAINT FK_TASK_ASSDEL; -- (optional)
-      ALTER TABLE JBPM_TASK DROP CONSTRAINT FK_TASK_PROCDEF; -- (optional)
-      ALTER TABLE JBPM_TASK DROP CONSTRAINT FK_TASK_TASKMGTDEF; -- (optional)
-      ALTER TABLE JBPM_TASK DROP CONSTRAINT FK_TSK_TSKCTRL; -- (optional)
-      ALTER TABLE JBPM_TASK DROP CONSTRAINT FK_TASK_TASKNODE; -- (optional)
-      ALTER TABLE JBPM_TASK DROP CONSTRAINT FK_TASK_STARTST; -- (optional)
-      ALTER TABLE JBPM_TASK DROP CONSTRAINT FK_TASK_SWIMLANE; -- (optional)
-      ALTER TABLE JBPM_TASKACTORPOOL DROP CONSTRAINT FK_TSKACTPOL_PLACT; -- (optional)
-      ALTER TABLE JBPM_TASKACTORPOOL DROP CONSTRAINT FK_TASKACTPL_TSKI; -- (optional)
-      ALTER TABLE JBPM_TASKCONTROLLER DROP CONSTRAINT FK_TSKCTRL_DELEG; -- (optional)
-      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT FK_TSKINS_PRCINS; -- (optional)
-      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT FK_TASKINST_TASK; -- (optional)
-      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT FK_TASKINST_TMINST; -- (optional)
-      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT FK_TASKINST_SLINST; -- (optional)
-      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT FK_TASKINST_TOKEN; -- (optional)
-      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT FK_TOKEN_NODE; -- (optional)
-      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT FK_TOKEN_PARENT; -- (optional)
-      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT FK_TOKEN_PROCINST; -- (optional)
-      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT FK_TOKEN_SUBPI; -- (optional)
-      ALTER TABLE JBPM_TOKENVARIABLEMAP DROP CONSTRAINT FK_TKVARMAP_CTXT; -- (optional)
-      ALTER TABLE JBPM_TOKENVARIABLEMAP DROP CONSTRAINT FK_TKVARMAP_TOKEN; -- (optional)
-      ALTER TABLE JBPM_TRANSITION DROP CONSTRAINT FK_TRANSITION_FROM; -- (optional)
-      ALTER TABLE JBPM_TRANSITION DROP CONSTRAINT FK_TRANS_PROCDEF; -- (optional)
-      ALTER TABLE JBPM_TRANSITION DROP CONSTRAINT FK_TRANSITION_TO; -- (optional)
-      ALTER TABLE JBPM_VARIABLEACCESS DROP CONSTRAINT FK_VARACC_PROCST; -- (optional)
-      ALTER TABLE JBPM_VARIABLEACCESS DROP CONSTRAINT FK_VARACC_TSKCTRL; -- (optional)
-      ALTER TABLE JBPM_VARIABLEACCESS DROP CONSTRAINT FK_VARACC_SCRIPT; -- (optional)
-      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT FK_BYTEINST_ARRAY; -- (optional)
-      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT FK_VARINST_PRCINST; -- (optional)
-      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT FK_VAR_TSKINST; -- (optional)
-      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT FK_VARINST_TK; -- (optional)
-      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT FK_VARINST_TKVARMP; -- (optional)
-
+      ALTER TABLE JBPM_ACTION DROP CONSTRAINT IF EXISTS fk_action_actndel; -- (optional)
+      ALTER TABLE JBPM_ACTION DROP CONSTRAINT IF EXISTS FK_ACTION_EVENT; -- (optional)
+      ALTER TABLE JBPM_ACTION DROP CONSTRAINT IF EXISTS FK_ACTION_EXPTHDL; -- (optional)
+      ALTER TABLE JBPM_ACTION DROP CONSTRAINT IF EXISTS FK_ACTION_PROCDEF; -- (optional)
+      ALTER TABLE JBPM_ACTION DROP CONSTRAINT IF EXISTS FK_ACTION_REFACT; -- (optional)
+      ALTER TABLE JBPM_ACTION DROP CONSTRAINT IF EXISTS fk_crtetimeract_ta; -- (optional)
+      ALTER TABLE JBPM_BYTEARRAY DROP CONSTRAINT IF EXISTS FK_BYTEARR_FILDEF; -- (optional)
+      ALTER TABLE JBPM_BYTEBLOCK DROP CONSTRAINT IF EXISTS FK_BYTEBLOCK_FILE; -- (optional)
+      ALTER TABLE JBPM_COMMENT DROP CONSTRAINT IF EXISTS FK_COMMENT_TOKEN; -- (optional)
+      ALTER TABLE JBPM_COMMENT DROP CONSTRAINT IF EXISTS FK_COMMENT_TSK; -- (optional)
+      ALTER TABLE JBPM_DECISIONCONDITIONS DROP CONSTRAINT IF EXISTS FK_DECCOND_DEC; -- (optional)
+      ALTER TABLE JBPM_DELEGATION DROP CONSTRAINT IF EXISTS FK_DELEGATION_PRCD; -- (optional)
+      ALTER TABLE JBPM_EVENT DROP CONSTRAINT IF EXISTS FK_EVENT_NODE; -- (optional)
+      ALTER TABLE JBPM_EVENT DROP CONSTRAINT IF EXISTS FK_EVENT_PROCDEF; -- (optional)
+      ALTER TABLE JBPM_EVENT DROP CONSTRAINT IF EXISTS FK_EVENT_TASK; -- (optional)
+      ALTER TABLE JBPM_EVENT DROP CONSTRAINT IF EXISTS FK_EVENT_TRANS; -- (optional)
+      ALTER TABLE JBPM_JOB DROP CONSTRAINT IF EXISTS FK_JOB_ACTION; -- (optional)
+      ALTER TABLE JBPM_JOB DROP CONSTRAINT IF EXISTS FK_JOB_NODE; -- (optional)
+      ALTER TABLE JBPM_JOB DROP CONSTRAINT IF EXISTS FK_JOB_PRINST; -- (optional)
+      ALTER TABLE JBPM_JOB DROP CONSTRAINT IF EXISTS FK_JOB_TOKEN; -- (optional)
+      ALTER TABLE JBPM_JOB DROP CONSTRAINT IF EXISTS FK_JOB_TSKINST; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_ACTION; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_CHILDTOKEN; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_DESTNODE; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_NEWBYTES; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_NODE; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_OLDBYTES; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_PARENT; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_TASKINST; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_TOKEN; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_TRANSITION; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_SOURCENODE; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_SWIMINST; -- (optional)
+      ALTER TABLE JBPM_LOG DROP CONSTRAINT IF EXISTS FK_LOG_VARINST; -- (optional)
+      ALTER TABLE JBPM_MODULEDEFINITION DROP CONSTRAINT IF EXISTS FK_MODDEF_PROCDEF; -- (optional)
+      ALTER TABLE JBPM_MODULEDEFINITION DROP CONSTRAINT IF EXISTS FK_TSKDEF_START; -- (optional)
+      ALTER TABLE JBPM_MODULEINSTANCE DROP CONSTRAINT IF EXISTS FK_MODINST_PRCINST; -- (optional)
+      ALTER TABLE JBPM_MODULEINSTANCE DROP CONSTRAINT IF EXISTS FK_TASKMGTINST_TMD; -- (optional)
+      ALTER TABLE JBPM_NODE DROP CONSTRAINT IF EXISTS FK_NODE_ACTION; -- (optional)
+      ALTER TABLE JBPM_NODE DROP CONSTRAINT IF EXISTS FK_DECISION_DELEG; -- (optional)
+      ALTER TABLE JBPM_NODE DROP CONSTRAINT IF EXISTS FK_NODE_PROCDEF; -- (optional)
+      ALTER TABLE JBPM_NODE DROP CONSTRAINT IF EXISTS FK_NODE_SCRIPT; -- (optional)
+      ALTER TABLE JBPM_NODE DROP CONSTRAINT IF EXISTS FK_NODE_SUPERSTATE; -- (optional)
+      ALTER TABLE JBPM_NODE DROP CONSTRAINT IF EXISTS FK_PROCST_SBPRCDEF; -- (optional)
+      ALTER TABLE JBPM_POOLEDACTOR DROP CONSTRAINT IF EXISTS FK_POOLEDACTOR_SLI; -- (optional)
+      ALTER TABLE JBPM_PROCESSDEFINITION DROP CONSTRAINT IF EXISTS FK_PROCDEF_STRTSTA; -- (optional)
+      ALTER TABLE JBPM_PROCESSINSTANCE DROP CONSTRAINT IF EXISTS FK_PROCIN_PROCDEF; -- (optional)
+      ALTER TABLE JBPM_PROCESSINSTANCE DROP CONSTRAINT IF EXISTS FK_PROCIN_ROOTTKN; -- (optional)
+      ALTER TABLE JBPM_PROCESSINSTANCE DROP CONSTRAINT IF EXISTS FK_PROCIN_SPROCTKN; -- (optional)
+      ALTER TABLE JBPM_RUNTIMEACTION DROP CONSTRAINT IF EXISTS FK_RTACTN_ACTION; -- (optional)
+      ALTER TABLE JBPM_RUNTIMEACTION DROP CONSTRAINT IF EXISTS FK_RTACTN_PROCINST; -- (optional)
+      ALTER TABLE JBPM_SWIMLANE DROP CONSTRAINT IF EXISTS FK_SWL_ASSDEL; -- (optional)
+      ALTER TABLE JBPM_SWIMLANE DROP CONSTRAINT IF EXISTS FK_SWL_TSKMGMTDEF; -- (optional)
+      ALTER TABLE JBPM_SWIMLANEINSTANCE DROP CONSTRAINT IF EXISTS FK_SWIMLANEINST_SL; -- (optional)
+      ALTER TABLE JBPM_SWIMLANEINSTANCE DROP CONSTRAINT IF EXISTS FK_SWIMLANEINST_TM; -- (optional)
+      ALTER TABLE JBPM_TASK DROP CONSTRAINT IF EXISTS FK_TASK_ASSDEL; -- (optional)
+      ALTER TABLE JBPM_TASK DROP CONSTRAINT IF EXISTS FK_TASK_PROCDEF; -- (optional)
+      ALTER TABLE JBPM_TASK DROP CONSTRAINT IF EXISTS FK_TASK_TASKMGTDEF; -- (optional)
+      ALTER TABLE JBPM_TASK DROP CONSTRAINT IF EXISTS FK_TSK_TSKCTRL; -- (optional)
+      ALTER TABLE JBPM_TASK DROP CONSTRAINT IF EXISTS FK_TASK_TASKNODE; -- (optional)
+      ALTER TABLE JBPM_TASK DROP CONSTRAINT IF EXISTS FK_TASK_STARTST; -- (optional)
+      ALTER TABLE JBPM_TASK DROP CONSTRAINT IF EXISTS FK_TASK_SWIMLANE; -- (optional)
+      ALTER TABLE JBPM_TASKACTORPOOL DROP CONSTRAINT IF EXISTS FK_TSKACTPOL_PLACT; -- (optional)
+      ALTER TABLE JBPM_TASKACTORPOOL DROP CONSTRAINT IF EXISTS FK_TASKACTPL_TSKI; -- (optional)
+      ALTER TABLE JBPM_TASKCONTROLLER DROP CONSTRAINT IF EXISTS FK_TSKCTRL_DELEG; -- (optional)
+      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT IF EXISTS FK_TSKINS_PRCINS; -- (optional)
+      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT IF EXISTS FK_TASKINST_TASK; -- (optional)
+      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT IF EXISTS FK_TASKINST_TMINST; -- (optional)
+      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT IF EXISTS FK_TASKINST_SLINST; -- (optional)
+      ALTER TABLE JBPM_TASKINSTANCE DROP CONSTRAINT IF EXISTS FK_TASKINST_TOKEN; -- (optional)
+      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT IF EXISTS FK_TOKEN_NODE; -- (optional)
+      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT IF EXISTS FK_TOKEN_PARENT; -- (optional)
+      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT IF EXISTS FK_TOKEN_PROCINST; -- (optional)
+      ALTER TABLE JBPM_TOKEN DROP CONSTRAINT IF EXISTS FK_TOKEN_SUBPI; -- (optional)
+      ALTER TABLE JBPM_TOKENVARIABLEMAP DROP CONSTRAINT IF EXISTS FK_TKVARMAP_CTXT; -- (optional)
+      ALTER TABLE JBPM_TOKENVARIABLEMAP DROP CONSTRAINT IF EXISTS FK_TKVARMAP_TOKEN; -- (optional)
+      ALTER TABLE JBPM_TRANSITION DROP CONSTRAINT IF EXISTS FK_TRANSITION_FROM; -- (optional)
+      ALTER TABLE JBPM_TRANSITION DROP CONSTRAINT IF EXISTS FK_TRANS_PROCDEF; -- (optional)
+      ALTER TABLE JBPM_TRANSITION DROP CONSTRAINT IF EXISTS FK_TRANSITION_TO; -- (optional)
+      ALTER TABLE JBPM_VARIABLEACCESS DROP CONSTRAINT IF EXISTS FK_VARACC_PROCST; -- (optional)
+      ALTER TABLE JBPM_VARIABLEACCESS DROP CONSTRAINT IF EXISTS FK_VARACC_TSKCTRL; -- (optional)
+      ALTER TABLE JBPM_VARIABLEACCESS DROP CONSTRAINT IF EXISTS FK_VARACC_SCRIPT; -- (optional)
+      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT IF EXISTS FK_BYTEINST_ARRAY; -- (optional)
+      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT IF EXISTS FK_VARINST_PRCINST; -- (optional)
+      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT IF EXISTS FK_VAR_TSKINST; -- (optional)
+      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT IF EXISTS FK_VARINST_TK; -- (optional)
+      ALTER TABLE JBPM_VARIABLEINSTANCE DROP CONSTRAINT IF EXISTS FK_VARINST_TKVARMP; -- (optional)
 
       -- Drop all tables
 
-      DROP TABLE JBPM_ACTION; -- (optional)
-      DROP TABLE JBPM_BYTEARRAY; -- (optional)
-      DROP TABLE JBPM_BYTEBLOCK; -- (optional)
-      DROP TABLE JBPM_COMMENT; -- (optional)
-      DROP TABLE JBPM_DECISIONCONDITIONS; -- (optional)
-      DROP TABLE JBPM_DELEGATION; -- (optional)
-      DROP TABLE JBPM_EVENT; -- (optional)
-      DROP TABLE JBPM_EXCEPTIONHANDLER; -- (optional)
-      DROP TABLE JBPM_JOB; -- (optional)
-      DROP TABLE JBPM_LOG; -- (optional)
-      DROP TABLE JBPM_MODULEDEFINITION; -- (optional)
-      DROP TABLE JBPM_MODULEINSTANCE; -- (optional)
-      DROP TABLE JBPM_NODE; -- (optional)
-      DROP TABLE JBPM_POOLEDACTOR; -- (optional)
-      DROP TABLE JBPM_PROCESSDEFINITION; -- (optional)
-      DROP TABLE JBPM_PROCESSINSTANCE; -- (optional)
-      DROP TABLE JBPM_RUNTIMEACTION; -- (optional)
-      DROP TABLE JBPM_SWIMLANE; -- (optional)
-      DROP TABLE JBPM_SWIMLANEINSTANCE; -- (optional)
-      DROP TABLE JBPM_TASK; -- (optional)
-      DROP TABLE JBPM_TASKACTORPOOL; -- (optional)
-      DROP TABLE JBPM_TASKCONTROLLER; -- (optional)
-      DROP TABLE JBPM_TASKINSTANCE; -- (optional)
-      DROP TABLE JBPM_TOKEN; -- (optional)
-      DROP TABLE JBPM_TOKENVARIABLEMAP; -- (optional)
-      DROP TABLE JBPM_TRANSITION; -- (optional)
-      DROP TABLE JBPM_VARIABLEACCESS; -- (optional)
-      DROP TABLE JBPM_VARIABLEINSTANCE; -- (optional)
+      DROP TABLE IF EXISTS JBPM_ACTION; -- (optional)
+      DROP TABLE IF EXISTS JBPM_BYTEARRAY; -- (optional)
+      DROP TABLE IF EXISTS JBPM_BYTEBLOCK; -- (optional)
+      DROP TABLE IF EXISTS JBPM_COMMENT; -- (optional)
+      DROP TABLE IF EXISTS JBPM_DECISIONCONDITIONS; -- (optional)
+      DROP TABLE IF EXISTS JBPM_DELEGATION; -- (optional)
+      DROP TABLE IF EXISTS JBPM_EVENT; -- (optional)
+      DROP TABLE IF EXISTS JBPM_EXCEPTIONHANDLER; -- (optional)
+      DROP TABLE IF EXISTS JBPM_JOB; -- (optional)
+      DROP TABLE IF EXISTS JBPM_LOG; -- (optional)
+      DROP TABLE IF EXISTS JBPM_MODULEDEFINITION; -- (optional)
+      DROP TABLE IF EXISTS JBPM_MODULEINSTANCE; -- (optional)
+      DROP TABLE IF EXISTS JBPM_NODE; -- (optional)
+      DROP TABLE IF EXISTS JBPM_POOLEDACTOR; -- (optional)
+      DROP TABLE IF EXISTS JBPM_PROCESSDEFINITION; -- (optional)
+      DROP TABLE IF EXISTS JBPM_PROCESSINSTANCE; -- (optional)
+      DROP TABLE IF EXISTS JBPM_RUNTIMEACTION; -- (optional)
+      DROP TABLE IF EXISTS JBPM_SWIMLANE; -- (optional)
+      DROP TABLE IF EXISTS JBPM_SWIMLANEINSTANCE; -- (optional)
+      DROP TABLE IF EXISTS JBPM_TASK; -- (optional)
+      DROP TABLE IF EXISTS JBPM_TASKACTORPOOL; -- (optional)
+      DROP TABLE IF EXISTS JBPM_TASKCONTROLLER; -- (optional)
+      DROP TABLE IF EXISTS JBPM_TASKINSTANCE; -- (optional)
+      DROP TABLE IF EXISTS JBPM_TOKEN; -- (optional)
+      DROP TABLE IF EXISTS JBPM_TOKENVARIABLEMAP; -- (optional)
+      DROP TABLE IF EXISTS JBPM_TRANSITION; -- (optional)
+      DROP TABLE IF EXISTS JBPM_VARIABLEACCESS; -- (optional)
+      DROP TABLE IF EXISTS JBPM_VARIABLEINSTANCE; -- (optional)
 
 
       --
@@ -191,13 +249,20 @@ data:
         (
           'patch.db-V5.2-remove-jbpm-tables-from-db', 'Removes all JBPM related tables from the database.',
           0, 10051, -1, 10052, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
-        );
+        )
+        ON CONFLICT (id) DO NOTHING;
+      COMMIT;
+    EOF
+    echo "Executing db-V5.2-remove-jbpm-tables-from-db patch SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patch-db-V5.2-remove-jbpm-tables-from-db.sql -a
 
+    cat > /tmp/alf-patch-db-V6.3-add-indexes-node-transaction.sql <<'EOF'
+      \timing
       -- patch.db-V6.3-add-indexes-node-transaction
-      CREATE INDEX idx_alf_node_ver ON alf_node (version);
-      CREATE INDEX idx_alf_node_txn ON alf_node (transaction_id);
-      CREATE INDEX idx_alf_txn_ctms_sc ON alf_transaction (commit_time_ms);
-      CREATE INDEX idx_alf_txn_id_ctms ON alf_transaction (id, commit_time_ms);
+      CREATE INDEX IF NOT EXISTS idx_alf_node_ver ON alf_node (version);
+      CREATE INDEX IF NOT EXISTS idx_alf_node_txn ON alf_node (transaction_id);
+      CREATE INDEX IF NOT EXISTS idx_alf_txn_ctms_sc ON alf_transaction (commit_time_ms);
+      CREATE INDEX IF NOT EXISTS idx_alf_txn_id_ctms ON alf_transaction (id, commit_time_ms);
 
       --
       -- Record script finish
@@ -208,8 +273,15 @@ data:
         (
           'patch.db-V6.3-add-indexes-node-transaction', 'Create aditional indexes on alf_node and alf_transaction',
           0, 14001, -1, 14002, now(), 'UNKNOWN', TRUE, TRUE, 'Script completed'
-        );
+        )
+        ON CONFLICT (id) DO NOTHING;
+      COMMIT;
+    EOF
+    echo "Executing db-V6.3-add-indexes-node-transaction patch SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patch-db-V6.3-add-indexes-node-transaction.sql -a &
 
+    cat > /tmp/alf-patch-db-V7.1.0-remove-alf_server-table.sql <<'EOF'
+      \timing
       -- patch.db-V7.1.0-remove-alf_server-table
       ALTER TABLE alf_transaction
       DROP CONSTRAINT IF EXISTS fk_alf_txn_svr,
@@ -227,12 +299,48 @@ data:
         (
           'patch.db-V7.1.0-remove-alf_server-table', 'Removes alf_server table and constraints',
           0, 15000, -1, 15001, now(), 'UNKNOWN', TRUE, TRUE, 'alf_server table and constraints removed'
-        );
+        )
+        ON CONFLICT (id) DO NOTHING;
+      DELETE FROM alf_prop_string_value WHERE string_value like '%:5701';
+      COMMIT;
     EOF
 
     echo "Executing patches SQL script …"
-    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patches.sql
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-patch-db-V7.1.0-remove-alf_server-table.sql -a
 
+    cat > /tmp/alf-custom-index-idx_alf_conturl_cu.sql <<'EOF'
+      \timing
+      CREATE INDEX IF NOT EXISTS idx_alf_conturl_cu ON alf_content_url USING btree (content_url);
+    EOF
+    echo "Executing alf-custom-indexes SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-custom-index-idx_alf_conturl_cu.sql -a &
+
+    cat > /tmp/alf-custom-index-idx_alf_conturl_crc.sql <<'EOF'
+      \timing
+      CREATE INDEX IF NOT EXISTS idx_alf_conturl_crc ON alf_content_url USING btree (content_url_crc);
+    EOF
+    echo "Executing alf-custom-indexes SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-custom-index-idx_alf_conturl_crc.sql -a
+
+    # Wait for background index creation tasks to complete
+    wait
+
+    # Finally analyze the alf_node_properties table and re-enable autovacuum.
+    # The analyze should complete in around 3-4 mins and will insert details into pg_stats.
+    cat > /tmp/alf-analyze.sql <<'EOF'
+      \timing
+      ANALYZE VERBOSE alf_node_properties;
+      ALTER TABLE alf_node_properties SET (autovacuum_enabled = on);
+    EOF
+    echo "Executing alf-custom-indexes SQL script …"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -f /tmp/alf-analyze.sql -a
+
+    if [ -n "$SLACK_WEBHOOK_URL" ]; then
+      JSON_PAYLOAD=$(jq -n --arg text "Alfresco Migrate DB (${DST_ENV}) post-migration steps completed." '{text: $text}')
+      curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
+    fi
+
+    # cleanup files
     rm -rv /home/job/db-dump ~/.pgpass 2>/dev/null || true
 
     echo "Migration complete, sleeping to allow for review of log before pod termination …"
@@ -299,6 +407,10 @@ spec:
                 secretKeyRef:
                   name: rds-instance-output
                   key: RDS_INSTANCE_ADDRESS
+            - name: SLACK_WEBHOOK_URL
+              value: "{{ .Values.slackWebhookUrl }}"
+            - name: DST_ENV
+              value: "{{ .Values.environment }}"
           volumeMounts:
             - name: migrate-db-script
               mountPath: /bin/entrypoint.sh
