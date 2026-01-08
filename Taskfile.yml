@@ -305,7 +305,7 @@ tasks:
         fi
 
         # check for the reindexing pod already running
-        REINDEX_POD=$(kubectl -n {{.NAMESPACE}} get pods -o name 2>/dev/null | grep -i reindex | head -n1 | cut -d/ -f2 || true)
+        REINDEX_POD=$(kubectl -n {{.NAMESPACE}} get pods -o name 2>/dev/null | grep -i alfresco-content-services-alfresco-search-enterprise-reind | head -n1 | cut -d/ -f2 || true)
         if [[ -z "$REINDEX_POD" ]]; then
           helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
         else
