@@ -305,14 +305,14 @@ tasks:
         fi
 
         # check for the reindexing pod already running
-        REINDEX_POD=$(kubectl -n {{.NAMESPACE}} get pods -o name 2>/dev/null | grep -i reindex | head -n1 | cut -d/ -f2 || true)
+        REINDEX_POD=$(kubectl -n {{.NAMESPACE}} get pods -o name 2>/dev/null | grep -i alfresco-content-services-alfresco-search-enterprise-reind | head -n1 | cut -d/ -f2 || true)
         if [[ -z "$REINDEX_POD" ]]; then
           helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromId=${FROM_ID}" --set "toId=${TO_ID}" --set "content=${INDEX_CONTENT}" --namespace {{.NAMESPACE}}
         else
           echo "📦 Reindexing on pod: $REINDEX_POD"
           kubectl -n {{.NAMESPACE}} exec "$REINDEX_POD" -- bash -c "
             rm -rf /tmp/tomcat.* 2>/dev/null || true
-            java -jar /opt/app.jar \
+            java -jar -Dserver.port=0 /opt/app.jar \
               --alfresco.reindex.jobName=reindexByIds \
               --alfresco.reindex.pageSize=$PAGESIZE \
               --alfresco.reindex.batchSize=$BATCHSIZE \
@@ -389,7 +389,7 @@ tasks:
         task reindex_scale_up ENV={{.ENV}}
 
         # check for the reindexing pod already running
-        REINDEX_POD=$(kubectl -n $NS get pods -o name 2>/dev/null | grep -i reindex | head -n1 | cut -d/ -f2 || true)
+        REINDEX_POD=$(kubectl -n $NS get pods -o name 2>/dev/null | grep -i alfresco-content-services-alfresco-search-enterprise-reind | head -n1 | cut -d/ -f2 || true)
         if [[ -z "$REINDEX_POD" ]]; then
           echo "Running Helm install to run job..."
           helm install "reindex-default-$(openssl rand -hex 4)" ./jobs/reindex_date --set "global.elasticsearch.host={{.OPENSEARCH_HOST}}" --set "fromTime=${FROM}" --set "toTime=${TO}" --set "content=${INDEX_CONTENT}" --namespace ${NS}
@@ -397,7 +397,7 @@ tasks:
           echo "📦 Reindexing on pod: $REINDEX_POD"
           kubectl -n ${NS} exec "$REINDEX_POD" -- bash -c "
             rm -rf /tmp/tomcat.* 2>/dev/null || true
-            java -jar /opt/app.jar \
+            java -jar -Dserver.port=0 /opt/app.jar \
               --alfresco.reindex.jobName=reindexByIds \
               --alfresco.reindex.pageSize=$PAGESIZE \
               --alfresco.reindex.batchSize=$BATCHSIZE \

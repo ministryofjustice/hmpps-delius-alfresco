@@ -34,7 +34,7 @@ while IFS= read -r ID; do
   [[ -z "$ID" ]] && continue
   rm -rf /tmp/tomcat.*  # clean up temp and log files between runs
   echo "Reindexing ID: $ID" | tee -a "$LOG_FILE"
-  java -jar /opt/app.jar \
+  java -jar -Dserver.port=0 /opt/app.jar \
     --alfresco.reindex.jobName=reindexByIds \
     --alfresco.reindex.pageSize="$PAGESIZE" \
     --alfresco.reindex.batchSize="$BATCHSIZE" \
