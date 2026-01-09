@@ -268,9 +268,9 @@ tasks:
         TO_ID="{{.TO}}"
 
         # Optional: adjust these as needed
-        PAGESIZE=100
-        BATCHSIZE=100
-        CONCURRENT=2
+        PAGESIZE=10000
+        BATCHSIZE=1000
+        CONCURRENT=30
 
         INDEX_CONTENT="{{.INDEX_CONTENT}}"
         if [ -z "$INDEX_CONTENT" ]; then
@@ -359,9 +359,9 @@ tasks:
         NS="{{.NAMESPACE}}"
 
         # Optional: adjust these as needed
-        PAGESIZE=100
-        BATCHSIZE=100
-        CONCURRENT=2
+        PAGESIZE=10000
+        BATCHSIZE=1000
+        CONCURRENT=30
 
         CM="reindexing-${FROM}-${TO}-configmap"
         PREFIX_CM="reindexing-${FROM}-${TO}-prefixes-configmap"
