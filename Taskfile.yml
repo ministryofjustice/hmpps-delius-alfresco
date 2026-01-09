@@ -268,9 +268,9 @@ tasks:
         TO_ID="{{.TO}}"
 
         # Optional: adjust these as needed
-        PAGESIZE=100
-        BATCHSIZE=100
-        CONCURRENT=2
+        PAGESIZE=10000
+        BATCHSIZE=1000
+        CONCURRENT=30
 
         INDEX_CONTENT="{{.INDEX_CONTENT}}"
         if [ -z "$INDEX_CONTENT" ]; then
@@ -358,6 +358,11 @@ tasks:
         TO="{{.TO}}"
         NS="{{.NAMESPACE}}"
 
+        # Optional: adjust these as needed
+        PAGESIZE=10000
+        BATCHSIZE=1000
+        CONCURRENT=30
+
         CM="reindexing-${FROM}-${TO}-configmap"
         PREFIX_CM="reindexing-${FROM}-${TO}-prefixes-configmap"
 
@@ -398,11 +403,14 @@ tasks:
           kubectl -n ${NS} exec "$REINDEX_POD" -- bash -c "
             rm -rf /tmp/tomcat.* 2>/dev/null || true
             java -jar -Dserver.port=0 /opt/app.jar \
-              --alfresco.reindex.jobName=reindexByIds \
-              --alfresco.reindex.pageSize=$PAGESIZE \
-              --alfresco.reindex.batchSize=$BATCHSIZE \
+              --alfresco.reindex.jobName=reindexByDate \
               --alfresco.reindex.fromTime=$FROM \
               --alfresco.reindex.toTime=$TO \
+              --alfresco.reindex.contentIndexingEnabled=true \
+              --alfresco.reindex.metadataIndexingEnabled=true \
+              --alfresco.reindex.multithreadedStepEnabled=true \
+              --alfresco.reindex.pageSize=$PAGESIZE \
+              --alfresco.reindex.batchSize=$BATCHSIZE \
               --alfresco.reindex.concurrentProcessors=$CONCURRENT" 2>&1
         fi
 
