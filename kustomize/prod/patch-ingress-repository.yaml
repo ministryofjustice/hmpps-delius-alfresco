@@ -30,6 +30,25 @@ spec:
                   number: 80
             path: /api-explorer
             pathType: Prefix
+    # legacy production url
+    - host: alfresco.probation.service.justice.gov.uk
+      http:
+        paths:
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-repository
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-repository
+                port:
+                  number: 80
+            path: /api-explorer
+            pathType: Prefix
   tls:
     - hosts:
         - hmpps-delius-alfresco-prod.apps.live.cloud-platform.service.justice.gov.uk
+        - alfresco.probation.service.justice.gov.uk
