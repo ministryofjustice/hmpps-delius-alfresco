@@ -30,7 +30,7 @@ spec:
                   number: 80
             path: /api-explorer
             pathType: Prefix
-    - host: alfresco.dev.alfresco.probation.hmpps.dsd.io
+    - host: alfresco.dev.hmpps.service.justice.gov.uk
       http:
         paths:
           - backend:
@@ -50,5 +50,5 @@ spec:
   tls:
     - hosts:
         - hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
-        - https://alfresco.dev.alfresco.probation.hmpps.dsd.io/
-      secretName: legacy-domain-cert
+        - alfresco.dev.hmpps.service.justice.gov.uk
+      secretName: short-domain-cert
