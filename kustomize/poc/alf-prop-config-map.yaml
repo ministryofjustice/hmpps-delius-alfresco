@@ -12,11 +12,11 @@ data:
     alfresco.host=hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
     alfresco.protocol=https
     alfresco.port=443
-    aos.baseUrlOverwrite=https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk/alfresco/aos
-    csrf.filter.origin=https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
-    csrf.filter.referer=https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk/.*
+    aos.baseUrlOverwrite=https://alfresco.poc.hmpps.service.justice.gov.uk/alfresco/aos
+    csrf.filter.origin=https://alfresco.poc.hmpps.service.justice.gov.uk
+    csrf.filter.referer=https://alfresco.poc.hmpps.service.justice.gov.uk/.*
     share.protocol=https
-    share.host=hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+    share.host=share.alfresco.poc.hmpps.service.justice.gov.uk
     share.port=443
     local.transform.service.enabled=true
     transform.service.enabled=true

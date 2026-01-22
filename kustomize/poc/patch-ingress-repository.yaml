@@ -30,6 +30,24 @@ spec:
                   number: 80
             path: /api-explorer
             pathType: Prefix
+    - host: alfresco.poc.hmpps.service.justice.gov.uk
+      http:
+        paths:
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-repository
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+          - backend:
+              service:
+                name: alfresco-content-services-alfresco-repository
+                port:
+                  number: 80
+            path: /api-explorer
+            pathType: Prefix
   tls:
     - hosts:
         - hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+        - alfresco.poc.hmpps.service.justice.gov.uk

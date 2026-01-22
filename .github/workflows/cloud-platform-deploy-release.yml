@@ -43,7 +43,7 @@ jobs:
       - name: Install Kubernetes
         uses: azure/setup-kubectl@v4.0.0
         with:
-          version: "v1.29.13" # default is latest stable
+          version: "v1.33.5" # default is latest stable
         id: kubectl_install
 
       - name: Install Helm

@@ -98,5 +98,6 @@ alfresco-transform-service:
 global:
   known_urls:
     - https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+    - https://alfresco.poc.hmpps.service.justice.gov.uk
     - https://share.hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
-    - https://alf-sfs.poc.delius-core.hmpps-development.modernisation-platform.service.justice.gov.uk
+    - https://share.alfresco.poc.hmpps.service.justice.gov.uk
