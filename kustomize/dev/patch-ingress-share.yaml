@@ -24,7 +24,7 @@ spec:
                   number: 80
             path: /share/page/
             pathType: Prefix
-    - host: alfresco.dev.alfresco.probation.hmpps.dsd.io
+    - host: share.alfresco.dev.hmpps.service.justice.gov.uk
       http:
         paths:
           - backend:
@@ -44,5 +44,5 @@ spec:
   tls:
     - hosts:
         - share.hmpps-delius-alfresco-dev.apps.live.cloud-platform.service.justice.gov.uk
-        - alfresco.dev.alfresco.probation.hmpps.dsd.io
+        - share.alfresco.dev.hmpps.service.justice.gov.uk
       secretName: share-ingress-cert
