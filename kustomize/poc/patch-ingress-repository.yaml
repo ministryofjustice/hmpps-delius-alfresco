@@ -51,3 +51,4 @@ spec:
     - hosts:
         - hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
         - alfresco.poc.hmpps.service.justice.gov.uk
+      secretName: short-domain-cert
