@@ -41,8 +41,7 @@ alfresco-repository:
   replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    # orig value release_7.3.2_elasticsearch-r5.0.6-content-latest, using a temp fix to test short domain
-    tag: release_7.3.2_elasticsearch-r5.0.6temp-content-latest 
+    tag: release_7.3.2_elasticsearch-r5.0.6-content-latest 
   persistence:
     # -- Persist repository data
     enabled: false
