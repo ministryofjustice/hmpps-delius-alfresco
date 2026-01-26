@@ -41,7 +41,7 @@ alfresco-repository:
   replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: release_7.3.2_elasticsearch-r5.0.6-content-latest
+    tag: release_7.3.2_elasticsearch-r5.0.6-content-latest 
   persistence:
     # -- Persist repository data
     enabled: false
@@ -98,5 +98,6 @@ alfresco-transform-service:
 global:
   known_urls:
     - https://hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
+    - https://alfresco.poc.hmpps.service.justice.gov.uk
     - https://share.hmpps-delius-alfrsco-poc.apps.live.cloud-platform.service.justice.gov.uk
-    - https://alf-sfs.poc.delius-core.hmpps-development.modernisation-platform.service.justice.gov.uk
+    - https://share.alfresco.poc.hmpps.service.justice.gov.uk
