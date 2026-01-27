@@ -53,4 +53,37 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
       - name: Toggle maintenance page
-        run: echo "empty, just to register in GHA UI"
+        run: |
+          NAMESPACE=${KUBE_NAMESPACE}
+          INGRESS_NAME=alfresco-maintenance-${{ github.event.inputs.environment }}-env
+
+          if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
+            echo "Enabling maintenance page for ${{ github.event.inputs.environment }} env..."
+            # Apply or update maintenance Ingress only
+            cat <<EOF | kubectl apply -f -
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+              name: ${INGRESS_NAME}
+              namespace: ${KUBE_NAMESPACE}
+              annotations:
+                alb.ingress.kubernetes.io/actions.maintenance: >
+                  {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/html","StatusCode":"503","MessageBody":"${{ github.event.inputs.message }}"}} 
+            spec:
+              rules:
+                - http:
+                    paths:
+                      - path: /*
+                        pathType: ImplementationSpecific
+                        backend:
+                          service:
+                            name: maintenance
+                            port:
+                              name: use-annotation
+            EOF
+            echo "Maintenance page applied safely. Existing app Ingress rules remain untouched."
+          else
+            echo "Disabling maintenance page..."
+            kubectl delete ingress $INGRESS_NAME -n $NAMESPACE --ignore-not-found
+            echo "Maintenance page removed. Normal traffic restored."
+          fi
