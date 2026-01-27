@@ -1,0 +1,56 @@
+name: Alfresco Maintenance Page
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to enable/disable Maintenance Banner"
+        required: true
+        type: choice
+        options:
+          - poc
+      enabled:
+        description: 'Enable or disable maintenance mode'
+        required: true
+        default: false
+        type: boolean
+      message:
+        description: 'Maintenance banner message'
+        required: true
+        default: 'National Delius is down for planned maintenance. Read-only access will be available by 10:00.'
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+
+jobs:
+  toggle-maintenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Kubernetes
+        uses: azure/setup-kubectl@v4.0.0
+        with:
+          version: "v1.33.5" # default is latest stable
+        id: kubectl_install
+
+      - uses: azure/setup-helm@v4.2.0
+        with:
+           version: 'v3.15.3' # default is latest (stable)
+        id: install
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Toggle maintenance page
+        run: echo "empty, just to register in GHA UI"
