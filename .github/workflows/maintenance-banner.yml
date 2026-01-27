@@ -60,7 +60,7 @@ jobs:
           if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
             echo "Enabling maintenance page for ${{ github.event.inputs.environment }} env..."
             # Apply or update maintenance Ingress only
-            cat <<EOF | kubectl apply -f -
+            cat <<'EOF' | kubectl apply -f -
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
