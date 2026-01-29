@@ -52,35 +52,16 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Toggle maintenance page
+      - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
         run: |
-          NAMESPACE=${KUBE_NAMESPACE}
-          INGRESS_NAME=alfresco-maintenance-${{ github.event.inputs.environment }}-env
+          set -euo pipefail
+          NAMESPACE="hmpps-delius-alfrsco-poc"
+          INGRESS_NAME="alfresco-maintenance-${{ github.event.inputs.environment }}-env"
 
           if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
-            echo "Enabling maintenance page for ${{ github.event.inputs.environment }} env..."
-            # Apply or update maintenance Ingress only
-            cat <<'EOF' | kubectl apply -f -
-            apiVersion: networking.k8s.io/v1
-            kind: Ingress
-            metadata:
-              name: ${INGRESS_NAME}
-              namespace: ${KUBE_NAMESPACE}
-              annotations:
-                alb.ingress.kubernetes.io/actions.maintenance: >
-                  {"Type":"fixed-response","FixedResponseConfig":{"ContentType":"text/html","StatusCode":"503","MessageBody":"${{ github.event.inputs.message }}"}} 
-            spec:
-              rules:
-                - http:
-                    paths:
-                      - path: /*
-                        pathType: ImplementationSpecific
-                        backend:
-                          service:
-                            name: maintenance
-                            port:
-                              name: use-annotation
-            EOF
+            echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
+            bash scripts/create-maintenance-yaml.sh "$NAMESPACE" "$INGRESS_NAME" "$MESSAGE"
+            kubectl apply -f tmp-maintenance-banner.yaml
             echo "Maintenance page applied safely. Existing app Ingress rules remain untouched."
           else
             echo "Disabling maintenance page..."
