@@ -57,6 +57,7 @@ jobs:
           set -euo pipefail
           NAMESPACE="hmpps-delius-alfrsco-poc"
           INGRESS_NAME="alfresco-maintenance-${{ github.event.inputs.environment }}-env"
+          MESSAGE="${{ github.event.inputs.message }}"
 
           if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
