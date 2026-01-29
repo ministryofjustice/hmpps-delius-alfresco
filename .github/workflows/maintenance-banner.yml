@@ -61,7 +61,7 @@ jobs:
 
           if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
-            bash scripts/create-maintenance-yaml.sh "$NAMESPACE" "$INGRESS_NAME" "$MESSAGE"
+            bash scripts/create-maintenance-banner-yaml.sh "$NAMESPACE" "$INGRESS_NAME" "$MESSAGE"
             kubectl apply -f tmp-maintenance-banner.yaml
             echo "Maintenance page applied safely. Existing app Ingress rules remain untouched."
           else
