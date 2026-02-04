@@ -61,11 +61,25 @@ jobs:
 
           if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
-            bash scripts/create-maintenance-banner-yaml.sh "$NAMESPACE" "$INGRESS_NAME" "$MESSAGE"
-            kubectl apply -f tmp-maintenance-banner.yaml
-            echo "Maintenance page applied safely. Existing app Ingress rules remain untouched."
+            kubectl patch ingress alfresco-content-services-alfresco-repository \
+            --type merge \
+            -p '{
+              "metadata":{
+                "annotations":{
+                  "nginx.ingress.kubernetes.io/configuration-snippet":"return 503; error_page 503 /maintenance.html;"
+                }
+              }
+            }'
           else
             echo "Disabling maintenance page..."
-            kubectl delete ingress $INGRESS_NAME -n $NAMESPACE --ignore-not-found
+            kubectl patch ingress alfresco-content-services-alfresco-repository \
+            --type merge \
+            -p '{
+              "metadata":{
+                "annotations":{
+                  "nginx.ingress.kubernetes.io/configuration-snippet":"if ($request_uri ~* \"^/metrics(/|$)(.*)\") {\n  rewrite ^/metrics(/|$)(.*) /alfresco/s/prometheus break;\n}"
+                }
+              }
+            }'
             echo "Maintenance page removed. Normal traffic restored."
           fi
