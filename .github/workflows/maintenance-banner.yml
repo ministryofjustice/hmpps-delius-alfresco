@@ -55,13 +55,14 @@ jobs:
       - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
         run: |
           set -euo pipefail
-          NAMESPACE="hmpps-delius-alfrsco-poc"
+          NAMESPACE=${KUBE_NAMESPACE}
           INGRESS_NAME="alfresco-maintenance-${{ github.event.inputs.environment }}-env"
           MESSAGE="${{ github.event.inputs.message }}"
 
-          if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
+          if [ "${{ github.event.inputs.enabled }}" = "true" ]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
             kubectl patch ingress alfresco-content-services-alfresco-repository \
+            --namespace ${KUBE_NAMESPACE} \
             --type merge \
             -p '{
               "metadata":{
@@ -73,6 +74,7 @@ jobs:
           else
             echo "Disabling maintenance page..."
             kubectl patch ingress alfresco-content-services-alfresco-repository \
+            --namespace ${KUBE_NAMESPACE} \
             --type merge \
             -p '{
               "metadata":{
