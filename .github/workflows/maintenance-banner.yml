@@ -53,14 +53,16 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
       - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         run: |
           set -euo pipefail
           NAMESPACE=${KUBE_NAMESPACE}
 
-          if [ "${{ github.event.inputs.enabled }}" = "true" ]; then
+          if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
             kubectl patch ingress alfresco-content-services-alfresco-repository \
-            --namespace ${NAMESPACE} \
+            --namespace ${KUBE_NAMESPACE} \
             --type merge \
             -p '{
               "metadata":{
@@ -72,7 +74,7 @@ jobs:
           else
             echo "Disabling maintenance page..."
             kubectl patch ingress alfresco-content-services-alfresco-repository \
-            --namespace ${NAMESPACE} \
+            --namespace ${KUBE_NAMESPACE} \
             --type merge \
             -p '{
               "metadata":{
