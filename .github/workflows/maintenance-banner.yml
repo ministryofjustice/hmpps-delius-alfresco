@@ -26,6 +26,8 @@ permissions:
 jobs:
   toggle-maintenance:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
     env:
       KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
       KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
@@ -58,7 +60,6 @@ jobs:
       - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
         run: |
           set -euo pipefail
-          echo "Namespace is ${KUBE_NAMESPACE}"
           if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
             kubectl patch ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} \
