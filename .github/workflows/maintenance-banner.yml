@@ -26,6 +26,9 @@ permissions:
 jobs:
   toggle-maintenance:
     runs-on: ubuntu-latest
+    env:
+      KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+      KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -48,21 +51,17 @@ jobs:
           kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
           kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
           kubectl config use-context ${KUBE_CLUSTER}
+          kubectl config set-context --current --namespace="${KUBE_NAMESPACE}"
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-
       - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
-        env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         run: |
           set -euo pipefail
-          NAMESPACE=${KUBE_NAMESPACE}
-
+          echo "Namespace is ${KUBE_NAMESPACE}"
           if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
-            kubectl patch ingress alfresco-content-services-alfresco-repository \
-            --namespace ${KUBE_NAMESPACE} \
+            kubectl patch ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} \
             --type merge \
             -p '{
               "metadata":{
