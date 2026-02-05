@@ -26,6 +26,11 @@ permissions:
 jobs:
   toggle-maintenance:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    env:
+      KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+      KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -38,7 +43,7 @@ jobs:
 
       - uses: azure/setup-helm@v4.2.0
         with:
-           version: 'v3.15.3' # default is latest (stable)
+          version: 'v3.15.3' # default is latest (stable)
         id: install
 
       - name: Configure kubectl
@@ -48,9 +53,35 @@ jobs:
           kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
           kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
           kubectl config use-context ${KUBE_CLUSTER}
+          kubectl config set-context --current --namespace="${KUBE_NAMESPACE}"
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-
-      - name: Toggle maintenance page
-        run: echo "empty, just to register in GHA UI"
+      - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
+            echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
+            kubectl patch ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} \
+            --type merge \
+            -p '{
+              "metadata":{
+                "annotations":{
+                  "nginx.ingress.kubernetes.io/configuration-snippet":"return 503; error_page 503 /maintenance.html;"
+                }
+              }
+            }'
+          else
+            echo "Disabling maintenance page..."
+            kubectl patch ingress alfresco-content-services-alfresco-repository \
+            --namespace ${KUBE_NAMESPACE} \
+            --type merge \
+            -p '{
+              "metadata":{
+                "annotations":{
+                  "nginx.ingress.kubernetes.io/configuration-snippet":"if ($request_uri ~* \"^/metrics(/|$)(.*)\") {\n  rewrite ^/metrics(/|$)(.*) /alfresco/s/prometheus break;\n}"
+                }
+              }
+            }'
+            echo "Maintenance page removed. Normal traffic restored."
+          fi
