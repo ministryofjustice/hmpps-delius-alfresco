@@ -55,7 +55,7 @@ spec:
         resources:
           limits:
             cpu: 4
-            memory: 2Gi
+            memory: 4Gi
         command:
         - /bin/entrypoint.sh
         env:
