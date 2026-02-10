@@ -27,6 +27,7 @@ jobs:
     environment:
       name: ${{ github.event.inputs.destination_env }}
     steps:
+    - uses: actions/checkout@v4.1.1
     - name: Configure kubectl
       run: |
         echo "${{ secrets.KUBE_CERT }}" > ca.crt
@@ -42,10 +43,8 @@ jobs:
       uses: arduino/setup-task@v2
       with:
         version: 3.x
-    - name: Echo working dir
-      run: pwd
     - name: Stop ${{ github.event.inputs.destination_env }} Environment
-      run: task -t ../../Taskfile.yml scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
+      run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
 
   refresh-db:
     name: Refresh DB
