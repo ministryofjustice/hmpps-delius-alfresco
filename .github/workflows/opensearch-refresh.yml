@@ -48,7 +48,7 @@ jobs:
       - name: Create snapshot
         working-directory: jobs/refresh-opensearch
         run: |
-            helm install create-opensearch-refresh-snapshot ./hmpps-delius-alfresco/jobs/refresh-opensearch \
+            helm install create-opensearch-refresh-snapshot \
               --set jobType=create \
               --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
               --set destEnv=${{ github.event.inputs.destEnv }}
@@ -85,7 +85,7 @@ jobs:
       - name: Restore snapshot
         working-directory: jobs/refresh-opensearch
         run: |
-            helm install restore-opensearch-refresh-snapshot ./refresh-opensearch \
+            helm install restore-opensearch-refresh-snapshot \
               --set jobType=restore \
               --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
               --set destEnv=${{ github.event.inputs.destEnv }} \
