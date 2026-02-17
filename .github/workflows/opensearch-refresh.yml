@@ -53,10 +53,10 @@ jobs:
               --set destEnv=${{ github.event.inputs.destEnv }}
       - name: Wait for create job
         run: |
-          kubectl wait job/create-opensearch-refresh-snapshot --for=condition=complete --timeout=3h
+          kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
       - name: Get snapshot name
         run: |
-          POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-refresh-snapshot -o jsonpath="{.items[0].metadata.name}")
+          POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-snapshot -o jsonpath="{.items[0].metadata.name}")
           SNAPSHOT_NAME=$(kubectl logs $POD_NAME | tail -n 1)
           echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" >> $GITHUB_OUTPUT
       - name: Cleanup
@@ -90,7 +90,7 @@ jobs:
               --set snapshotName=${{ needs.create-snapshot.outputs.snapshotName }}
       - name: Wait for restore job
         run: |
-          kubectl wait job/restore-opensearch-refresh-snapshot --for=condition=complete --timeout=3h
+          kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
       - name: Cleanup
         if: always()
         run: helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found
