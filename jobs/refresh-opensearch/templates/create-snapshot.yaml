@@ -4,10 +4,10 @@ kind: Job
 metadata:
   name: create-opensearch-snapshot
 spec:
-  restartPolicy: Never
   serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.sourceEnv }}"
   template:
     spec:
+      restartPolicy: Never
       containers:
         - name: create-opensearch-snapshot
           image: {{ .Values.job.image }}
