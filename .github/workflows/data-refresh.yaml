@@ -27,6 +27,17 @@ jobs:
     environment:
       name: ${{ github.event.inputs.destination_env }}
     steps:
+    - uses: actions/checkout@v4.1.1
+
+    - name: Validate environments
+      run: |
+        echo "Source: ${{ github.event.inputs.source_env }}"
+        echo "Destination: ${{ github.event.inputs.destination_env }}"
+
+        if [ "${{ github.event.inputs.source_env }}" = "${{ github.event.inputs.destination_env }}" ]; then
+          echo "ERROR: Source and destination environments cannot be the same."
+          exit 1
+        fi
     - name: Configure kubectl
       run: |
         echo "${{ secrets.KUBE_CERT }}" > ca.crt
@@ -42,16 +53,15 @@ jobs:
       uses: arduino/setup-task@v2
       with:
         version: 3.x
-
     - name: Stop ${{ github.event.inputs.destination_env }} Environment
       run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
 
   refresh-db:
     name: Refresh DB
     runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.source_env }}
-    needs: stop-destination-environment
+    # environment:
+    #   name: ${{ github.event.inputs.source_env }}
+    # needs: stop-destination-environment
     steps:
       - uses: actions/checkout@v4.1.1
 
@@ -80,13 +90,22 @@ jobs:
       - name: Uninstall DB Refresh chart
         run: helm uninstall refresh-db --ignore-not-found
 
+      - name: Fetch Source Env RDS Details
+        working-directory: jobs/refresh-db
+        run: |
+          echo "Database refresh..."
+          # helm install refresh-db . \
+          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
+          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
+          #   --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
       - name: DB Refresh
         working-directory: jobs/refresh-db
         run: |
-          helm install refresh-db . \
-            --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-            --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-            --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
+          echo "Database refresh..."
+          # helm install refresh-db . \
+          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
+          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
+          #   --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
   refresh-s3:
     name: Refresh S3
@@ -125,53 +144,25 @@ jobs:
       - name: S3 Refresh
         working-directory: jobs/refresh-s3
         run: |
-          set -xeo pipefail
+          echo "S3 refresh..."
+          # set -xeo pipefail
 
-          SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
-          SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          # SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
+          # SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
 
-          SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          # SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
-          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
+          # DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
 
-          helm install refresh-s3 . \
-            --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-            --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-            --set directories="{${DIRS}}"
+          # helm install refresh-s3 . \
+          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
+          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
+          #   --set directories="{${DIRS}}"
 
-          kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
+          # kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
 
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
-
-  # wipe-solr-data:
-  #   name: Wipe Solr Data
-  #   runs-on: ubuntu-22.04
-  #   environment:
-  #     name: ${{ github.event.inputs.destination_env }}
-  #   needs: stop-destination-environment
-  #   steps:
-  #     - uses: actions/checkout@v4.1.1
-
-  #     - name: Configure kubectl
-  #       run: |
-  #         echo "${{ secrets.KUBE_CERT }}" > ca.crt
-  #         kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-  #         kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-  #         kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-  #         kubectl config use-context ${KUBE_CLUSTER}
-  #       env:
-  #         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-  #         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-
-  #     - name: Start Solr Data Wipe Job
-  #       run: |
-  #         kubectl apply -f jobs/wipe-solr-data.yaml
-  #         kubectl wait --timeout 10m --for=condition=complete job/wipe-solr-data
-
-  #     - name: Delete Refresh Job
-  #       run: kubectl delete job wipe-solr-data
-
   start-destination-environment:
     name: Start ${{ github.event.inputs.destination_env }} Environment
     runs-on: ubuntu-22.04
@@ -180,7 +171,7 @@ jobs:
     needs:
       - refresh-db
       - refresh-s3
-      # - wipe-solr-data
+
     steps:
     - name: Configure kubectl
       run: |

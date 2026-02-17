@@ -20,25 +20,53 @@ data:
       curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
     }
 
+    # Guard against SRC_ENV = DST_ENV
+    if [[ "$SRC_ENV" == "$DST_ENV" ]]; then
+      echo "ERROR: Source and Destination environments are the same ($SRC_ENV). Aborting!" >&2
+      exit 1
+    fi
+
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
     cat ~/.pgpass
     chmod 0600 ~/.pgpass
     chown job:job ~/.pgpass
+    
+    # connectivity checks
+    echo "Testing source DB connectivity..."
+    PGPASSWORD="$SRC_DB_PASS" psql -h "$SRC_DB_HOST" -U "$SRC_DB_USER" -d "$SRC_DB_NAME" -c "SELECT 1;" 2> >(tee ~/error.log >&2)
+
+    echo "Testing destination DB connectivity..."
+    PGPASSWORD="$DST_DB_PASS" psql -h "$DST_DB_HOST" -U "$DST_DB_USER" -d "$DST_DB_NAME" -c "SELECT 1;" 2> >(tee ~/error.log >&2)
+
+    # Dry-run mode
+    if [[ "$DRY_RUN" == "true" ]]; then
+      echo "Dry-run mode enabled. Performing pg_dump test only..."
+      pg_dump --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --schema-only --file=/dev/null
+      echo "Dry-run test completed successfully. Exiting."
+      exit 0
+    fi
+
+    # ----------------------
+    # Actual refresh process
+    # ----------------------
     set -x
 
     # Dump the source database
-    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump 2> >(tee ~/error.log >&2)
+    # pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump 2> >(tee ~/error.log >&2)
 
-    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;" 2> >(tee ~/error.log >&2)
+    # psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;" 2> >(tee ~/error.log >&2)
 
-    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "create schema public;" 2> >(tee ~/error.log >&2)
+    # psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "create schema public;" 2> >(tee ~/error.log >&2)
 
     # Restore the source database dump to the destination database
-    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump 2> >(tee ~/error.log >&2)
-    rm -rv /home/job/db-dump ~/.pgpass
+    # pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump 2> >(tee ~/error.log >&2)
+    # rm -rv /home/job/db-dump ~/.pgpass
 
 ---
+{{- if eq .Values.sourceEnvironment .Values.destinationEnvironment }}
+{{ fail "Source and destination environments cannot be the same." }}
+{{- end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -55,51 +83,53 @@ spec:
         resources:
           limits:
             cpu: 4
-            memory: 2Gi
+            memory: 4Gi
         command:
         - /bin/entrypoint.sh
         env:
         - name: HOME
           value: "/home/job"
+        - name: DRY_RUN
+          value: "{{ .Values.dryRun }}"
         - name: SRC_DB_NAME
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output
+              name: rds-instance-output-from-{{ .Values.sourceEnvironment }}
               key: DATABASE_NAME
         - name: SRC_DB_USER
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output
+              name: rds-instance-output-from-{{ .Values.sourceEnvironment }}
               key: DATABASE_USERNAME
         - name: SRC_DB_PASS
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output
+              name: rds-instance-output-from-{{ .Values.sourceEnvironment }}
               key: DATABASE_PASSWORD
         - name: SRC_DB_HOST
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output
+              name: rds-instance-output-from-{{ .Values.sourceEnvironment }}
               key: RDS_INSTANCE_ADDRESS
         - name: DST_DB_NAME
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-{{ .Values.destinationEnvironment }}
+              name: rds-instance-output
               key: DATABASE_NAME
         - name: DST_DB_USER
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-{{ .Values.destinationEnvironment }}
+              name: rds-instance-output
               key: DATABASE_USERNAME
         - name: DST_DB_PASS
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-{{ .Values.destinationEnvironment }}
+              name: rds-instance-output
               key: DATABASE_PASSWORD
         - name: DST_DB_HOST
           valueFrom:
             secretKeyRef:
-              name: rds-instance-output-{{ .Values.destinationEnvironment }}
+              name: rds-instance-output
               key: RDS_INSTANCE_ADDRESS
         - name: SLACK_WEBHOOK_URL
           value: "{{ .Values.slackWebhookUrl }}"
@@ -123,8 +153,8 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
-      serviceAccount: hmpps-migration-dev
-      serviceAccountName: hmpps-migration-dev
+      serviceAccount: hmpps-migration-{{ .Values.destinationEnvironment }}
+      serviceAccountName: hmpps-migration-{{ .Values.destinationEnvironment }}
       restartPolicy: Never
       volumes:
       - name: refresh-db-script
