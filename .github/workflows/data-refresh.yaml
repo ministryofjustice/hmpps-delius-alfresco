@@ -28,6 +28,16 @@ jobs:
       name: ${{ github.event.inputs.destination_env }}
     steps:
     - uses: actions/checkout@v4.1.1
+
+    - name: Validate environments
+      run: |
+        echo "Source: ${{ github.event.inputs.source_env }}"
+        echo "Destination: ${{ github.event.inputs.destination_env }}"
+
+        if [ "${{ github.event.inputs.source_env }}" = "${{ github.event.inputs.destination_env }}" ]; then
+          echo "ERROR: Source and destination environments cannot be the same."
+          exit 1
+        fi
     - name: Configure kubectl
       run: |
         echo "${{ secrets.KUBE_CERT }}" > ca.crt
@@ -49,9 +59,9 @@ jobs:
   refresh-db:
     name: Refresh DB
     runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.source_env }}
-    needs: stop-destination-environment
+    # environment:
+    #   name: ${{ github.event.inputs.source_env }}
+    # needs: stop-destination-environment
     steps:
       - uses: actions/checkout@v4.1.1
 
@@ -80,6 +90,14 @@ jobs:
       - name: Uninstall DB Refresh chart
         run: helm uninstall refresh-db --ignore-not-found
 
+      - name: Fetch Source Env RDS Details
+        working-directory: jobs/refresh-db
+        run: |
+          echo "Database refresh..."
+          # helm install refresh-db . \
+          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
+          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
+          #   --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
       - name: DB Refresh
         working-directory: jobs/refresh-db
         run: |
