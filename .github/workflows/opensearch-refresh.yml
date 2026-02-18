@@ -84,6 +84,7 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Restore snapshot
         run: |
+            echo "Restoring snapshot \"${{ needs.create-snapshot.outputs.snapshotName }}\""
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
               --set jobType=restore \
               --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
