@@ -31,7 +31,7 @@ spec:
             - name: SOURCE_S3_BUCKET_NAME
               valueFrom:
                 secretKeyRef:
-                  name: "{{ $.Values.s3.sourceS3BucketSecretName }}-{{ $.Values.sourceEnv }}"
+                  name: "{{ $.Values.s3.s3BucketSecretName }}-{{ $.Values.sourceEnv }}"
                   key: {{ $.Values.s3.s3BucketNameKey }}
             - name: SNAPSHOT_ROLE_ARN
               valueFrom:
