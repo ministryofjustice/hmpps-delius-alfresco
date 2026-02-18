@@ -107,12 +107,12 @@ jobs:
 
           echo "DIRS is $DIRS"
 
-          # helm install refresh-s3 . \
-          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-          #   --set directories="{${DIRS}}"
+          helm install refresh-s3 . \
+             --set sourceEnvironment=${{ github.event.inputs.source_env }} \
+             --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
+             --set directories="{${DIRS}}"
 
-          # kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
+          kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
 
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
