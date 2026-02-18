@@ -3,9 +3,6 @@ name: OpenSearch Refresh
 on:
   workflow_dispatch:
     inputs:
-      debug:
-        type: boolean
-        description: run in debug mode
       sourceEnv:
         description: 'Source environment'
         required: true
@@ -49,25 +46,19 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Create snapshot
-        if: ${{ inputs.debug == 'false' }}
         run: |
             helm install create-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
               --set jobType=create \
               --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
               --set destEnv=${{ github.event.inputs.destEnv }}
       - name: Wait for create job
-        if: ${{ inputs.debug == 'false' }}
         run: |
           kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
       - name: Get snapshot name
         id: getSnapshotName
         run: |
-          if [[ "${{ inputs.debug }}" = false ]]; then
           POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-snapshot -o jsonpath="{.items[0].metadata.name}")
           SNAPSHOT_NAME=$(kubectl logs $POD_NAME | tail -n 1)
-          else
-          SNAPSHOT_NAME=test-snapshot-name
-          fi
           echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" | tee $GITHUB_OUTPUT
       - name: Cleanup
         if: always()
@@ -93,17 +84,12 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Restore snapshot
         run: |
-            if [[ "${{ inputs.debug }}" = false ]]; then
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
               --set jobType=restore \
               --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
               --set destEnv=${{ github.event.inputs.destEnv }} \
               --set snapshotName=${{ needs.create-snapshot.outputs.snapshotName }}
-            else
-            echo "${{ needs.create-snapshot.outputs.snapshotName }}"
-            fi
       - name: Wait for restore job
-        if: ${{ inputs.debug == 'false' }}
         run: |
           kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
       - name: Cleanup
