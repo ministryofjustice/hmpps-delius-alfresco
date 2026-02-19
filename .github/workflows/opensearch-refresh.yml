@@ -89,7 +89,7 @@ jobs:
               --set jobType=restore \
               --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
               --set destEnv=${{ github.event.inputs.destEnv }} \
-              --set snapshotName=${{ needs.create-snapshot.outputs.snapshotName }}
+              --set opensearch.snapshotName=${{ needs.create-snapshot.outputs.snapshotName }}
       - name: Wait for restore job
         run: |
           kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
