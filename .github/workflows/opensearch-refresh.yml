@@ -22,7 +22,6 @@ on:
           - test
           - stage
           - preprod
-          - prod
 
 jobs:
   create-snapshot:
