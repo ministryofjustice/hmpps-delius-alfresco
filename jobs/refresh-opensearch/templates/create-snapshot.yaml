@@ -4,9 +4,9 @@ kind: Job
 metadata:
   name: create-opensearch-snapshot
 spec:
-  serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.sourceEnv }}"
   template:
     spec:
+      serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.sourceEnv }}"
       restartPolicy: Never
       containers:
         - name: create-opensearch-snapshot
@@ -21,7 +21,7 @@ spec:
               drop:
                 - ALL
             seccompProfile:
-            type: RuntimeDefault
+              type: RuntimeDefault
           env:
             - name: OPENSEARCH_ENDPOINT
               valueFrom:
