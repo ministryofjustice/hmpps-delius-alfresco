@@ -67,6 +67,12 @@ spec:
               # Check if repository exists
               REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY")
 
+              # Delete previous registration
+              echo "Deleteing previous registration"
+              curl -XDELETE "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY"
+
+              REPO_CHECK=404
+
               if [ "$REPO_CHECK" = "404" ]; then
                 echo "Repository does not exist. Creating snapshot repository..."
                 RESPONSE=$(curl -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY" -H 'Content-Type: application/json' -d "{
