@@ -3,10 +3,11 @@ set -euo pipefail
 
 # This script is used for the CP migration to copy objects from one S3 bucket 
 # to another from a particular point in time forwards (based on the prefix folder names).
+# Copy this script onto the Utils pod and run it from there.
 
 # ========= CONFIG =========
-SRC_BUCKET="${SRC_BUCKET:-tf-eu-west-2-hmpps-delius-pre-prod-alfresco-storage-s3bucket}"
-DEST_BUCKET="${DEST_BUCKET:-cloud-platform-f0ef56cb1ce77f028f850c05f6691d6d}"
+SRC_BUCKET="${SRC_BUCKET:-tf-eu-west-2-hmpps-delius-*-alfresco-storage-s3bucket}"
+DEST_BUCKET="${DEST_BUCKET:-cloud-platform-*}"
 REGION="${AWS_REGION:-eu-west-2}"
 
 # Cutoff (strictly "later than" this date/time)
@@ -218,6 +219,74 @@ log "Cutoff (>):  $CUTOFF_Y/$CUTOFF_M/$CUTOFF_D/$CUTOFF_H/$CUTOFF_MIN"
 log "Mode:        $([[ "$ALL_VERSIONS" == "1" ]] && echo "ALL_VERSIONS" || echo "CURRENT ONLY")"
 [[ "$DRY_RUN" == "1" ]] && log "DRY-RUN enabled (set DRY_RUN=0 to execute)"
 
-traverse_and_copy 0 0 0 0 0 ""
+# Check if cutoff year exists at top level
+cutoff_year_at_top=0
+if (( CUTOFF_Y >= 2020 )); then
+  # Years 2020+ should only be at top level
+  cutoff_year_at_top=1
+else
+  # Check if the year exists at top level for 2016-2019
+  year_check=$(aws s3api list-objects-v2 \
+    --bucket "$SRC_BUCKET" \
+    --region "$REGION" \
+    --prefix "${CUTOFF_Y}/" \
+    --delimiter '/' \
+    --max-items 1 \
+    --query 'CommonPrefixes[0].Prefix' \
+    --output text 2>/dev/null)
+  
+  if [[ "$year_check" == "${CUTOFF_Y}/" ]]; then
+    cutoff_year_at_top=1
+  fi
+fi
+
+# Main traversal at top level
+if (( cutoff_year_at_top == 1 )); then
+  log "Traversing top-level prefixes..."
+  traverse_and_copy 0 0 0 0 0 ""
+else
+  log "Cutoff year $CUTOFF_Y not found at top level, skipping top-level traversal"
+fi
+
+# For years 2016-2019, also traverse contentstore/ prefix
+# 2016-2017: only in contentstore
+# 2018-2019: in both locations (may already be handled above for top-level)
+if (( CUTOFF_Y >= 2016 && CUTOFF_Y <= 2019 )); then
+  log "Cutoff year is $CUTOFF_Y - also checking contentstore/ prefix..."
+  
+  # Check if contentstore prefix exists
+  contentstore_exists=$(aws s3api list-objects-v2 \
+    --bucket "$SRC_BUCKET" \
+    --region "$REGION" \
+    --prefix "contentstore/" \
+    --delimiter '/' \
+    --max-items 1 \
+    --query 'CommonPrefixes[0].Prefix' \
+    --output text 2>/dev/null)
+  
+  # if contentstore_exists contains "contentstore*", it exists
+  if [[ -n "$contentstore_exists" ]] && [[ "$contentstore_exists" != "None" ]] && [[ "$contentstore_exists" != "null" ]]; then
+    log "Found contentstore/ prefix, traversing years within it..."
+    
+    # List years under contentstore/
+    for ypref in $(list_children "$SRC_BUCKET" "contentstore/"); do
+      y=$(seg_num "$ypref"); [[ "$y" =~ ^[0-9]+$ ]] || continue
+      
+      # For 2016-2017: process if year >= cutoff year
+      # For 2018-2019: process if year >= cutoff year (these also exist at top level)
+      cmp=$(tuple_cmp "$y" 0 0 0 0 "$CUTOFF_Y" 0 0 0 0)
+      if (( cmp == 1 )); then
+        # Year is greater than cutoff, process entire year
+        process_prefix "$ypref"
+      elif (( cmp == 0 )); then
+        # Year equals cutoff, need to traverse deeper
+        traverse_and_copy "$y" 0 0 0 0 "$ypref"
+      fi
+    done
+  else
+    log "No contentstore/ prefix found in bucket"
+  fi
+fi
+
 log "Done."
 
