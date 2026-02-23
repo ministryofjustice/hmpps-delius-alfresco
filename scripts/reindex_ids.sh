@@ -28,19 +28,81 @@ BATCHSIZE=100
 CONCURRENT=2
 LOG_FILE="/tmp/reindex_ids.log"
 TOMCAT_LOG_FILE="/tmp/tomcat.log"
+MAX_PARALLEL=5
+
+counter=0
+pids=()
 
 while IFS= read -r ID; do
   # skip blank lines
   [[ -z "$ID" ]] && continue
-  rm -rf /tmp/tomcat.*  # clean up temp and log files between runs
+  
   echo "Reindexing ID: $ID" | tee -a "$LOG_FILE"
+  
   java -jar -Dserver.port=0 /opt/app.jar \
     --alfresco.reindex.jobName=reindexByIds \
     --alfresco.reindex.pageSize="$PAGESIZE" \
     --alfresco.reindex.batchSize="$BATCHSIZE" \
     --alfresco.reindex.fromId="$ID" \
     --alfresco.reindex.toId="$((ID + 1))" \
-    --alfresco.reindex.concurrentProcessors="$CONCURRENT" | tee -a "$TOMCAT_LOG_FILE"
+    --alfresco.reindex.concurrentProcessors="$CONCURRENT" >> "$TOMCAT_LOG_FILE" 2>&1 &
+  
+  pids+=($!)
+  counter=$((counter + 1))
+  
+  if [[ $counter -eq $MAX_PARALLEL ]]; then
+    echo "Waiting for batch of $MAX_PARALLEL processes to complete..." | tee -a "$LOG_FILE"
+    echo "Time: $(date)" | tee -a "$LOG_FILE"
+    #echo "PIDs: ${pids[*]}" | tee -a "$LOG_FILE"
+    
+    # Poll until all PIDs are finished
+    while true; do
+      all_done=true
+      for pid in "${pids[@]}"; do
+        if ps -p "$pid" > /dev/null 2>&1; then
+          all_done=false
+          break
+        fi
+      done
+      
+      if [[ "$all_done" == "true" ]]; then
+        echo "Batch complete." | tee -a "$LOG_FILE"
+        rm -rf /tmp/tomcat.*  # clean up temp and log files between runs
+        break
+      fi
+      
+      sleep 2
+    done
+    
+    pids=()
+    counter=0
+  fi
 done < "$ID_FILE"
+
+# Wait for any remaining processes
+if [[ ${#pids[@]} -gt 0 ]]; then
+  echo "Waiting for final batch of ${#pids[@]} processes to complete..." | tee -a "$LOG_FILE"
+  echo "Time: $(date)" | tee -a "$LOG_FILE"
+  #echo "PIDs: ${pids[*]}" | tee -a "$LOG_FILE
+  
+  # Poll until all PIDs are finished
+  while true; do
+    all_done=true
+    for pid in "${pids[@]}"; do
+      if ps -p "$pid" > /dev/null 2>&1; then
+        all_done=false
+        break
+      fi
+    done
+    
+    if [[ "$all_done" == "true" ]]; then
+      echo "Final batch complete." | tee -a "$LOG_FILE"
+      rm -rf /tmp/tomcat.*  # clean up temp and log files between runs
+      break
+    fi
+    
+    sleep 10
+  done
+fi
 
 echo "✅ All IDs processed."
