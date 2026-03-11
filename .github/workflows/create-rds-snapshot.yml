@@ -9,13 +9,17 @@ on:
         type: choice
         options:
           - poc
+          - dev
+          - test
+          - stage
           - preprod
-
+          - prod
+          - training
 permissions:
   contents: read
 
 jobs:
-  restore-docs-worker:
+  create-rds-snapshot:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.event.inputs.which_env }}
@@ -38,6 +42,12 @@ jobs:
         id: snapshot_name
         run: echo "snapshot_name=hmpps-delius-alfresco-${{ inputs.which_env }}-$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
+      - name: Masks some values
+        run: |
+          echo "::add-mask::${RDS_INSTANCE_IDENTIFIER}"
+          echo "::add-mask::${SERVICE_POD_DEPLOYMENT}"
+          echo "::add-mask::${SERVICE_POD_NAME}"
+
       - name: Create RDS Snapshot
         run: |
 
@@ -52,11 +62,11 @@ jobs:
           echo "Creating RDS snapshot for $RDS_INSTANCE_IDENTIFIER"
 
           # Exec into the service pod and execute the script
-          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c 'aws rds create-db-snapshot --db-instance-identifier '"${RDS_INSTANCE_IDENTIFIER}"' --db-snapshot-identifier ${{ steps.snapshot_name.outputs.snapshot_name}}'
+          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c 'aws rds create-db-snapshot --db-instance-identifier '"${RDS_INSTANCE_IDENTIFIER}"' --db-snapshot-identifier ${{ steps.snapshot_name.outputs.snapshot_name }}' > /dev/null 2>&1
 
           # wait for the snapshot to be created
 
-          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c 'aws rds wait db-snapshot-completed --db-snapshot-identifier ${{ steps.snapshot_name.outputs.snapshot_name}}'
+          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c 'aws rds wait db-snapshot-completed --db-snapshot-identifier ${{ steps.snapshot_name.outputs.snapshot_name }}' > /dev/null 2>&1
 
       - name: Output Snapshot Name
         run: |
