@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - poc
+          - preprod
 
 permissions:
   contents: read
