@@ -55,7 +55,7 @@ jobs:
           
           SNAPSHOT_NAME="${{ steps.snapshot_name.outputs.snapshot_name }}"
 
-          echo "Creating RDS snapshot for $RDS_INSTANCE_IDENTIFIER in ${{ inputs.which_env }} namespace."
+          echo "Creating RDS snapshot for rds instance $RDS_INSTANCE_IDENTIFIER in ${{ inputs.which_env }} namespace."
 
           create_snapshot() {
             # Exec into the service pod and execute the script
@@ -70,9 +70,11 @@ jobs:
           create_snapshot
 
           # wait for the snapshot to be created
-
-          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c 'aws rds wait db-snapshot-completed --db-snapshot-identifier ${{ steps.snapshot_name.outputs.snapshot_name }}' > /dev/null 2>&1
-          echo "RDS snapshot request completed. SNAPSHOT name: ${SNAPSHOT_NAME}."
+          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
+          'aws rds wait db-snapshot-completed \
+          --db-snapshot-identifier ${SNAPSHOT_NAME}' \
+          > /dev/null 2>&1
+          echo "RDS snapshot request completed. SNAPSHOT name- ${SNAPSHOT_NAME}."
 
       - name: Output Snapshot Name
         run: |
