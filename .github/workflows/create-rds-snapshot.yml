@@ -15,6 +15,10 @@ on:
           - preprod
           - prod
           - training
+      snapshot_name:
+        description: "Name for snapshot (no special chars, spaces and use - and _ only)"
+        required: false
+        default: "hmpps-delius-alfresco"
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: read # This is required for actions/checkout
@@ -39,9 +43,28 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Generate snapshot name
+      - name: Generate snapshot name for ${{ inputs.which_env }} namespace
         id: snapshot_name
-        run: echo "snapshot_name=hmpps-delius-alfresco-${{ inputs.which_env }}-$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+        run: |
+          # Use input snapshot_name if provided, otherwise default
+          SNAPSHOT_NAME_INPUT="${{ inputs.snapshot_name }}"
+          
+          # input validation
+          if ! [[ "$SNAPSHOT_NAME_INPUT" =~ ^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$ ]]; then
+            echo "Error: Invalid snapshot name '$SNAPSHOT_NAME_INPUT'."
+            echo "Snapshot names must start with a letter, only contain letters, numbers and hyphens and not end with a hyphen."
+            exit 1
+          fi
+          
+          # Check if user has set the snapshot name or using default
+          if [ "$SNAPSHOT_NAME_INPUT" = "hmpps-delius-alfresco" ]; then
+            # this is the default so append env and timestamp
+            SNAPSHOT_NAME="${SNAPSHOT_NAME_INPUT}-${{ inputs.which_env }}-$(date +%Y%m%d%H%M%S)"
+          else
+            # use snapshot name as-is
+            SNAPSHOT_NAME="$SNAPSHOT_NAME_INPUT"
+          fi
+          echo "snapshot_name=${SNAPSHOT_NAME}" >> $GITHUB_OUTPUT
 
       - name: Create RDS Snapshot
         run: |
