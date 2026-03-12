@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       which_env:
-        description: Environment where this restore docs process will run
+        description: Environment where RDS snapshot will be taken.
         required: true
         type: choice
         options:
@@ -16,7 +16,8 @@ on:
           - prod
           - training
 permissions:
-  contents: read
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
 
 jobs:
   create-rds-snapshot:
