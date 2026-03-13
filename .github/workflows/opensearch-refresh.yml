@@ -46,11 +46,10 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Create snapshot
-        working-directory: jobs/refresh-opensearch
         run: |
-            helm install create-opensearch-refresh-snapshot ./refresh-opensearch
-            --set jobType=create
-            --set sourceEnv=${{ github.event.inputs.sourceEnv }}
+            helm install create-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
+            --set jobType=create \
+            --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
             --set destEnv=${{ github.event.inputs.destEnv }}
       - name: Wait for create job
         run: |
@@ -83,12 +82,11 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Restore snapshot
-        working-directory: jobs/refresh-opensearch
         run: |
-            helm install restore-opensearch-refresh-snapshot ./refresh-opensearch
-            --set jobType=restore
-            --set sourceEnv=${{ github.event.inputs.sourceEnv }}
-            --set destEnv=${{ github.event.inputs.destEnv }}
+            helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
+            --set jobType=restore \
+            --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
+            --set destEnv=${{ github.event.inputs.destEnv }} \
             --set snapshotName=${{ needs.create-snapshot.outputs.snapshotName }}
       - name: Wait for restore job
         run: |
@@ -96,4 +94,3 @@ jobs:
       - name: Cleanup
         if: always()
         run: helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found
-      
