@@ -14,7 +14,6 @@ alfresco-repository:
       -Delasticsearch.http.socket.timeout=120000
       -Dtransform.service.enabled=true
       -Dtransform.service.url=http://alfresco-content-services-transform-router
-      -XX:MinRAMPercentage=50
       -XX:MaxRAMPercentage=80
       -Dencryption.keystore.type=JCEKS
       -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding
@@ -48,7 +47,7 @@ alfresco-repository:
       memory: 6Gi
     limits:
       cpu: 4
-      memory: 10Gi
+      memory: 11Gi
 share:
   replicaCount: 1
   image:
