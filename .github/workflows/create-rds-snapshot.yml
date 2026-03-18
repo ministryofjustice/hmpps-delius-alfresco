@@ -19,6 +19,11 @@ on:
         description: "Name for snapshot (no special chars, spaces and use - and _ only)"
         required: false
         default: "hmpps-delius-alfresco"
+      dry_run:
+        description: "Dry run for connectivity with RDS instance, no snapshot created."
+        type: boolean
+        required: true
+        default: true
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: read # This is required for actions/checkout
@@ -73,13 +78,18 @@ jobs:
           set -xe
           
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
-          SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          ENV=${{ inputs.which_env }}
+          # service pod in Prod ns has no label with key "app", its only got "name"
+          if [ "${ENV}" = "prod" ]; then
+            SERVICE_POD_NAME=$(kubectl get pod -l name=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          else
+            SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          fi
 
           RDS_INSTANCE_IDENTIFIER=$(kubectl get secrets rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_IDENTIFIER}' | base64 -d)
           
           SNAPSHOT_NAME="${{ steps.snapshot_name.outputs.snapshot_name }}"
-
-          echo "Creating RDS snapshot for rds instance $RDS_INSTANCE_IDENTIFIER in ${{ inputs.which_env }} namespace."
+          DRY_RUN="${{ inputs.dry_run }}"
 
           create_snapshot() {
             # Exec into the service pod and execute the script
@@ -90,18 +100,32 @@ jobs:
             > /dev/null 2>&1
           }
 
-          echo "RDS snapshot request submitted."
-          create_snapshot
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "Dry run enabled, no snapshot will be created, only Checking RDS instance..."
 
-          # wait for the snapshot to be created
-          kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
-          "aws rds wait db-snapshot-completed \
-          --db-snapshot-identifier '${SNAPSHOT_NAME}'" \
-          > /dev/null 2>&1
+            STATUS=$(kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
+              "aws rds describe-db-instances \
+              --db-instance-identifier '${RDS_INSTANCE_IDENTIFIER}' \
+              --query 'DBInstances[0].DBInstanceStatus' \
+              --output text")
+            
+            echo "RDS Instance Status: $STATUS"
+            echo "DRY RUN Completed."
+          
+          else
+            echo "RDS snapshot request submitted."
+            echo "Creating RDS snapshot for rds instance $RDS_INSTANCE_IDENTIFIER in ${{ inputs.which_env }} namespace."
+            create_snapshot
 
-          echo "RDS snapshot request completed. SNAPSHOT name- ${SNAPSHOT_NAME}."
+            # wait for the snapshot to be created
+            kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
+            "aws rds wait db-snapshot-completed \
+            --db-snapshot-identifier '${SNAPSHOT_NAME}'" \
+            > /dev/null 2>&1
+
+            echo "RDS snapshot request completed. SNAPSHOT name- ${SNAPSHOT_NAME}."
+          fi
 
       - name: Output Snapshot Name
         run: |
             echo "Snapshot Name: ${{ steps.snapshot_name.outputs.snapshot_name }}"
-      
