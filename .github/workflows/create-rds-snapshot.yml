@@ -100,6 +100,7 @@ jobs:
             STATUS=$(kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
               "aws rds describe-db-instances \
               --db-instance-identifier '${RDS_INSTANCE_IDENTIFIER}' \
+              --query 'DBInstances[0].DBInstanceStatus' \
               --output text")
             
             echo "RDS Instance Status: $STATUS"
@@ -117,6 +118,7 @@ jobs:
             > /dev/null 2>&1
 
             echo "RDS snapshot request completed. SNAPSHOT name- ${SNAPSHOT_NAME}."
+          fi
 
       - name: Output Snapshot Name
         run: |
