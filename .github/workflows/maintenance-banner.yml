@@ -9,6 +9,12 @@ on:
         type: choice
         options:
           - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
+          - training
       enabled:
         description: 'Enable or disable maintenance mode'
         required: true
