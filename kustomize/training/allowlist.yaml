@@ -12,9 +12,9 @@
 - "51.149.251.0/24" # PTTP / MoJO Production Account BYOIP CIDR range - PreProd
 - "213.121.161.112/28" # 102 Petty France WiFi
 - "217.33.148.210/32" # Digital studio
-- "13.43.9.198/32" # MP non_live_data-public-eu-west-2a-nat
-- "13.42.163.245/32" # MP non_live_data-public-eu-west-2b-nat
-- "18.132.208.127/32" # MP non_live_data-public-eu-west-2c-nat
+- "3.8.81.175/32" # MP live_data-public-eu-west-2a-nat
+- "3.11.197.133/32" # MP live_data-public-eu-west-2b-nat
+- "13.41.38.176/32" # MP live_data-public-eu-west-2c-nat
 - "51.149.249.0/29" # ARK Corsham Internet Egress Exponential-E
 - "51.149.249.32/29" # ARK Corsham Internet Egress Exponential-E
 - "194.33.192.0/25" # ARK internet (DOM1)
