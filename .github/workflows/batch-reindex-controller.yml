@@ -8,7 +8,7 @@ on:
         required: true
         default: "preprod"
         type: choice
-        options: [poc, dev, test, stage, preprod, prod]
+        options: [poc, dev, test, stage, preprod, prod, training]
       enable_run_on_schedule:
         description: "Enable the workflow being run on schedule? (sets configmap data key 'run' to 'true')"
         required: true

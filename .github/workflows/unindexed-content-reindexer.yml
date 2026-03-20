@@ -48,6 +48,7 @@ on:
           - stage
           - preprod
           - prod
+          - training
       days:
         description: "Look-back window in days (from today)"
         required: false
