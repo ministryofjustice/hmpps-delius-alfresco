@@ -5,15 +5,39 @@ trap ctrl_c INT
 # trap fail and call fail()
 trap fail ERR
 
+# color variables
+GREEN="\033[32m"
+RED="\033[31m"
+YELLOW="\033[33m"
+RESET="\033[0m"
+
+log_info() {
+    echo -e "${GREEN}$1${RESET}"
+}
+
+log_error() {
+    echo -e "${RED}$1${RESET}"
+}
+
+log_debug() {
+    echo -e "${YELLOW}$1${RESET}"
+}
+
 main() {
     env=$1
+
+    # Restrict env values to only poc, dev, test or preprod
+    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" && "$env" != "training" ]]; then
+        log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
+        exit 1
+    fi
     
     if [ "$env" == "poc" ]; then
         namespace="hmpps-delius-alfrsco-${env}"
     else 
         namespace="hmpps-delius-alfresco-${env}"
     fi
-    echo "Connecting to RDS in namespace $namespace"
+    log_info "Connecting to RDS in namespace $namespace"
     
     # get RDS connection url
     URL=$(kubectl get secrets rds-instance-output --namespace ${namespace} -o json | jq -r ".data.RDS_JDBC_URL | @base64d")
@@ -36,7 +60,7 @@ main() {
     # check for existing port-forward pod and use that if found
     existing_pod=$(kubectl get pods --namespace ${namespace} -o json | jq -r ".items[] | select(.metadata.name | startswith(\"port-forward-pod-\")) | .metadata.name" | head -n1)
     if [ -n "$existing_pod" ]; then
-        echo "Found existing port-forwarding pod: $existing_pod"
+        log_info "Found existing port-forwarding pod: $existing_pod"
         POD_NAME=$existing_pod
     else
         POD_NAME="port-forward-pod-${RANDOM_HEX}"
@@ -45,10 +69,10 @@ main() {
         # wait for pod to start
         kubectl wait --for=condition=ready pod/port-forward-pod-${RANDOM_HEX} --timeout=30s --namespace ${namespace}
     fi
-    printf "\n****************************************************\n"   
-    printf "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT/$DATABASE_NAME locally\n"
-    printf "Press Ctrl+C to stop port forwarding \n"
-    printf "****************************************************\n\n"
+    log_debug "\n****************************************************\n"   
+    log_debug "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT/$DATABASE_NAME locally\n"
+    log_debug "Press Ctrl+C to stop port forwarding \n"
+    log_debug "****************************************************\n\n"
     # start the local port forwarding session
     kubectl port-forward --namespace ${namespace} $POD_NAME $LOCAL_PORT:$LOCAL_PORT;
     if [ $? -ne 0 ]; then
@@ -57,22 +81,22 @@ main() {
 }
 
 fail() {
-    printf "\n\nPort forwarding failed"
+    log_error "\n\nPort forwarding failed"
     exit 1
 }
 
 ctrl_c() {
-    printf "\n\nStopping port forwarding"
+    log_error "\n\nStopping port forwarding"
     if [ -n "$POD_NAME" ]; then
-        printf "\nDeleting port forwarding pod $POD_NAME"
+        log_error "\nDeleting port forwarding pod $POD_NAME"
         kubectl delete pod $POD_NAME --force --grace-period=0  --namespace ${namespace}
     fi
     exit 0
 }
 
 if [ -z "$1" ]; then
-    echo "env not provided"
-    echo "Usage: rds-connect.sh <env>"
+    log_error "env not provided"
+    log_error "Usage: rds-connect.sh <env>"
     exit 1
 fi
 main $1 $2
