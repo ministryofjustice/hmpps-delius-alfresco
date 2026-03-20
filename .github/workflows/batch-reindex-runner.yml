@@ -12,7 +12,7 @@ on:
         description: "Target environment (poc/dev/test/stage/preprod/prod)"
         required: true
         type: choice
-        options: [poc, dev, test, stage, preprod, prod]
+        options: [poc, dev, test, stage, preprod, prod, training]
       starting_id:
         description: "STARTING_NODE_ID (highest child_node_id to begin from). Leave blank to auto-detect MAX()."
         required: false

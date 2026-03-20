@@ -15,6 +15,7 @@ on:
           - training
           - preprod
           - prod
+          - training
       deployment:
         description: 'Deployment to restart (if blank, restart all deployments via Helm manifest)'
         required: false
