@@ -18,7 +18,6 @@ on:
           - training
           - preprod
           - prod
-          - training
           
 jobs:
   backup:

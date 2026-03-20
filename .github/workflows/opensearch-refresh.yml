@@ -23,6 +23,7 @@ on:
           - stage
           - preprod
           - prod
+          - training
 
 jobs:
   create-snapshot:
