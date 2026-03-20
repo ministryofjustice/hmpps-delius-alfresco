@@ -60,13 +60,15 @@ data:
     cache.propertyValueCache.maxItems=250000
     cache.propertyValueCache.tx.statsEnabled=${caches.tx.statsEnabled}
 
+    cache.node.nodesSharedCache.cluster.type=fully-distributed
+    cache.node.nodesSharedCache.timeToLiveSeconds=60
+
     # The User to Schema Cache
     cache.spgUserToSchemaVersionCache.tx.maxItems=100
     cache.spgUserToSchemaVersionCache.tx.statsEnabled=${caches.tx.statsEnabled}
     cache.spgUserToSchemaVersionCache.maxItems=500
     cache.spgUserToSchemaVersionCache.timeToLiveSeconds=0
     cache.spgUserToSchemaVersionCache.maxIdleSeconds=0
-    cache.spgUserToSchemaVersionCache.cluster.type=local
     cache.spgUserToSchemaVersionCache.backup-count=1
     cache.spgUserToSchemaVersionCache.eviction-policy=LRU
     cache.spgUserToSchemaVersionCache.eviction-percentage=25
@@ -114,4 +116,5 @@ data:
     metrics.jvmMetricsReporter.enabled=true
     metrics.restMetricsReporter.enabled=true
     metrics.restMetricsReporter.path.enabled=true
+    hazelcast.jmx=true
 
