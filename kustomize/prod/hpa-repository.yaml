@@ -7,7 +7,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: alfresco-content-services-alfresco-repository
-  minReplicas: 2
+  minReplicas: 4
   maxReplicas: 12
   metrics:
   # Autoscale pods with a target of having 50% cpu usage.
