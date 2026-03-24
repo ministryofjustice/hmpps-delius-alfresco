@@ -36,6 +36,9 @@ alfresco-repository:
       -Dcom.sun.management.jmxremote.authenticate=false
       -Dcom.sun.management.jmxremote.ssl=false
       -Djava.rmi.server.hostname=127.0.0.1
+      -Dhazelcast.jmx=true
+      -Dhazelcast.jmx.detailed=true
+      -Dhazelcast.metrics.enabled=true
     CATALINA_OPTS: >-
       -Ds3.bucketLocation=eu-west-2
   replicaCount: 2

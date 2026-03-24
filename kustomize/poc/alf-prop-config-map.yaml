@@ -60,6 +60,9 @@ data:
     cache.propertyValueCache.maxItems=250000
     cache.propertyValueCache.tx.statsEnabled=${caches.tx.statsEnabled}
 
+    cache.node.nodesSharedCache.cluster.type=fully-distributed
+    cache.node.nodesSharedCache.timeToLiveSeconds=60
+
     # The User to Schema Cache
     cache.spgUserToSchemaVersionCache.tx.maxItems=100
     cache.spgUserToSchemaVersionCache.tx.statsEnabled=${caches.tx.statsEnabled}
