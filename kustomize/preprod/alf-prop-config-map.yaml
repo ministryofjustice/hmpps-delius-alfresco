@@ -69,9 +69,6 @@ data:
 
     cache.node.nodesSharedCache.cluster.type=fully-distributed
     cache.node.nodesSharedCache.timeToLiveSeconds=60
-
-    cache.node.nodesSharedCache.cluster.type=fully-distributed
-    cache.node.nodesSharedCache.timeToLiveSeconds=60
     
     # The User to Schema Cache
     cache.spgUserToSchemaVersionCache.tx.maxItems=100
