@@ -109,6 +109,9 @@ data:
     patch.nspg.administration.roles.cronExpression=0 0 0 ? 1 1 2030
     patch.nspg.administration.roles.startDelay=0
 
+    # Download Service Cleanup
+    download.cleaner.maxAgeMins=262800 # ~6 months (262,800 mins ≈ 182.5 days)
+    
     # Metrics
     metrics.enabled=true
     metrics.dbMetricsReporter.enabled=true
