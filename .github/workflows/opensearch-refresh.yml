@@ -22,6 +22,7 @@ on:
           - test
           - stage
           - preprod
+          - training
 
 jobs:
   create-snapshot:

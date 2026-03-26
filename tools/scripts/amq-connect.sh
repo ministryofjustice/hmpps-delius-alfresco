@@ -1,91 +1,108 @@
 #!/usr/bin/env bash
+# amq-connect.sh
+# Usage: ./amq-connect.sh <env> [local_port]
+# Example: ./amq-connect.sh preprod
+# - <env> can be poc, dev, test, stage, preprod or prod or training
+# - This script sets up port forwarding to a single AmazonMQ broker pod in the specified environment
 
-# trap ctrl-c and call ctrl_c()
-trap ctrl_c INT
-# trap fail and call fail()
+# trap (ctrl+c) and call ctrl_c()
+trap ctrl_c SIGINT
+
+# trap failures and call fail()
 trap fail ERR
 
-main() {        
+# color variables
+GREEN="\033[32m"
+RED="\033[31m"
+YELLOW="\033[33m"
+RESET="\033[0m"
+
+log_info() {
+    echo -e "${GREEN}$1${RESET}"
+}
+
+log_error() {
+    echo -e "${RED}$1${RESET}"
+}
+
+log_debug() {
+    echo -e "${YELLOW}$1${RESET}"
+}
+
+main() {
     env=$1
-    
-    # Restrict env values to only stage, preprod or prod
-    if [[ "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
-        echo "Invalid namespace. Allowed values: stage, preprod, or prod."
+    local_port=$2
+
+    # Restrict env values to only poc, dev, test or preprod
+    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" && "$env" != "training" ]]; then
+        log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
         exit 1
     fi
- 
+
     namespace="hmpps-delius-alfresco-${env}"
-    echo "Connecting to AMQ Console in namespace $namespace"
-       
+
+    # Use the port passed in or default based on env
+    if [ "$env" == "poc" ]; then
+        namespace="hmpps-delius-alfrsco-${env}"
+        LOCAL_PORT=${local_port:-8166}
+    elif [ "$env" == "dev" ]; then
+        LOCAL_PORT=${local_port:-8165}
+    elif [ "$env" == "test" ]; then
+        LOCAL_PORT=${local_port:-8164}
+    elif [ "$env" == "stage" ]; then
+        LOCAL_PORT=${local_port:-8163}
+    elif [ "$env" == "preprod" ]; then
+        LOCAL_PORT=${local_port:-8162}
+    elif [ "$env" == "prod" ]; then
+        LOCAL_PORT=${local_port:-8161}
+    elif [ "$env" == "training" ]; then
+        LOCAL_PORT=${local_port:-8161}
+    fi
+    
+    log_info "Connecting to AMQ Console in namespace $namespace"
+
     # get amq connection url
-    URL0=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL_0 | @base64d")
+    # if BROKER_CONSOLE_URL is null then try the multi-broker approach
+    CHECK_URL=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL" | grep null || true)
+    if [ -n "$CHECK_URL" ]; then
+        log_error "No AMQ URL found in secret for connection. Broker setup is a pre-requisite."
+        exit 1
+    fi
 
-    URL1=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL_1 | @base64d")
-
-    URL2=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL_2 | @base64d")
-
-    LOCAL_PORT_0=8161
-    LOCAL_PORT_1=8162
-    LOCAL_PORT_2=8163
+    URL=$(kubectl get secrets amazon-mq-broker-secret --namespace ${namespace} -o json | jq -r ".data.BROKER_CONSOLE_URL | @base64d")
 
     # extract host and port
-    HOST_0=$(echo $URL0 | cut -d '/' -f 3 | cut -d ':' -f 1)
+    HOST=$(echo $URL | cut -d '/' -f 3 | cut -d ':' -f 1)
     # extract protocol
-    PROTOCOL_0=$(echo $URL0 | awk -F'://' '{print $1}')
+    PROTOCOL=$(echo $URL | awk -F'://' '{print $1}')
     # extract remote port
-    REMOTE_PORT_0=$(echo $URL0 | cut -d '/' -f 3 | cut -d ':' -f 2)
-
-    HOST_1=$(echo $URL1 | cut -d '/' -f 3 | cut -d ':' -f 1)
-    PROTOCOL_1=$(echo $URL1 | awk -F'://' '{print $1}')
-    REMOTE_PORT_1=$(echo $URL1 | cut -d '/' -f 3 | cut -d ':' -f 2)
-
-    HOST_2=$(echo $URL2 | cut -d '/' -f 3 | cut -d ':' -f 1)
-    PROTOCOL_2=$(echo $URL2 | awk -F'://' '{print $1}')
-    REMOTE_PORT_2=$(echo $URL2 | cut -d '/' -f 3 | cut -d ':' -f 2)
+    REMOTE_PORT=$(echo $URL | cut -d '/' -f 3 | cut -d ':' -f 2)
 
     # generate random hex string
     RANDOM_HEX=$(openssl rand -hex 4)
 
     # start port forwarding
-    POD_NAME_0="port-forward-pod-${RANDOM_HEX}-0"
-    POD_NAME_1="port-forward-pod-${RANDOM_HEX}-1"
-    POD_NAME_2="port-forward-pod-${RANDOM_HEX}-2"
+    POD_NAME="port-forward-pod-${RANDOM_HEX}"
+    kubectl run $POD_NAME \
+        --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest \
+        --port ${LOCAL_PORT} \
+        --env="REMOTE_HOST=$HOST" \
+        --env="LOCAL_PORT=$LOCAL_PORT" \
+        --env="REMOTE_PORT=$REMOTE_PORT" \
+        --namespace ${namespace}
 
-    kubectl run $POD_NAME_0 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_0} --env="REMOTE_HOST=$HOST_0" --env="LOCAL_PORT=$LOCAL_PORT_0" --env="REMOTE_PORT=$REMOTE_PORT_0" --namespace ${namespace};
-    kubectl run $POD_NAME_1 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_1} --env="REMOTE_HOST=$HOST_1" --env="LOCAL_PORT=$LOCAL_PORT_1" --env="REMOTE_PORT=$REMOTE_PORT_1" --namespace ${namespace};
-    kubectl run $POD_NAME_2 --image=ghcr.io/ministryofjustice/hmpps-delius-alfresco-port-forward-pod:latest --port ${LOCAL_PORT_2} --env="REMOTE_HOST=$HOST_2" --env="LOCAL_PORT=$LOCAL_PORT_2" --env="REMOTE_PORT=$REMOTE_PORT_2" --namespace ${namespace};
-    
     # wait for pod to start
-    kubectl wait --for=condition=ready $POD_NAME_0 --timeout=120s --namespace ${namespace}
-    kubectl wait --for=condition=ready $POD_NAME_1 --timeout=120s --namespace ${namespace}
-    kubectl wait --for=condition=ready $POD_NAME_2 --timeout=120s --namespace ${namespace}
-    sleep 30
-    for i in {0..2}; do
-        HOST_VAR="HOST_${i}"
-        REMOTE_PORT_VAR="REMOTE_PORT_${i}"
-        PROTOCOL_VAR="PROTOCOL_${i}"
-        LOCAL_PORT_VAR="LOCAL_PORT_${i}"
+    kubectl wait --for=condition=ready pod/${POD_NAME} --timeout=60s --namespace ${namespace}
 
-        HOST="${!HOST_VAR}"
-        REMOTE_PORT="${!REMOTE_PORT_VAR}"
-        PROTOCOL="${!PROTOCOL_VAR}"
-        LOCAL_PORT="${!LOCAL_PORT_VAR}"
-
-        printf "\nPort forwarding started, connecting to $HOST:$REMOTE_PORT \n"
-        printf "\n****************************************************\n"
-        printf "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT locally\n"
-        printf "Press Ctrl+C to stop port forwarding \n"
-        printf "****************************************************\n\n"
-    done
+    log_debug "\nPort forwarding started, connecting to $HOST:$REMOTE_PORT \n"
+    log_debug "\n****************************************************\n"
+    log_debug "Connect to ${PROTOCOL}://localhost:$LOCAL_PORT locally\n"
+    log_debug "Press Ctrl+C to stop port forwarding \n"
+    log_debug "****************************************************\n\n"
     
     # start the local port forwarding session
-    kubectl port-forward --namespace ${namespace} $POD_NAME_0 $LOCAL_PORT_0:$LOCAL_PORT_0 &
-    PORT_FORWARD_PID_0=$!
-    kubectl port-forward --namespace ${namespace} $POD_NAME_1 $LOCAL_PORT_1:$LOCAL_PORT_1 &
-    PORT_FORWARD_PID_1=$!
-    kubectl port-forward --namespace ${namespace} $POD_NAME_2 $LOCAL_PORT_2:$LOCAL_PORT_2 &
-    PORT_FORWARD_PID_2=$!
-    wait
+    kubectl port-forward --namespace ${namespace} ${POD_NAME} $LOCAL_PORT:$LOCAL_PORT &
+    PORT_FORWARD_PID=$!
 
     # Keep the script running, listening for ctrl+c
     while true; do
@@ -94,30 +111,27 @@ main() {
 }
 
 fail() {
-    printf "\n\nPort forwarding failed"
+    log_error "\n\nPort forwarding failed"
     cleanup
     exit 1
 }
 ctrl_c() {
-    printf "\n\nStopping port forwarding"
+    log_error "\n\nStopping port forwarding"
     cleanup
     exit 0
 }
 
 cleanup() {
-    echo "Cleaning up..."
-    kill $PORT_FORWARD_PID_0 2>/dev/null || true
-    kill $PORT_FORWARD_PID_1 2>/dev/null || true
-    kill $PORT_FORWARD_PID_2 2>/dev/null || true
-    kubectl delete pod $POD_NAME_0 --force --grace-period=0 --namespace=${namespace} 2>/dev/null || true
-    kubectl delete pod $POD_NAME_1 --force --grace-period=0 --namespace=${namespace} 2>/dev/null || true
-    kubectl delete pod $POD_NAME_2 --force --grace-period=0 --namespace=${namespace} 2>/dev/null || true
-    echo "Cleanup complete."
+    log_info "Cleaning up..."
+    kill $PORT_FORWARD_PID 2>/dev/null || true
+    kubectl delete pod $POD_NAME --force --grace-period=0 --namespace=${namespace} 2>/dev/null || true
+    log_info "Cleanup complete."
 }
 
+
 if [ -z "$1" ]; then
-    echo "env not provided"
-    echo "Usage: amq-connect.sh <env>"
+    log_error "Environment to forward to not provided."
+    log_error "Usage: amq-connect.sh <env> [<local_port>]"
     exit 1
 fi
 main "$1" "$2"
