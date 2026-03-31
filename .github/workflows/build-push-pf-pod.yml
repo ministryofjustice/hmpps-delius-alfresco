@@ -1,8 +1,20 @@
 name: Build and push image [Port Forward Pod]
 
+# This workflow is triggered in three ways:
+#     - Manual trigger: Using the "Run workflow" button in GitHub Actions UI (workflow_dispatch)
+#     - Push to main branch with changes to:
+#       - Any files in tools/db-utils/** directory
+#       - The workflow file itself (.github/workflows/build-push-db-utils.yml)
+#     - Push to any branch (not just main) with the same path changes above - the workflow runs but uses a different tagging strategy (line 54 adds -<branch>-<run_id> suffix instead of :latest)
 on:
-  push:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - TM-*
+    paths:
+      - tools/port-forward/**
+      - .github/workflows/build-push-pf-pod.yml
 
 env:
   IMAGE_NAME: hmpps-delius-alfresco-port-forward-pod
@@ -10,31 +22,38 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     steps:
       - name: checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - name: Log in to the Container registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.IMAGE_NAME }}
+
       - name: Build and push Docker image
         if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@5176d81f87c23d6fc96624dfdbcd9f3830bbe445 # v6.5.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./tools/port-forward/
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/${{ steps.meta.outputs.tags }}, ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
           labels: ${{ steps.meta.outputs.labels }}
+
       - name: Build and push Docker image
         if: github.ref != 'refs/heads/main'
-        uses: docker/build-push-action@5176d81f87c23d6fc96624dfdbcd9f3830bbe445 # v6.5.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./tools/port-forward/
           push: true
