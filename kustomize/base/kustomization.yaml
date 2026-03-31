@@ -19,7 +19,6 @@ patches:
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-repository.yaml
-  - path: patch-activemq-logging.yaml
   - path: patch-live-indexing-path.yaml
   - path: patch-live-indexing-metadata.yaml
   - path: patch-live-indexing-mediation.yaml
