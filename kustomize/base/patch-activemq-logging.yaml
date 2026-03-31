@@ -1,3 +1,6 @@
+# This patch sets the logging level for ActiveMQ to WARN to reduce log verbosity.
+# It targets multiple deployments to ensure consistent logging behavior across services.
+# The logging level is set via the SPRING_APPLICATION_JSON environment variable.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
