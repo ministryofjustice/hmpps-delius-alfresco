@@ -5,7 +5,7 @@ name: Build and push image [DB Utils]
 #     - Push to main branch with changes to:
 #       - Any files in tools/db-utils/** directory
 #       - The workflow file itself (.github/workflows/build-push-db-utils.yml)
-#     - Push to any branch (not just main) with the same path changes above - the workflow runs but uses a different tagging strategy (line 54 adds -<branch>-<run_id> suffix instead of :latest)
+#     - Push to TM-* branches with the same path changes above; for these non-main branches the image is tagged with a branch-specific -<branch>-<run_id> suffix instead of :latest
 on:
   workflow_dispatch:
   push:

@@ -1,11 +1,11 @@
 name: Build and push image [Port Forward Pod]
 
 # This workflow is triggered in three ways:
-#     - Manual trigger: Using the "Run workflow" button in GitHub Actions UI (workflow_dispatch)
-#     - Push to main branch with changes to:
-#       - Any files in tools/db-utils/** directory
-#       - The workflow file itself (.github/workflows/build-push-db-utils.yml)
-#     - Push to any branch (not just main) with the same path changes above - the workflow runs but uses a different tagging strategy (line 54 adds -<branch>-<run_id> suffix instead of :latest)
+#   - Manual trigger via the "Run workflow" button in the GitHub Actions UI (workflow_dispatch).
+#   - Push to the main branch with changes to:
+#       - Any files in the tools/port-forward/** directory.
+#       - This workflow file (.github/workflows/build-push-pf-pod.yml).
+#   - Push to a TM-* branch with the same path changes as above; in this case the image is tagged with a branch- and run-specific suffix instead of :latest.
 on:
   workflow_dispatch:
   push:
