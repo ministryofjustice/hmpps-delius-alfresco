@@ -9,7 +9,8 @@ resources:
   - reindexing.yaml
 
 patches:
-  - path: patch-pvc-filestore.yaml
+  - path: patch-pvc-filestore-pvc.yaml
+  - path: patch-pvc-filestore-deployment.yaml
   - path: patch-ingress-repository.yaml
   - path: patch-ingress-share.yaml
   - path: patch-infra-config-map.yaml
