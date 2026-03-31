@@ -36,13 +36,6 @@ jobs:
         with:
           version: 'v1.33.5'
         id: kubectl_install
-      
-      - name: Install yq
-        uses: dcarbone/install-yq-action@64b1b9eb28920bb1a4c13c05321df284f9a8f940 # v1.1.1
-        with:
-          download-compressed: true
-          version: "v4.35.1"
-          force: true
 
       - name: Scaling up Deployments in ${{ inputs.environment }} namespace
         env:
