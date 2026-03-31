@@ -36,6 +36,13 @@ jobs:
         with:
           version: 'v1.26.0' # default is latest stable
         id: kubectl_install
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v4.2.0
+        with:
+          version: "v3.14.4" # default is latest stable
+        id: helm_install
+
 
       - name: Scaling up Deployments in ${{ inputs.environment }} namespace
         env:
