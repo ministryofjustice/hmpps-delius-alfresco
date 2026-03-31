@@ -27,34 +27,37 @@ jobs:
     environment:
       name: ${{ github.event.inputs.destination_env }}
     steps:
-    - uses: actions/checkout@v4.1.1
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-    - name: Validate environments
-      run: |
-        echo "Source: ${{ github.event.inputs.source_env }}"
-        echo "Destination: ${{ github.event.inputs.destination_env }}"
+      - name: Validate environments
+        run: |
+          echo "Source: ${{ github.event.inputs.source_env }}"
+          echo "Destination: ${{ github.event.inputs.destination_env }}"
 
-        if [ "${{ github.event.inputs.source_env }}" = "${{ github.event.inputs.destination_env }}" ]; then
-          echo "ERROR: Source and destination environments cannot be the same."
-          exit 1
-        fi
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBE_CERT }}" > ca.crt
-        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-        kubectl config use-context ${KUBE_CLUSTER}
-      env:
-        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+          if [ "${{ github.event.inputs.source_env }}" = "${{ github.event.inputs.destination_env }}" ]; then
+            echo "ERROR: Source and destination environments cannot be the same."
+            exit 1
+          fi
 
-    - name: Install Task
-      uses: arduino/setup-task@v2
-      with:
-        version: 3.x
-    - name: Stop ${{ github.event.inputs.destination_env }} Environment
-      run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Install Task
+        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          version: '3.49.1'
+
+      - name: Stop ${{ github.event.inputs.destination_env }} Environment
+        run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
 
   refresh-db:
     name: Refresh DB
@@ -63,17 +66,18 @@ jobs:
     #   name: ${{ github.event.inputs.source_env }}
     # needs: stop-destination-environment
     steps:
-      - uses: actions/checkout@v4.1.1
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v3.2
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
         with:
-          version: 'v1.26.0' # default is latest stable
+          version: 'v1.33.5'
         id: kubectl_install
 
-      - uses: azure/setup-helm@v4.2.0
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
-           version: 'v3.15.3' # default is latest (stable)
+          version: 'v3.15.2'
         id: install
 
       - name: Configure kubectl
@@ -114,17 +118,18 @@ jobs:
       name: ${{ github.event.inputs.source_env }}
     needs: stop-destination-environment
     steps:
-      - uses: actions/checkout@v4.1.1
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Install k
-        uses: azure/setup-kubectl@v3.2
+      - name: Install kubectl
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
         with:
-          version: 'v1.26.0' # default is latest stable
+          version: 'v1.33.5'
         id: kubectl_install
 
-      - uses: azure/setup-helm@v4.2.0
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
-           version: 'v3.15.3' # default is latest (stable)
+          version: 'v3.15.2'
         id: install
 
       - name: Configure kubectl
@@ -163,6 +168,7 @@ jobs:
 
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
+
   start-destination-environment:
     name: Start ${{ github.event.inputs.destination_env }} Environment
     runs-on: ubuntu-22.04
