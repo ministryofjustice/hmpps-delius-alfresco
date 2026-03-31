@@ -36,13 +36,6 @@ jobs:
         with:
           version: 'v1.26.0' # default is latest stable
         id: kubectl_install
-      
-      - name: Install yq
-        uses: dcarbone/install-yq-action@v1.1.1
-        with:
-          download-compressed: true
-          version: "v4.35.1"
-          force: true
 
       - name: Scaling up Deployments in ${{ inputs.environment }} namespace
         env:
