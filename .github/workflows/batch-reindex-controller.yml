@@ -39,10 +39,10 @@ jobs:
     environment: ${{ inputs.environment }}-preapproved
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@c0c8b32d33a5244f1e5947304550403b63930415 # v4.0.0
         with:
           version: "v1.29.13"
 

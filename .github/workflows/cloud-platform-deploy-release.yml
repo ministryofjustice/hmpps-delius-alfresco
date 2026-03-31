@@ -38,16 +38,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Kubernetes
-        uses: azure/setup-kubectl@v4.0.0
+        uses: azure/setup-kubectl@c0c8b32d33a5244f1e5947304550403b63930415 # v4.0.0
         with:
           version: "v1.33.5" # default is latest stable
         id: kubectl_install
 
       - name: Install Helm
-        uses: azure/setup-helm@v4.2.0
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
         with:
           version: "v3.14.4" # default is latest stable
         id: helm_install
@@ -75,7 +75,7 @@ jobs:
           kubectl config set-context --current --namespace=${KUBE_NAMESPACE}
 
       - name: Install Task
-        uses: arduino/setup-task@v2
+        uses: arduino/setup-task@24c5e13bce349197642746563945fcdf9355e8f4 # v2.0.0
         with:
           version: 3.x
 
