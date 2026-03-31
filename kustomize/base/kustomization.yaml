@@ -40,7 +40,11 @@ patches:
   - path: patch-security-contexts/alfresco-content-services-transform-misc.yaml
   - path: patch-security-contexts/alfresco-content-services-transform-router.yaml
   - path: patch-security-contexts/alfresco-search-enterprise-mediation.yaml
-  - path: patch-activemq-logging.yaml
+  - path: patch-activemq-logging-repository.yaml
+  - path: patch-activemq-logging-content.yaml
+  - path: patch-activemq-logging-metadata.yaml
+  - path: patch-activemq-logging-path.yaml
+  - path: patch-activemq-logging-transform-router.yaml
   # Set filestore strategy to Recreate as we use a persistent volume with RWO access mode
   # We have to override the base config using this method as it doesn't support changing
   # the strategy type from RollingUpdate to Recreate using the strategic merge patch method.
