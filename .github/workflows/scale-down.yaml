@@ -32,6 +32,8 @@ jobs:
     
       - name: Install Kubernetes
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+        with:
+          version: 'v1.33.5'
         id: kubectl_install
       
       - name: Scaling Down Deployments in ${{ matrix.environment }} namespace
@@ -52,6 +54,8 @@ jobs:
           
       - name: Install Task
         uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          version: 'v3.49.1'
 
       - name: Run Task
         run: task scale_down_deployments ENV=${{ matrix.environment }}

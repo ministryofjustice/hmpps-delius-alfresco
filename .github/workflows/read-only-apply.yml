@@ -39,6 +39,8 @@ jobs:
 
       - name: Install Kubernetes
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+        with:
+          version: 'v1.33.5'
         id: kubectl_install
 
       - name: Deploy updated annotation to ${{ inputs.environment }} repository ingress
