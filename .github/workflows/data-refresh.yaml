@@ -27,37 +27,37 @@ jobs:
     environment:
       name: ${{ github.event.inputs.destination_env }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-    - name: Validate environments
-      run: |
-        echo "Source: ${{ github.event.inputs.source_env }}"
-        echo "Destination: ${{ github.event.inputs.destination_env }}"
+      - name: Validate environments
+        run: |
+          echo "Source: ${{ github.event.inputs.source_env }}"
+          echo "Destination: ${{ github.event.inputs.destination_env }}"
 
-        if [ "${{ github.event.inputs.source_env }}" = "${{ github.event.inputs.destination_env }}" ]; then
-          echo "ERROR: Source and destination environments cannot be the same."
-          exit 1
-        fi
+          if [ "${{ github.event.inputs.source_env }}" = "${{ github.event.inputs.destination_env }}" ]; then
+            echo "ERROR: Source and destination environments cannot be the same."
+            exit 1
+          fi
 
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBE_CERT }}" > ca.crt
-        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-        kubectl config use-context ${KUBE_CLUSTER}
-      env:
-        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-    - name: Install Task
-      uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
-      with:
-        version: '3.49.1'
+      - name: Install Task
+        uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          version: '3.49.1'
 
-    - name: Stop ${{ github.event.inputs.destination_env }} Environment
-      run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
+      - name: Stop ${{ github.event.inputs.destination_env }} Environment
+        run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
 
   refresh-db:
     name: Refresh DB
