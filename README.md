@@ -35,6 +35,28 @@ The kustomize overlays are stored in the `kustomize/environments/<env>` director
 These overlays are applied to the Helm chart's resources to modify the configuration as needed for the environment.
 
 
+## Image builds (GitHub Actions)
+
+Container images for the helper tooling in `tools/**` are built and pushed by GitHub Actions.
+
+Key points:
+
+- The image build workflows only run automatically on **pushes to `main` and `TM-*` branches**.
+- They are also **scoped to relevant paths**, so a build only runs when the corresponding tool directory (e.g. `tools/utils/**`) or the workflow file itself changes.
+- This reduces unnecessary container builds when unrelated files change.
+
+Workflows:
+
+- Utils image: [./.github/workflows/build-push-utils.yml](./.github/workflows/build-push-utils.yml)
+- DB utils image: [./.github/workflows/build-push-db-utils.yml](./.github/workflows/build-push-db-utils.yml)
+- Port-forward pod image: [./.github/workflows/build-push-pf-pod.yml](./.github/workflows/build-push-pf-pod.yml)
+
+Tagging behaviour:
+
+- `main` builds also tag the image as `:latest`.
+- Non-`main` builds (e.g. `TM-*`) tag images with a branch/run suffix (e.g. `<branch>-<run_id>`).
+
+
 ### Secrets
 
 A number of secrets are required to deploy the Delius Alfresco stack. Some of these are set by the cloud-platform-environments repository, while others are set manually.
