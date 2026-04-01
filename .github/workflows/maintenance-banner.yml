@@ -9,6 +9,12 @@ on:
         type: choice
         options:
           - poc
+          - dev
+          - test
+          - stage
+          - preprod
+          - prod
+          - training
       enabled:
         description: 'Enable or disable maintenance mode'
         required: true
@@ -33,18 +39,18 @@ jobs:
       KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Kubernetes
-        uses: azure/setup-kubectl@v4.0.0
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
         with:
-          version: "v1.33.5" # default is latest stable
+          version: 'v1.33.5'
         id: kubectl_install
 
-      - uses: azure/setup-helm@v4.2.0
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
-          version: 'v3.15.3' # default is latest (stable)
-        id: install
+          version: 'v3.15.2'
+        id: helm_install
 
       - name: Configure kubectl
         run: |

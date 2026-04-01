@@ -22,7 +22,7 @@ on:
           - test
           - stage
           - preprod
-          - prod
+          - training
 
 jobs:
   create-snapshot:
@@ -31,10 +31,11 @@ jobs:
     environment:
       name: ${{ github.event.inputs.sourceEnv }}
     outputs:
-      snapshotName: ${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }}
+      snapshotName: ${{ steps.getSnapshotName.outputs.SNAPSHOT_NAME }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - name: Configure kubectl
         run: |
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
@@ -46,20 +47,20 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Create snapshot
-        working-directory: jobs/refresh-opensearch
         run: |
-            helm install create-opensearch-refresh-snapshot ./refresh-opensearch
-            --set jobType=create
-            --set sourceEnv=${{ github.event.inputs.sourceEnv }}
-            --set destEnv=${{ github.event.inputs.destEnv }}
+            helm install create-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
+              --set jobType=create \
+              --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
+              --set destEnv=${{ github.event.inputs.destEnv }}
       - name: Wait for create job
         run: |
-          kubectl wait job/create-opensearch-refresh-snapshot --for=condition=complete --timeout=3h
+          kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
       - name: Get snapshot name
+        id: getSnapshotName
         run: |
-          POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-refresh-snapshot -o jsonpath="{.items[0].metadata.name}")
+          POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-snapshot -o jsonpath="{.items[0].metadata.name}")
           SNAPSHOT_NAME=$(kubectl logs $POD_NAME | tail -n 1)
-          echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" >> $GITHUB_OUTPUT
+          echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" | tee $GITHUB_OUTPUT
       - name: Cleanup
         if: always()
         run: helm uninstall create-opensearch-refresh-snapshot --ignore-not-found
@@ -71,7 +72,8 @@ jobs:
       name: ${{ github.event.inputs.destEnv }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        
       - name: Configure kubectl
         run: |
           echo "${{ secrets.KUBE_CERT }}" > ca.crt
@@ -83,16 +85,16 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Restore snapshot
-        working-directory: jobs/refresh-opensearch
         run: |
-            helm install restore-opensearch-refresh-snapshot ./refresh-opensearch
-            --set jobType=restore
-            --set sourceEnv=${{ github.event.inputs.sourceEnv }}
-            --set destEnv=${{ github.event.inputs.destEnv }}
-            --set snapshotName=${{ needs.create-snapshot.outputs.snapshotName }}
+            echo "Restoring snapshot \"${{ needs.create-snapshot.outputs.snapshotName }}\""
+            helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
+              --set jobType=restore \
+              --set sourceEnv=${{ github.event.inputs.sourceEnv }} \
+              --set destEnv=${{ github.event.inputs.destEnv }} \
+              --set opensearch.snapshotName=${{ needs.create-snapshot.outputs.snapshotName }}
       - name: Wait for restore job
         run: |
-          kubectl wait job/restore-opensearch-refresh-snapshot --for=condition=complete --timeout=3h
+          kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
       - name: Cleanup
         if: always()
         run: helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found

@@ -4,10 +4,10 @@ kind: Job
 metadata:
   name: restore-opensearch-snapshot
 spec:
-  restartPolicy: Never
-  serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.destEnv }}"
   template:
     spec:
+      serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.destEnv }}"
+      restartPolicy: Never
       containers:
         - name: restore-opensearch-snapshot
           image: {{ .Values.job.image }}
@@ -21,7 +21,7 @@ spec:
               drop:
                 - ALL
             seccompProfile:
-            type: RuntimeDefault
+              type: RuntimeDefault
           env:
             - name: OPENSEARCH_ENDPOINT
               valueFrom:
@@ -31,7 +31,7 @@ spec:
             - name: SOURCE_S3_BUCKET_NAME
               valueFrom:
                 secretKeyRef:
-                  name: "{{ $.Values.s3.sourceS3BucketSecretName }}-{{ $.Values.sourceEnv }}"
+                  name: "{{ $.Values.s3.s3BucketSecretName }}-{{ $.Values.sourceEnv }}"
                   key: {{ $.Values.s3.s3BucketNameKey }}
             - name: SNAPSHOT_ROLE_ARN
               valueFrom:
@@ -74,7 +74,8 @@ spec:
                   \"settings\": {
                     \"bucket\": \"$SOURCE_S3_BUCKET_NAME\",
                     \"region\": \"$REGION\",
-                    \"role_arn\": \"$SNAPSHOT_ROLE_ARN\"
+                    \"role_arn\": \"$SNAPSHOT_ROLE_ARN\",
+                    \"base_path\": \"refresh-snapshots\"
                   }
                 }")
                 if echo "$RESPONSE" | grep -q '"acknowledged":true'; then
@@ -117,10 +118,10 @@ spec:
                 # Check recovery status
                 RECOVERY_STATUS=$(curl -s "$OPENSEARCH_ENDPOINT/_recovery" | grep -o '"stage":"[^"]*"' | sort -u)
 
-                if echo "$RECOVERY_STATUS" | grep -q "done"; then
+                if echo "$RECOVERY_STATUS" | grep -q "DONE"; then
                   echo "[$CURRENT_TIME] Restore completed successfully"
                   break
-                elif echo "$RECOVERY_STATUS" | grep -q "failed"; then
+                elif echo "$RECOVERY_STATUS" | grep -q "FAILED"; then
                   echo "[$CURRENT_TIME] Restore failed"
                   exit 1
                 else
