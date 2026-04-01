@@ -110,7 +110,8 @@ data:
     patch.nspg.administration.roles.startDelay=0
 
     # Download Service Cleanup
-    download.cleaner.maxAgeMins=262800 # ~6 months (262,800 mins ≈ 182.5 days)
+    # ~6 months (262,800 mins ≈ 182.5 days)
+    download.cleaner.maxAgeMins=262800
 
     # Metrics
     metrics.enabled=true
