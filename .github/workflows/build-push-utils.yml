@@ -68,7 +68,7 @@ jobs:
           echo "branch_tag=${safe_branch}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@0d103c3126aa41d772a8362f6aa67afac040f80c # v3.x
 
       - name: Build and push Docker image
         id: build
