@@ -18,7 +18,8 @@ on:
 
 env:
   IMAGE_NAME: hmpps-delius-alfresco-port-forward-pod
-
+  REGISTRY: ghcr.io
+  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,7 +33,7 @@ jobs:
       - name: Log in to the Container registry
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -40,7 +41,17 @@ jobs:
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: ./tools/port-forward/
+          pull: true
+          push: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Build and push Docker image
         if: github.ref == 'refs/heads/main'
@@ -48,8 +59,13 @@ jobs:
         with:
           context: ./tools/port-forward/
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ steps.meta.outputs.tags }}, ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Sanitize branch name for Docker tag
+        if: github.ref != 'refs/heads/main'
+        id: sanitize
+        run: echo "branch_tag=$(echo '${{ github.ref_name }}' | tr '/' '-')" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         if: github.ref != 'refs/heads/main'
@@ -57,5 +73,5 @@ jobs:
         with:
           context: ./tools/port-forward/
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ steps.meta.outputs.tags }}, ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ github.run_id }}
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ steps.meta.outputs.tags }}, ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.sanitize.outputs.branch_tag }}-${{ github.run_id }}
           labels: ${{ steps.meta.outputs.labels }}
