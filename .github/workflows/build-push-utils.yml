@@ -5,7 +5,7 @@ name: Build and push image [Utils]
 #     - Push to main, TM-*, or dependabot/** branches with changes to:
 #       - Any files in tools/utils/** directory
 #       - The workflow file itself (.github/workflows/build-push-utils.yml)
-# Tags: main branch gets :latest, non-main branches get :<sanitized-branch>-<run_id>
+# Tags: docker/metadata-action generates ref/sha tags; in addition, main gets :latest and non-main branches get :<sanitized-branch>-<run_id>
 on:
   workflow_dispatch:
   push:
