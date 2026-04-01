@@ -78,7 +78,6 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta.outputs.tags }}
-            ${{ github.ref == 'refs/heads/main' && format('{0}/{1}/{2}:latest', env.REGISTRY, github.repository_owner, env.IMAGE_NAME) || '' }}
             ${{ github.ref != 'refs/heads/main' && format('{0}/{1}/{2}:{3}-{4}', env.REGISTRY, github.repository_owner, env.IMAGE_NAME, steps.sanitize.outputs.branch_tag, github.run_id) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
