@@ -39,22 +39,45 @@ These overlays are applied to the Helm chart's resources to modify the configura
 
 Container images for the helper tooling in `tools/**` are built and pushed by GitHub Actions.
 
-Key points:
+### Triggers
 
-- The image build workflows only run automatically on **pushes to `main` and `TM-*` branches**.
-- They are also **scoped to relevant paths**, so a build only runs when the corresponding tool directory (e.g. `tools/utils/**`) or the workflow file itself changes.
-- This reduces unnecessary container builds when unrelated files change.
+The image build workflows run automatically on:
 
-Workflows:
+- **Pushes to `main`, `TM-*`, and `dependabot/**` branches** when changes are made to:
+  - The corresponding tool directory (e.g. `tools/utils/**`)
+  - The workflow file itself
+- **Manual trigger** via the "Run workflow" button in GitHub Actions UI (note: bypasses path filtering)
+
+This path-based filtering reduces unnecessary container builds when unrelated files change.
+
+### Workflows
 
 - Utils image: [./.github/workflows/build-push-utils.yml](./.github/workflows/build-push-utils.yml)
 - DB utils image: [./.github/workflows/build-push-db-utils.yml](./.github/workflows/build-push-db-utils.yml)
 - Port-forward pod image: [./.github/workflows/build-push-pf-pod.yml](./.github/workflows/build-push-pf-pod.yml)
 
-Tagging behaviour:
+### Tagging behavior
 
-- `main` builds also tag the image as `:latest`.
-- Non-`main` builds (e.g. `TM-*`) tag images with a branch/run suffix (e.g. `<branch>-<run_id>`).
+Images are tagged using `docker/metadata-action` with the following tags:
+
+**Main branch builds:**
+- `:latest` - Always points to the latest main build
+- `:<branch-name>` - e.g. `:main`
+- `:<branch>-<sha>` - e.g. `:main-abc1234`
+
+**Non-main branch builds (TM-*, dependabot/**, etc.):**
+- `:<sanitized-branch>-<run_id>` - e.g. `:tm-123-feature-98765432`
+- `:<branch-name>` - e.g. `:dependabot-github_actions-helm-chart-releaser-action-1.7.0`
+- `:<branch>-<sha>` - e.g. `:tm-123-abc1234`
+
+Branch names are sanitized for Docker tag compatibility (lowercased, invalid characters replaced with `-`, leading/trailing dots and hyphens removed).
+
+### Build features
+
+- **Docker layer caching** - Uses GitHub Actions cache for faster builds
+- **SBOM & Provenance** - Generates Software Bill of Materials and build provenance attestations for supply chain security
+- **Build metadata** - Images include `GIT_SHA` and `BUILD_DATE` as build arguments for traceability
+- **Concurrency control** - Prevents race conditions when multiple pushes occur on the same branch
 
 
 ### Secrets
