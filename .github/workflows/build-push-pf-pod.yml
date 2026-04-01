@@ -5,7 +5,10 @@ name: Build and push image [Port Forward Pod]
 #     - Push to main, TM-*, or dependabot/** branches with changes to:
 #       - Any files in tools/port-forward/** directory
 #       - The workflow file itself (.github/workflows/build-push-pf-pod.yml)
-# Tags: main branch gets :latest, non-main branches get :<sanitized-branch>-<run_id>
+# Tags:
+#   - docker/metadata-action generates additional tags (e.g. branch/SHA) via steps.meta.outputs.tags
+#   - main branch images are additionally tagged :latest
+#   - non-main branch images are additionally tagged :<sanitized-branch>-<run_id>
 on:
   workflow_dispatch:
   push:
