@@ -96,7 +96,6 @@ alfresco-repository:
       -Delasticsearch.createIndexIfNotExists=true
       -Dtransform.service.enabled=true
       -Dtransform.service.url=http://alfresco-content-services-transform-router
-      -XX:MinRAMPercentage=50
       -XX:MaxRAMPercentage=80
       -Dencryption.keystore.type=JCEKS
       -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding
