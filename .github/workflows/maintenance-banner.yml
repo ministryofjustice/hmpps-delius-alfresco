@@ -1,5 +1,5 @@
 name: Alfresco Maintenance Page
-
+# To do: Redo per the "Applying a Maintenance Page" - https://user-guide.cloud-platform.service.justice.gov.uk/documentation/other-topics/maintenance-page.html#applying-a-maintenance-page
 on:
   workflow_dispatch:
     inputs:
