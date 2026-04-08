@@ -741,10 +741,13 @@ tasks:
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-metadata" -n "$NS" --replicas=${METADATA_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-path" -n "$NS" --replicas=${PATH_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-alfresco-search-enterprise-reindexing" -n "$NS" --replicas=${REINDEXING_REPLICAS}
-        kubectl scale statefulset "alfresco-search-enterprise-mediation" -n "$NS" --replicas=${MEDIATION_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-share" -n "$NS" --replicas=${SHARE_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-transform-misc" -n "$NS" --replicas=${TRANSFORM_MISC_REPLICAS}
         kubectl scale deployment "${RELEASE_NAME}-transform-router" -n "$NS" --replicas=${TRANSFORM_ROUTER_REPLICAS}
+
+        kubectl scale statefulset "alfresco-search-enterprise-mediation" -n "$NS" --replicas=${MEDIATION_REPLICAS}
+        kubectl rollout status statefulset "alfresco-search-enterprise-mediation" -n "$NS" --timeout=120s
+        
     silent: true
 
 

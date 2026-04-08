@@ -16,10 +16,12 @@ on:
           - prod
           - training
       enabled:
-        description: 'Enable or disable maintenance mode'
+        description: 'Enable maintenance mode'
         required: true
-        default: false
-        type: boolean
+        type: choice
+        options:
+          - true
+          - false
       message:
         description: 'Maintenance banner message'
         required: true
