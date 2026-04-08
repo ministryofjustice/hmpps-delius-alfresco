@@ -1,5 +1,5 @@
 name: Alfresco Maintenance Page
-
+# To do: Redo per the "Applying a Maintenance Page" - https://user-guide.cloud-platform.service.justice.gov.uk/documentation/other-topics/maintenance-page.html#applying-a-maintenance-page
 on:
   workflow_dispatch:
     inputs:
@@ -16,10 +16,12 @@ on:
           - prod
           - training
       enabled:
-        description: 'Enable or disable maintenance mode'
+        description: 'Enable maintenance mode'
         required: true
-        default: false
-        type: boolean
+        type: choice
+        options:
+          - true
+          - false
       message:
         description: 'Maintenance banner message'
         required: true
@@ -33,7 +35,7 @@ jobs:
   toggle-maintenance:
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.environment }}
+      name: ${{ inputs.environment }}-preapproved
     env:
       KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
       KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}

@@ -365,9 +365,9 @@ batches_phase() {
 main() {
   ENV=$1
 
-  # Restrict env values to only poc, dev, test, stage, preprod or prod
-  if [[ "$ENV" != "poc" && "$ENV" != "dev" && "$ENV" != "test" && "$ENV" != "stage" && "$ENV" != "preprod" && "$ENV" != "prod" ]]; then
-      log "Invalid namespace. Allowed values: poc, dev, stage, test, preprod or prod."
+  # Restrict env values to only poc, dev, test, stage, preprod, training or prod
+  if [[ "$ENV" != "poc" && "$ENV" != "dev" && "$ENV" != "test" && "$ENV" != "stage" && "$ENV" != "preprod" && "$ENV" != "training" && "$ENV" != "prod" ]]; then
+      log "Invalid namespace. Allowed values: poc, dev, stage, test, preprod, training or prod."
       exit 1
   fi
 

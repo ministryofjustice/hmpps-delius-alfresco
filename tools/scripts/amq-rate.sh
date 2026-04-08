@@ -12,8 +12,20 @@ QUEUE_NAME=${2:-"acs-repo-transform-request"}
 STOP_STAT=${3:-"size"}
 INTERVAL=${4:-30}
 
-if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
-    log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod or prod."
+log_info() {
+    echo -e "${GREEN}$1${RESET}"
+}
+
+log_error() {
+    echo -e "${RED}$1${RESET}"
+}
+
+log_debug() {
+    echo -e "${YELLOW}$1${RESET}"
+}
+
+if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" && "$env" != "training" ]]; then
+    log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, training or prod."
     exit 1
 fi
 
