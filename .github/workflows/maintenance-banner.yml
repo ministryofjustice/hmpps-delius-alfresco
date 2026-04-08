@@ -35,7 +35,7 @@ jobs:
   toggle-maintenance:
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.environment }}
+      name: ${{ inputs.environment }}-preapproved
     env:
       KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
       KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
