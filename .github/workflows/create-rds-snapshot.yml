@@ -79,12 +79,16 @@ jobs:
           
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           ENV=${{ inputs.which_env }}
-          # service pod in Prod ns has no label with key "app", its only got "name"
-          if [ "${ENV}" = "prod" ]; then
-            SERVICE_POD_NAME=$(kubectl get pod -l name=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
-          else
-            SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          # Try to get pod by app label first, fallback to name label
+          SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
+          if [ -z "$SERVICE_POD_NAME" ]; then
+            SERVICE_POD_NAME=$(kubectl get pod -l name=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
+            if [ -z "$SERVICE_POD_NAME" ]; then
+              echo "Error: Could not find service pod for deployment $SERVICE_POD_DEPLOYMENT in environment $ENV"
+              exit 1
+            fi
           fi
+
 
           RDS_INSTANCE_IDENTIFIER=$(kubectl get secrets rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_IDENTIFIER}' | base64 -d)
           
