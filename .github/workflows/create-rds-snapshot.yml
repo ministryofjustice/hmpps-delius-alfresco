@@ -33,6 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.event.inputs.which_env }}-preapproved
+    env:
+      RELEASE_NAME: alfresco-content-services
+      KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+      KUBE_CLUSTER:   ${{ secrets.KUBE_CLUSTER }}
     steps:
       - name: Checkout current repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -44,9 +48,6 @@ jobs:
           kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
           kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
           kubectl config use-context ${KUBE_CLUSTER}
-        env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
       - name: Generate snapshot name for ${{ inputs.which_env }} namespace
         id: snapshot_name
@@ -77,12 +78,12 @@ jobs:
           #!/bin/bash
           set -xe
           
-          SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
+          SERVICE_POD_DEPLOYMENT=$(kubectl --namespace=${KUBE_NAMESPACE} get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           ENV=${{ inputs.which_env }}
           # Try to get pod by app label first, fallback to name label
-          SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
+          SERVICE_POD_NAME=$(kubectl --namespace=${KUBE_NAMESPACE} get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
           if [ -z "$SERVICE_POD_NAME" ]; then
-            SERVICE_POD_NAME=$(kubectl get pod -l name=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
+            SERVICE_POD_NAME=$(kubectl --namespace=${KUBE_NAMESPACE} get pod -l name=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
             if [ -z "$SERVICE_POD_NAME" ]; then
               echo "Error: Could not find service pod for deployment $SERVICE_POD_DEPLOYMENT in environment $ENV"
               exit 1
@@ -90,14 +91,14 @@ jobs:
           fi
 
 
-          RDS_INSTANCE_IDENTIFIER=$(kubectl get secrets rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_IDENTIFIER}' | base64 -d)
+          RDS_INSTANCE_IDENTIFIER=$(kubectl --namespace=${KUBE_NAMESPACE} get secrets rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_IDENTIFIER}' | base64 -d)
           
           SNAPSHOT_NAME="${{ steps.snapshot_name.outputs.snapshot_name }}"
           DRY_RUN="${{ inputs.dry_run }}"
 
           create_snapshot() {
             # Exec into the service pod and execute the script
-            kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
+            kubectl exec --namespace=${KUBE_NAMESPACE} $SERVICE_POD_NAME -- /bin/sh -c \
             "aws rds create-db-snapshot \
             --db-instance-identifier '${RDS_INSTANCE_IDENTIFIER}' \
             --db-snapshot-identifier '${SNAPSHOT_NAME}'" \
@@ -107,7 +108,7 @@ jobs:
           if [ "${DRY_RUN}" = "true" ]; then
             echo "Dry run enabled, no snapshot will be created, only Checking RDS instance..."
 
-            STATUS=$(kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
+            STATUS=$(kubectl exec --namespace=${KUBE_NAMESPACE} $SERVICE_POD_NAME -- /bin/sh -c \
               "aws rds describe-db-instances \
               --db-instance-identifier '${RDS_INSTANCE_IDENTIFIER}' \
               --query 'DBInstances[0].DBInstanceStatus' \
@@ -122,7 +123,7 @@ jobs:
             create_snapshot
 
             # wait for the snapshot to be created
-            kubectl exec $SERVICE_POD_NAME -- /bin/sh -c \
+            kubectl exec --namespace=${KUBE_NAMESPACE} $SERVICE_POD_NAME -- /bin/sh -c \
             "aws rds wait db-snapshot-completed \
             --db-snapshot-identifier '${SNAPSHOT_NAME}'" \
             > /dev/null 2>&1
