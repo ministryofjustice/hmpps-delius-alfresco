@@ -53,6 +53,8 @@ log() {
   echo "$ts $*" >> "${LOG_DIR}/reindexing.${ENV}.log"
 }
 
+log_error() { log "ERROR: $*"; }
+
 fatal() { log "FATAL: $*"; exit 1; }
 
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
@@ -365,11 +367,15 @@ batches_phase() {
 main() {
   ENV=$1
 
-  # Restrict env values to only poc, dev, test, stage, preprod, training or prod
-  if [[ "$ENV" != "poc" && "$ENV" != "dev" && "$ENV" != "test" && "$ENV" != "stage" && "$ENV" != "preprod" && "$ENV" != "training" && "$ENV" != "prod" ]]; then
-      log "Invalid namespace. Allowed values: poc, dev, stage, test, preprod, training or prod."
-      exit 1
-  fi
+  # Restrict env values to only poc, dev, test or preprod
+  case "$ENV" in
+      poc|dev|test|stage|preprod|prod|training)
+          ;;
+      *)
+          log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
+          exit 1
+          ;;
+  esac
 
   if [ "$ENV" == "poc" ]; then
       K8S_NAMESPACE="hmpps-delius-alfrsco-${ENV}"

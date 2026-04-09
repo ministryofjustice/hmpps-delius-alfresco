@@ -26,11 +26,15 @@ log_debug() {
 main() {
     env=$1
 
-    # check envs
-    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" && "$env" != "training" ]]; then
-        log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
-        exit 1
-    fi
+    # Restrict env values to only poc, dev, test or preprod
+    case "$env" in
+        poc|dev|test|stage|preprod|prod|training)
+            ;;
+        *)
+            log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
+            exit 1
+            ;;
+    esac
 
     if [ "$env" == "poc" ]; then
         namespace="hmpps-delius-alfrsco-${env}"

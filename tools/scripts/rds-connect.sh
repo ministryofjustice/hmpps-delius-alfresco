@@ -27,10 +27,14 @@ main() {
     env=$1
 
     # Restrict env values to only poc, dev, test or preprod
-    if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" && "$env" != "training" ]]; then
-        log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
-        exit 1
-    fi
+    case "$env" in
+        poc|dev|test|stage|preprod|prod|training)
+            ;;
+        *)
+            log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
+            exit 1
+            ;;
+    esac
     
     if [ "$env" == "poc" ]; then
         namespace="hmpps-delius-alfrsco-${env}"
@@ -58,7 +62,8 @@ main() {
     # generate random hex string
     RANDOM_HEX=$(openssl rand -hex 4)
     # check for existing port-forward pod and use that if found
-    existing_pod=$(kubectl get pods --namespace ${namespace} -o json | jq -r ".items[] | select(.metadata.name | startswith(\"port-forward-pod-\")) | .metadata.name" | head -n1)
+    #existing_pod=$(kubectl get pods --namespace ${namespace} -o json | jq -r ".items[] | select(.metadata.name | startswith(\"port-forward-pod-\")) | .metadata.name" | head -n1)
+    existing_pod=    
     if [ -n "$existing_pod" ]; then
         log_info "Found existing port-forwarding pod: $existing_pod"
         POD_NAME=$existing_pod
