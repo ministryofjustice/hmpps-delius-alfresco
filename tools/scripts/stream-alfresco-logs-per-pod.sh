@@ -9,10 +9,10 @@
 #   The script supports environments: poc, dev, test, stage, preprod, and prod.
 #
 # Usage:
-#   ./stream-alfresco-logs-per-pod.sh <poc|dev|test|stage|preprod|prod>
+#   ./stream-alfresco-logs-per-pod.sh <poc|dev|test|stage|preprod|training|prod>
 #
 # Arguments:
-#   <environment>   The target environment/namespace (poc, dev, test, stage, preprod, or prod).
+#   <environment>   The target environment/namespace (poc, dev, test, stage, preprod, training, or prod).
 #
 # Features:
 #   - Validates the provided environment argument.
@@ -27,17 +27,25 @@
 # -----------------------------------------------------------------------------
 
 if [ -z "${1:-}" ]; then
-  echo "❌ No environment specified. Usage: $0 <poc|dev|test|stage|preprod|prod>"
+  echo "❌ No environment specified. Usage: $0 <poc|dev|test|stage|preprod|training|prod>"
   exit 1
 fi
 
+log_error() {
+    echo -e "${RED}$1${RESET}"
+}
+
 env=$1
 
-# Restrict env values to only poc, dev, test, stage, preprod or prod
-if [[ "$env" != "poc" && "$env" != "dev" && "$env" != "test" && "$env" != "stage" && "$env" != "preprod" && "$env" != "prod" ]]; then
-    log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod or prod."
-    exit 1
-fi
+# Restrict env values to only poc, dev, test or preprod
+case "$env" in
+    poc|dev|test|stage|preprod|prod|training)
+        ;;
+    *)
+        log_error "Invalid namespace. Allowed values: poc, dev, test, stage, preprod, prod or training."
+        exit 1
+        ;;
+esac
 
 if [ "$env" == "poc" ]; then
     namespace="hmpps-delius-alfrsco-${env}"
