@@ -167,6 +167,6 @@ jobs:
             if [ "$node_count" -gt 100000 ]; then
               sleep 900 # wait for 15 minutes before scaling down
               echo "Scaling down repository and tika deployments..."
-              task reindex_scale_down ENV={{.ENV}}
+              task reindex_scale_down ENV="${ENV}"
             fi
           fi
