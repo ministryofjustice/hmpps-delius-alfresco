@@ -242,8 +242,12 @@ tasks:
   # ID FORMAT: alf-node id
   reindex_by_id:
     desc: >
-      Reindex Alfresco documents and/or metadata by ID range using Helm.
+      Reindex Alfresco documents and/or metadata by ID range.
       Requires FROM and TO environment variables to define the ID range.
+
+      This task prefers to exec into an existing reindexing pod (to avoid creating
+      additional Helm Jobs/Pods and hitting the ~100 pod quota). If no reindexing
+      pod is found, it falls back to installing the Helm Job.
 
       Automatically scales up deployments if the ID range is greater than 100,000.
 
@@ -329,8 +333,12 @@ tasks:
   # INDEX_CONTENT=false task reindex_by_date
   reindex_by_date:
     desc: >
-      Reindex Alfresco documents and/or metadata by date range using Helm.
+      Reindex Alfresco documents and/or metadata by date range.
       Requires FROM and TO environment variables to define the range.
+
+      This task prefers to exec into an existing reindexing pod (to avoid creating
+      additional Helm Jobs/Pods and hitting the ~100 pod quota). If no reindexing
+      pod is found, it falls back to installing the Helm Job.
 
       Optionally set INDEX_CONTENT to 'false' to skip content indexing and only reindex metadata.
       Defaults to 'true' (index both content and metadata).
