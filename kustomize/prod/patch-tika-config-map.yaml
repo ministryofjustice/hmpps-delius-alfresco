@@ -12,7 +12,7 @@ spec:
               value: "/config/0200-increase-pdf-max-source.json"
             - name: JAVA_OPTS
               value: |
-                -XX:MinRAMPercentage=50 -XX:MaxRAMPercentage=80
+                -XX:MaxRAMPercentage=80
                 -Dserver.tomcat.threads.min=4
                 -Dserver.tomcat.threads.max=12
                 -Dlogging.level.org.alfresco.transform.common.TransformerDebug=ERROR
