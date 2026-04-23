@@ -44,7 +44,7 @@ alfresco-repository:
   replicaCount: 2
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-content-repository
-    tag: release_7.3.2_elasticsearch-r5.0.6.1.2-content-24835206873-1
+    tag: release_7.3.2_elasticsearch-r5.0.6.1.2-content-24836211742-1
   resources: # requests and limits set closer together to ensure CP stability
     requests:
       cpu: 1
@@ -56,7 +56,7 @@ share:
   replicaCount: 1
   image:
     repository: 754256621582.dkr.ecr.eu-west-2.amazonaws.com/hmpps-migration/alfresco-share
-    tag: release_7.3.2_elasticsearch-r5.0.6.1.2-share-24835206873-1
+    tag: release_7.3.2_elasticsearch-r5.0.6.1.2-share-24836211742-1
 externalPort: 443
 alfresco-search-enterprise:
   liveIndexing:
