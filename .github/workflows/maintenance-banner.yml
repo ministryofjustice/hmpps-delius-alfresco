@@ -1,5 +1,4 @@
 name: Alfresco Maintenance Page
-# To do: Redo per the "Applying a Maintenance Page" - https://user-guide.cloud-platform.service.justice.gov.uk/documentation/other-topics/maintenance-page.html#applying-a-maintenance-page
 on:
   workflow_dispatch:
     inputs:
@@ -22,10 +21,14 @@ on:
         options:
           - true
           - false
-      message:
-        description: 'Maintenance banner message'
-        required: true
-        default: 'National Delius is down for planned maintenance. Read-only access will be available by 10:00.'
+      read-only-mode:
+        description: 'Enable Read Only Mode for Alfresco (only applicable when maintenance mode is enabled. Enabling this will allow users to access Alfresco but they will not be able to make any changes. This is useful for allowing users to access Alfresco to retrieve information while service release is being done.)'
+        required: false
+        type: choice
+        options:
+          - true
+          - false
+        default: false
 
 permissions:
   id-token: write # This is required for requesting the JWT
@@ -68,7 +71,7 @@ jobs:
       - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event.inputs.enabled }}" == "true" ]; then
+          if [[ "${{ github.event.inputs.enabled }}" == "true" && "${{ github.event.inputs.read-only-mode }}" == "false" ]]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
             kubectl patch ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} \
             --type merge \
@@ -76,6 +79,17 @@ jobs:
               "metadata":{
                 "annotations":{
                   "nginx.ingress.kubernetes.io/configuration-snippet":"return 503; error_page 503 /maintenance.html;"
+                }
+              }
+            }'
+          elif [[ "${{ github.event.inputs.enabled }}" == "true" && "${{ github.event.inputs.read-only-mode }}" == "true" ]]; then
+            echo "Enabling banner page with read only mode for ${{ github.event.inputs.environment }} env.."
+            kubectl patch ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} \
+            --type merge \
+            -p '{
+              "metadata":{
+                "annotations":{
+                  "nginx.ingress.kubernetes.io/configuration-snippet":"if ($request_uri ~* \"^/metrics(/|$)(.*)\") { rewrite ^/metrics(/|$)(.*) /alfresco/s/prometheus break; } if ($request_method !~ ^(GET|HEAD|OPTIONS)$) { return 503; } error_page 503 /maintenance.html;"
                 }
               }
             }'
