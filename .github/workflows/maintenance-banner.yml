@@ -71,7 +71,7 @@ jobs:
       - name: Toggle maintenance page in ${{ github.event.inputs.environment }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event.inputs.enabled }}" == "true" && "${{ github.event.inputs.read-only-mode }}" == "false" ]; then
+          if [[ "${{ github.event.inputs.enabled }}" == "true" && "${{ github.event.inputs.read-only-mode }}" == "false" ]]; then
             echo "Enabling banner page for ${{ github.event.inputs.environment }} env.."
             kubectl patch ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} \
             --type merge \
@@ -82,7 +82,7 @@ jobs:
                 }
               }
             }'
-          elif [ "${{ github.event.inputs.enabled }}" == "true" && "${{ github.event.inputs.read-only-mode }}" == "true" ]; then
+          elif [[ "${{ github.event.inputs.enabled }}" == "true" && "${{ github.event.inputs.read-only-mode }}" == "true" ]]; then
             echo "Enabling banner page with read only mode for ${{ github.event.inputs.environment }} env.."
             kubectl patch ingress alfresco-content-services-alfresco-repository -n ${KUBE_NAMESPACE} \
             --type merge \
