@@ -47,3 +47,6 @@
 - "128.77.75.64/26" # Prisma access corporate
 - "128.77.75.0/26" # Prisma access third party
 - "128.77.75.128/26" # Prisma access residents
+- "54.195.74.96/32" # Analytical Platform Tools
+- "79.125.36.56/32" # Analytical Platform Tools
+- "63.35.122.32/32" # Analytical Platform Tools
