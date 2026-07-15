@@ -1,4 +1,4 @@
-x# this file overrides values defined in ./values.yaml
+# this file overrides values defined in ./values.yaml
 alfresco-repository:
   environment:
   # We need s3.flatRoot=false to build the correct S3 folder structures with dates, 
