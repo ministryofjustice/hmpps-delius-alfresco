@@ -1,5 +1,5 @@
-bucketName: cloud-platform-f0ef56cb1ce77f028f850c05f6691d6d
+bucketName:
 region: eu-west-2
-parallelism: 15
-backoffLimit: 15
-ttlSecondsAfterFinished: 3600
+parallelism: 40
+backoffLimit: 40
+ttlSecondsAfterFinished: 600
