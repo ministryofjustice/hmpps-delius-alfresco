@@ -6,8 +6,9 @@ metadata:
     action: empty-s3-buckets
 spec:
   backoffLimit: {{ .Values.backoffLimit }}
-  parallelism: {{ .Values.parallelism }}
-  completions: {{ .Values.parallelism }}
+  parallelism: {{ .Values.parallelism }}   # total pods (shards)
+  completions: {{ .Values.parallelism }}   # how many to run at once
+  completionMode: Indexed
   ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
   template:
     spec:
@@ -28,6 +29,9 @@ spec:
           BUCKET="{{ .Values.bucketName }}" \
           AWS_REGION="{{ .Values.region }}" \
           /scripts/delete-s3.sh
+        env:
+        - name: TOTAL_SHARDS
+          value: "40"
         volumeMounts:
         - name: script
           mountPath: /scripts
