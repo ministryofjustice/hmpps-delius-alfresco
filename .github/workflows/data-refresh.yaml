@@ -131,8 +131,8 @@ jobs:
           DATABASE_USERNAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_USERNAME}' | base64 -d)
           DATABASE_PASSWORD=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_PASSWORD}' | base64 -d)
           RDS_INSTANCE_ADDRESS=$(kubectl get secret rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_ADDRESS}' | base64 -d)
-          echo "::add-mask::$DATABASE_NAME"
-          echo "::add-mask::$DATABASE_USERNAME"
+          # echo "::add-mask::$DATABASE_NAME"
+          # echo "::add-mask::$DATABASE_USERNAME"
           echo "::add-mask::$DATABASE_PASSWORD"
           echo "::add-mask::$RDS_INSTANCE_ADDRESS"
           # echo "db_name=$DATABASE_NAME" >> "$GITHUB_OUTPUT"
@@ -167,6 +167,10 @@ jobs:
         run: |
           echo "step db_name=[${{ steps.get_secret.outputs.db_name }}]"
           echo "step db_username=[${{ steps.get_secret.outputs.db_username }}]"
+
+      - name: Show job output values
+        run: |
+          echo "db_name=${{ steps.get_secret.outputs['db_name'] }}"
   
   refresh_db:
     name: Refresh DB (${{ inputs.source_env }} -> ${{ inputs.destination_env }})
