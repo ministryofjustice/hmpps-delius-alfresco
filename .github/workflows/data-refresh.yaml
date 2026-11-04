@@ -36,7 +36,7 @@ permissions:
   contents: read
 
 jobs:
-  validate-inputs:
+  validate_inputs:
     name: Validate Inputs
     runs-on: ubuntu-latest
     steps:
@@ -47,12 +47,12 @@ jobs:
             exit 1
           fi
 
-  stop-destination-environment:
+  stop_destination_environment:
     name: Stop Environment (${{ github.event.inputs.destination_env }})
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.destination_env }}
-    needs: validate-inputs
+    needs: validate_inputs
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -86,18 +86,18 @@ jobs:
       - name: Stop ${{ github.event.inputs.destination_env }} Environment
         run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
 
-  get-source-db-creds:
+  get_source_db_creds:
     name: Get Source RDS Credentials (${{ github.event.inputs.source_env }})
     if: ${{ inputs.refresh_database }}
     runs-on: ubuntu-22.04
-    needs: stop-destination-environment
+    needs: stop_destination_environment
     environment:
       name: ${{ github.event.inputs.source_env }}-preapproved
     outputs:
-      db_name: ${{ steps.get-secret.outputs.db_name }}
-      db_username: ${{ steps.get-secret.outputs.db_username }}
-      db_password: ${{ steps.get-secret.outputs.db_password }}
-      rds_instance_address: ${{ steps.get-secret.outputs.rds_instance_address }}
+      db_name: ${{ steps.get_secret.outputs.db_name }}
+      db_username: ${{ steps.get_secret.outputs.db_username }}
+      db_password: ${{ steps.get_secret.outputs.db_password }}
+      rds_instance_address: ${{ steps.get_secret.outputs.rds_instance_address }}
       db_name_2: ${{ steps.get_secret.outputs.db_name }}
     steps:
       - name: Checkout code
@@ -126,29 +126,6 @@ jobs:
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
       - name: Retrieve ${{ github.event.inputs.source_env }} RDS Credentials
-        id: get-secret
-        run: |
-          DATABASE_NAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_NAME}' | base64 -d)
-          DATABASE_USERNAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_USERNAME}' | base64 -d)
-          DATABASE_PASSWORD=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_PASSWORD}' | base64 -d)
-          RDS_INSTANCE_ADDRESS=$(kubectl get secret rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_ADDRESS}' | base64 -d)
-          echo "TEMP REMOVE: $DATABASE_NAME"
-          echo "TEMP REMOVE: $DATABASE_USERNAME"
-          echo "::add-mask::$DATABASE_NAME"
-          echo "::add-mask::$DATABASE_USERNAME"
-          echo "::add-mask::$DATABASE_PASSWORD"
-          echo "::add-mask::$RDS_INSTANCE_ADDRESS"
-          # echo "db_name=$DATABASE_NAME" >> "$GITHUB_OUTPUT"
-          # echo "db_username=$DATABASE_USERNAME" >> "$GITHUB_OUTPUT"
-          # echo "db_password=$DATABASE_PASSWORD" >> "$GITHUB_OUTPUT"
-          # echo "rds_instance_address=$RDS_INSTANCE_ADDRESS" >> "$GITHUB_OUTPUT"
-          TEMP1="temp1"
-          TEMP2="temp2"
-          echo "rds_instance_address1=$TEMP1" >> "$GITHUB_OUTPUT"
-          echo "rds_instance_address2=$TEMP2" >> "$GITHUB_OUTPUT"
-          cat "$GITHUB_OUTPUT"
-
-      - name: Retrieve ${{ github.event.inputs.source_env }} RDS Credentials 2
         id: get_secret
         run: |
           DATABASE_NAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_NAME}' | base64 -d)
@@ -180,21 +157,21 @@ jobs:
           echo "step db_username=[${{ steps.get_secret.outputs.db_username }}]"
           echo "step rds_instance_address=[${{ steps.get_secret.outputs.rds_instance_address }}]"
   
-  refresh-db:
+  refresh_db:
     name: Refresh DB (${{ github.event.inputs.source_env }} -> ${{ github.event.inputs.destination_env }})
     if: ${{ inputs.refresh_database }}
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.destination_env }}-preapproved
     env:
-      SRC_DATABASE_NAME: ${{ needs.get-source-db-creds.outputs.db_name }}
-      SRC_DATABASE_USERNAME: ${{ needs.get-source-db-creds.outputs.db_username }}
-      SRC_DATABASE_PASSWORD: ${{ needs.get-source-db-creds.outputs.db_password }}
-      SRC_RDS_INSTANCE_ADDRESS: ${{ needs.get-source-db-creds.outputs.rds_instance_address }}
-      SRC_DATABASE_NAME_2: ${{ needs.get-source-db-creds.outputs.db_name_2 }}
+      SRC_DATABASE_NAME: ${{ needs.get_source_db_creds.outputs.db_name }}
+      SRC_DATABASE_USERNAME: ${{ needs.get_source_db_creds.outputs.db_username }}
+      SRC_DATABASE_PASSWORD: ${{ needs.get_source_db_creds.outputs.db_password }}
+      SRC_RDS_INSTANCE_ADDRESS: ${{ needs.get_source_db_creds.outputs.rds_instance_address }}
+      SRC_DATABASE_NAME_2: ${{ needs.get_source_db_creds.outputs.db_name_2 }}
     needs:
-      - stop-destination-environment
-      - get-source-db-creds
+      - stop_destination_environment
+      - get_source_db_creds
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -212,8 +189,8 @@ jobs:
 
       - name: Debug outputs
         run: |
-          echo "db_name=[${{ needs.get-source-db-creds.outputs.db_name }}]"
-          echo "db_name_2=[${{ needs.get-source-db-creds.outputs.db_name_2 }}]"
+          echo "db_name=[${{ needs.get_source_db_creds.outputs.db_name }}]"
+          echo "db_name_2=[${{ needs.get_source_db_creds.outputs.db_name_2 }}]"
           echo "DB name populated: $([[ -n "$SRC_DATABASE_NAME" ]] && echo yes || echo no)"
           echo "DB username populated: $([[ -n "$SRC_DATABASE_USERNAME" ]] && echo yes || echo no)"
           echo "DB password populated: $([[ -n "$SRC_DATABASE_PASSWORD" ]] && echo yes || echo no)"
@@ -271,7 +248,7 @@ jobs:
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.destination_env }}
-    needs: stop-destination-environment
+    needs: stop_destination_environment
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -330,10 +307,10 @@ jobs:
   #   environment:
   #     name: ${{ github.event.inputs.destination_env }}
   #   needs:
-  #     - refresh-db
-  #     - refresh-s3
+  #     - refresh_db
+  #     - refresh_s3
   #   if: |
-  #     always() && !cancelled() && ( needs.refresh-db.result == 'success' || needs.refresh-s3.result == 'success' )
+  #     always() && !cancelled() && ( needs.refresh_db.result == 'success' || needs.refresh_s3.result == 'success' )
   #   steps:
   #   - name: Configure kubectl
   #     run: |
