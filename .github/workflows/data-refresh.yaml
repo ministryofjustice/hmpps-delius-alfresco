@@ -257,7 +257,7 @@ jobs:
     if: ${{ inputs.refresh_s3 }}
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ inputs.destination_env }}
+      name: ${{ inputs.destination_env }}-preapproved
     needs:
       - stop_destination_environment
       - get_source_s3_bucket_name
@@ -310,8 +310,6 @@ jobs:
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
           echo "SERVICE_POD_NAME: $SERVICE_POD_NAME"
-
-          SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
           DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
           echo "DIRS: $DIRS"
