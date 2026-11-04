@@ -211,13 +211,13 @@ jobs:
             exit 1
           fi
 
-  get_source_s3_bucket_name:
-    name: Get Source S3 Bucket Name (${{ inputs.source_env }})
+  get_destination_s3_bucket_name:
+    name: Get Destination S3 Bucket Name (${{ inputs.destination_env }})
     if: ${{ inputs.refresh_s3 }}
     runs-on: ubuntu-22.04
     needs: stop_destination_environment
     environment:
-      name: ${{ inputs.source_env }}-preapproved
+      name: ${{ inputs.destination_env }}-preapproved
     outputs:
       s3_bucket_name: ${{ steps.get_bucket_name.outputs.s3_bucket_name }}
     steps:
@@ -246,7 +246,7 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Retrieve ${{ inputs.source_env }} S3 Bucket Name
+      - name: Retrieve ${{ inputs.destination_env }} S3 Bucket Name
         id: get_bucket_name
         run: |
           S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
@@ -257,12 +257,10 @@ jobs:
     if: ${{ inputs.refresh_s3 }}
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ inputs.destination_env }}-preapproved
-    needs:
-      - stop_destination_environment
-      - get_source_s3_bucket_name
+      name: ${{ inputs.source_env }}-preapproved
+    needs: get_destination_s3_bucket_name
     env:
-      SRC_BUCKET: ${{ needs.get_source_s3_bucket_name.outputs.s3_bucket_name }}
+      DST_BUCKET: ${{ needs.get_destination_s3_bucket_name.outputs.s3_bucket_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -289,14 +287,14 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Create Source S3 Bucket Name Secret
+      - name: Create Destination S3 Bucket Name Secret
         run: |
           echo "Deleting existing secret..."
-          kubectl delete secret s3-bucket-output-${{ inputs.source_env }} --ignore-not-found=true
+          kubectl delete secret s3-bucket-output-${{ inputs.destination_env }} --ignore-not-found=true
 
           echo "Creating new secret..."
-          kubectl create secret generic s3-bucket-output-${{ inputs.source_env }} \
-            --from-literal=BUCKET_NAME="$SRC_BUCKET"
+          kubectl create secret generic s3-bucket-output-${{ inputs.destination_env }} \
+            --from-literal=BUCKET_NAME="$DST_BUCKET"
       
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
@@ -310,6 +308,8 @@ jobs:
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
           echo "SERVICE_POD_NAME: $SERVICE_POD_NAME"
+
+          SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
           DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
           echo "DIRS: $DIRS"
