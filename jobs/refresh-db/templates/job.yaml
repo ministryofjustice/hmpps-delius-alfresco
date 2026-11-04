@@ -7,18 +7,6 @@ data:
   entrypoint.sh: |-
     #!/bin/bash
     set -e
-    trap 'send_slack_notification $?' EXIT
-    
-    function send_slack_notification() {
-      STATUS=$1
-      if [ "$STATUS" -eq 0 ]; then
-        JSON_PAYLOAD=$(jq -n --arg text "Refresh DB (${SRC_ENV} to ${DST_ENV}) job succeeded" '{text: $text}')
-      else
-        ERROR_MSG=$(tail -n 10 ~/error.log) || ERROR_MSG="Unknown error"
-        JSON_PAYLOAD=$(jq -n --arg text "Refresh DB (${SRC_ENV} to ${DST_ENV}) job failed with error: $ERROR_MSG" '{text: $text}')
-      fi
-      curl -X POST -H 'Content-type: application/json' --data "$JSON_PAYLOAD" $SLACK_WEBHOOK_URL
-    }
 
     # Guard against SRC_ENV = DST_ENV
     if [[ "$SRC_ENV" == "$DST_ENV" ]]; then
@@ -134,8 +122,6 @@ spec:
             secretKeyRef:
               name: rds-instance-output
               key: RDS_INSTANCE_ADDRESS
-        - name: SLACK_WEBHOOK_URL
-          value: "{{ .Values.slackWebhookUrl }}"
         - name: SRC_ENV
           value: "{{ .Values.sourceEnvironment }}"
         - name: DST_ENV
