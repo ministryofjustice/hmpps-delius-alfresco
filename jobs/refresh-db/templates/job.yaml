@@ -16,7 +16,6 @@ data:
 
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
-    cat ~/.pgpass
     chmod 0600 ~/.pgpass
     chown job:job ~/.pgpass
     
