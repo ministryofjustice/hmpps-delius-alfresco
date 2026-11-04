@@ -275,7 +275,8 @@ jobs:
     needs:
       - refresh-db
       - refresh-s3
-
+    if: |
+      always() && !cancelled() && ( needs.refresh-db.result == 'success' || needs.refresh-s3.result == 'success' )
     steps:
     - name: Configure kubectl
       run: |
