@@ -177,6 +177,7 @@ jobs:
 
       - name: Debug outputs
         run: |
+          echo "db_name=[${{ needs.get-source-db-creds.outputs.db_name }}]"
           echo "DB name populated: $([[ -n "$SRC_DATABASE_NAME" ]] && echo yes || echo no)"
           echo "DB username populated: $([[ -n "$SRC_DATABASE_USERNAME" ]] && echo yes || echo no)"
           echo "DB password populated: $([[ -n "$SRC_DATABASE_PASSWORD" ]] && echo yes || echo no)"
