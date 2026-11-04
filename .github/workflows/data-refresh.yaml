@@ -289,5 +289,5 @@ jobs:
         KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
         KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-    - name: Start ${{ github.event.inputs.destination_env }} Environment
-      run: task scale_up_deployments ENV=${{ github.event.inputs.destination_env }}
+    # - name: Start ${{ github.event.inputs.destination_env }} Environment
+    #   run: task scale_up_deployments ENV=${{ github.event.inputs.destination_env }}
