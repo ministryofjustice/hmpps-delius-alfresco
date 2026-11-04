@@ -157,7 +157,7 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
         with:
-          version: 'v1.33.5'
+          version: 'v1.35.8'
         id: kubectl_install
 
       - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
@@ -255,42 +255,25 @@ jobs:
 
           SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
           SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          echo "SERVICE_POD_NAME: $SERVICE_POD_NAME"
 
           SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
           DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
+          echo "DIRS: $DIRS"
 
           helm install refresh-s3 . \
             --set sourceEnvironment=${{ inputs.source_env }} \
             --set destinationEnvironment=${{ inputs.destination_env }} \
             --set directories="{${DIRS}}"
 
-          kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
+          echo "Waiting for refresh job to be created..."
 
-      - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
-
-  # start-destination-environment:
-  #   name: Start ${{ inputs.destination_env }} Environment
-  #   runs-on: ubuntu-22.04
-  #   environment:
-  #     name: ${{ inputs.destination_env }}
-  #   needs:
-  #     - refresh_db
-  #     - refresh_s3
-  #   if: |
-  #     always() && !cancelled() && ( needs.refresh_db.result == 'success' || needs.refresh_s3.result == 'success' )
-  #   steps:
-  #   - name: Configure kubectl
-  #     run: |
-  #       echo "${{ secrets.KUBE_CERT }}" > ca.crt
-  #       kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-  #       kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-  #       kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-  #       kubectl config use-context ${KUBE_CLUSTER}
-  #     env:
-  #       KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-  #       KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-
-  #   - name: Start ${{ inputs.destination_env }} Environment
-  #     run: task scale_up_deployments ENV=${{ inputs.destination_env }}
+          if kubectl wait --for=create job/refresh-s3 --timeout=60s; then
+            echo "✅ S3 refresh job submitted successfully."
+          else
+            echo "::error::S3 refresh job was not created within 60 seconds."
+            helm status refresh-s3 || true
+            kubectl get events --sort-by=.metadata.creationTimestamp | tail -20 || true
+            exit 1
+          fi

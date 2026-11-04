@@ -8,6 +8,24 @@ data:
     #!/bin/bash
     set -e
 
+    trap 'echo "FAILED COMMAND: $BASH_COMMAND"' ERR
+
+    send_slack_notification() {
+      STATUS=$1
+
+      if [ "$STATUS" -eq 0 ]; then
+        JSON_PAYLOAD=$(jq -n --arg text "✅ Refresh DB (${SRC_ENV} → ${DST_ENV}) succeeded" '{text: $text}')
+      else
+        ERROR_MSG=$(tail -n 20 ~/error.log 2>/dev/null | tr '\n' ' ')
+        ERROR_MSG=${ERROR_MSG:-"Unknown error"}
+        JSON_PAYLOAD=$(jq -n --arg text "❌ Refresh DB (${SRC_ENV} → ${DST_ENV}) failed. Last error output: ${ERROR_MSG}" '{text: $text}')
+      fi
+
+      curl -s -X POST -H "Content-Type: application/json" --data "$JSON_PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+    }
+
+    trap 'send_slack_notification $?' EXIT
+
     # Guard against SRC_ENV = DST_ENV
     if [[ "$SRC_ENV" == "$DST_ENV" ]]; then
       echo "ERROR: Source and Destination environments are the same ($SRC_ENV). Aborting!" >&2
@@ -50,6 +68,16 @@ data:
     pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump 2> >(tee ~/error.log >&2)
     rm -rv /home/job/db-dump ~/.pgpass
 
+    echo "Restoring destination OpenSearch URL..."
+    OPENSEARCH_HOST=$(echo "$OPENSEARCH_PROXY_URL" | sed -E 's#https?://##; s#:[0-9]+$##')
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "
+          UPDATE alf_prop_string_value
+          SET string_value = '${OPENSEARCH_HOST}'
+          WHERE string_value LIKE 'opensearch-proxy-service-cloud-platform%';
+        " 2> >(tee ~/error.log >&2)
+
+    echo "OpenSearch URL restored."
+
 ---
 {{- if eq .Values.sourceEnvironment .Values.destinationEnvironment }}
 {{ fail "Source and destination environments cannot be the same." }}
@@ -70,6 +98,7 @@ spec:
       - name: refresh-db
         image: ghcr.io/ministryofjustice/hmpps-delius-alfresco-db-utils:latest
         imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
         resources:
           limits:
             cpu: 4
@@ -121,6 +150,11 @@ spec:
             secretKeyRef:
               name: rds-instance-output
               key: RDS_INSTANCE_ADDRESS
+        - name: OPENSEARCH_PROXY_URL
+          valueFrom:
+            secretKeyRef:
+              name: opensearch-output
+              key: PROXY_URL
         - name: SRC_ENV
           value: "{{ .Values.sourceEnvironment }}"
         - name: DST_ENV
@@ -149,5 +183,6 @@ spec:
         configMap:
           name: refresh-db-script
           defaultMode: 0755
-  backoffLimit: 0
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 86400
 ...
