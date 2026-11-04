@@ -47,7 +47,7 @@ jobs:
           fi
 
   stop-destination-environment:
-    name: Stop ${{ github.event.inputs.destination_env }} Environment
+    name: Stop Environment (${{ github.event.inputs.destination_env }})
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.destination_env }}
@@ -88,6 +88,7 @@ jobs:
     name: Get Source RDS Credentials (${{ github.event.inputs.source_env }})
     if: ${{ inputs.refresh_database }}
     runs-on: ubuntu-22.04
+    needs: stop-destination-environment
     environment:
       name: ${{ github.event.inputs.source_env }}
     outputs:
@@ -267,27 +268,27 @@ jobs:
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
 
-  start-destination-environment:
-    name: Start ${{ github.event.inputs.destination_env }} Environment
-    runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.destination_env }}
-    needs:
-      - refresh-db
-      - refresh-s3
-    if: |
-      always() && !cancelled() && ( needs.refresh-db.result == 'success' || needs.refresh-s3.result == 'success' )
-    steps:
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBE_CERT }}" > ca.crt
-        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-        kubectl config use-context ${KUBE_CLUSTER}
-      env:
-        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+  # start-destination-environment:
+  #   name: Start ${{ github.event.inputs.destination_env }} Environment
+  #   runs-on: ubuntu-22.04
+  #   environment:
+  #     name: ${{ github.event.inputs.destination_env }}
+  #   needs:
+  #     - refresh-db
+  #     - refresh-s3
+  #   if: |
+  #     always() && !cancelled() && ( needs.refresh-db.result == 'success' || needs.refresh-s3.result == 'success' )
+  #   steps:
+  #   - name: Configure kubectl
+  #     run: |
+  #       echo "${{ secrets.KUBE_CERT }}" > ca.crt
+  #       kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+  #       kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+  #       kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+  #       kubectl config use-context ${KUBE_CLUSTER}
+  #     env:
+  #       KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+  #       KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-    # - name: Start ${{ github.event.inputs.destination_env }} Environment
-    #   run: task scale_up_deployments ENV=${{ github.event.inputs.destination_env }}
+  #   - name: Start ${{ github.event.inputs.destination_env }} Environment
+  #     run: task scale_up_deployments ENV=${{ github.event.inputs.destination_env }}
