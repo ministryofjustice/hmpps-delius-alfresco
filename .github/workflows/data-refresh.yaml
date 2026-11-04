@@ -131,46 +131,10 @@ jobs:
           DATABASE_USERNAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_USERNAME}' | base64 -d)
           DATABASE_PASSWORD=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_PASSWORD}' | base64 -d)
           RDS_INSTANCE_ADDRESS=$(kubectl get secret rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_ADDRESS}' | base64 -d)
-          # echo "::add-mask::$DATABASE_NAME"
-          # echo "::add-mask::$DATABASE_USERNAME"
-          echo "::add-mask::$DATABASE_PASSWORD"
-          echo "::add-mask::$RDS_INSTANCE_ADDRESS"
-          # echo "db_name=$DATABASE_NAME" >> "$GITHUB_OUTPUT"
-          # echo "db_username=$DATABASE_USERNAME" >> "$GITHUB_OUTPUT"
-          # echo "db_password=$DATABASE_PASSWORD" >> "$GITHUB_OUTPUT"
-          # echo "rds_instance_address=$RDS_INSTANCE_ADDRESS" >> "$GITHUB_OUTPUT"
-          {
-            echo "db_name<<EOF"
-            echo "$DATABASE_NAME"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "db_username<<EOF"
-            echo "$DATABASE_USERNAME"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "db_password<<EOF"
-            echo "$DATABASE_PASSWORD"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "rds_instance_address<<EOF"
-            echo "$RDS_INSTANCE_ADDRESS"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Debug step outputs
-        run: |
-          echo "step db_name=[${{ steps.get_secret.outputs.db_name }}]"
-          echo "step db_username=[${{ steps.get_secret.outputs.db_username }}]"
-
-      - name: Show job output values
-        run: |
-          echo "db_name=${{ steps.get_secret.outputs['db_name'] }}"
+          echo "db_name=$DATABASE_NAME" >> "$GITHUB_OUTPUT"
+          echo "db_username=$DATABASE_USERNAME" >> "$GITHUB_OUTPUT"
+          echo "db_password=$DATABASE_PASSWORD" >> "$GITHUB_OUTPUT"
+          echo "rds_instance_address=$RDS_INSTANCE_ADDRESS" >> "$GITHUB_OUTPUT"
   
   refresh_db:
     name: Refresh DB (${{ inputs.source_env }} -> ${{ inputs.destination_env }})
@@ -200,14 +164,6 @@ jobs:
         with:
           version: 'v3.15.2'
         id: install
-
-      - name: Debug outputs
-        run: |
-          echo "db_name=[${{ needs.get_source_db_creds.outputs.db_name }}]"
-          echo "DB name populated: $([[ -n "$SRC_DATABASE_NAME" ]] && echo yes || echo no)"
-          echo "DB username populated: $([[ -n "$SRC_DATABASE_USERNAME" ]] && echo yes || echo no)"
-          echo "DB password populated: $([[ -n "$SRC_DATABASE_PASSWORD" ]] && echo yes || echo no)"
-          echo "RDS address populated: $([[ -n "$SRC_RDS_INSTANCE_ADDRESS" ]] && echo yes || echo no)"
 
       - name: Configure kubectl
         run: |
