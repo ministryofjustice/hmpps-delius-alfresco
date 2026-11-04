@@ -136,10 +136,15 @@ jobs:
           echo "::add-mask::$DATABASE_USERNAME"
           echo "::add-mask::$DATABASE_PASSWORD"
           echo "::add-mask::$RDS_INSTANCE_ADDRESS"
-          echo "db_name=$DATABASE_NAME" >> "$GITHUB_OUTPUT"
-          echo "db_username=$DATABASE_USERNAME" >> "$GITHUB_OUTPUT"
-          echo "db_password=$DATABASE_PASSWORD" >> "$GITHUB_OUTPUT"
-          echo "rds_instance_address=$RDS_INSTANCE_ADDRESS" >> "$GITHUB_OUTPUT"
+          # echo "db_name=$DATABASE_NAME" >> "$GITHUB_OUTPUT"
+          # echo "db_username=$DATABASE_USERNAME" >> "$GITHUB_OUTPUT"
+          # echo "db_password=$DATABASE_PASSWORD" >> "$GITHUB_OUTPUT"
+          # echo "rds_instance_address=$RDS_INSTANCE_ADDRESS" >> "$GITHUB_OUTPUT"
+          TEMP1="temp1"
+          TEMP2="temp2"
+          echo "rds_instance_address1=$TEMP1" >> "$GITHUB_OUTPUT"
+          echo "rds_instance_address2=$TEMP2" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
 
   refresh-db:
     name: Refresh DB (${{ github.event.inputs.source_env }} -> ${{ github.event.inputs.destination_env }})
