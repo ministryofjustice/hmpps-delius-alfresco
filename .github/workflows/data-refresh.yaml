@@ -211,13 +211,58 @@ jobs:
             exit 1
           fi
 
+  get_source_s3_bucket_name:
+    name: Get Source S3 Bucket Name (${{ inputs.source_env }})
+    if: ${{ inputs.refresh_s3 }}
+    runs-on: ubuntu-22.04
+    needs: stop_destination_environment
+    environment:
+      name: ${{ inputs.source_env }}-preapproved
+    outputs:
+      s3_bucket_name: ${{ steps.get_bucket_name.outputs.s3_bucket_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+        with:
+          version: 'v1.35.8'
+        id: kubectl_install
+
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: 'v3.15.2'
+        id: install
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Retrieve ${{ inputs.source_env }} S3 Bucket Name
+        id: get_bucket_name
+        run: |
+          S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          echo "s3_bucket_name=$S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
+
   refresh-s3:
     name: Refresh S3 (${{ inputs.source_env }} -> ${{ inputs.destination_env }})
     if: ${{ inputs.refresh_s3 }}
     runs-on: ubuntu-22.04
     environment:
       name: ${{ inputs.destination_env }}
-    needs: stop_destination_environment
+    needs:
+      - stop_destination_environment
+      - get_source_s3_bucket_name
+    env:
+      SRC_BUCKET: ${{ needs.get_source_s3_bucket_name.outputs.s3_bucket_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -243,6 +288,15 @@ jobs:
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Create Source S3 Bucket Name Secret
+        run: |
+          echo "Deleting existing secret..."
+          kubectl delete secret s3-bucket-output-${{ inputs.source_env }} --ignore-not-found=true
+
+          echo "Creating new secret..."
+          kubectl create secret generic s3-bucket-output-${{ inputs.source_env }} \
+            --from-literal=BUCKET_NAME="$SRC_BUCKET"
       
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
