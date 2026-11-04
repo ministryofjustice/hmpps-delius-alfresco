@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-22.04
     environment:
       name: ${{ github.event.inputs.destination_env }}
+    needs: validate-inputs
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -90,9 +91,12 @@ jobs:
     runs-on: ubuntu-22.04
     needs: stop-destination-environment
     environment:
-      name: ${{ github.event.inputs.source_env }}
+      name: ${{ github.event.inputs.source_env }}-preapproved
     outputs:
-      db_host: ${{ steps.secret.outputs.db_host }}
+      db_name: ${{ steps.get-secret.outputs.db_name }}
+      db_username: ${{ steps.get-secret.outputs.db_username }}
+      db_password: ${{ steps.get-secret.outputs.db_password }}
+      rds_instance_address: ${{ steps.get-secret.outputs.rds_instance_address }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -119,7 +123,7 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
       - name: Retrieve ${{ github.event.inputs.source_env }} RDS Credentials
-        id: secret
+        id: get-secret
         run: |
           DATABASE_NAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_NAME}' | base64 -d)
           DATABASE_USERNAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_USERNAME}' | base64 -d)
@@ -135,11 +139,11 @@ jobs:
           echo "rds_instance_address=$RDS_INSTANCE_ADDRESS" >> "$GITHUB_OUTPUT"
 
   refresh-db:
-    name: Refresh DB
+    name: Refresh DB (${{ github.event.inputs.destination_env }} -> ${{ github.event.inputs.destination_env }})
     if: ${{ inputs.refresh_database }}
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ github.event.inputs.destination_env }}
+      name: ${{ github.event.inputs.destination_env }}-preapproved
     env:
       SRC_DATABASE_NAME: ${{ needs.get-source-db-creds.outputs.db_name }}
       SRC_DATABASE_USERNAME: ${{ needs.get-source-db-creds.outputs.db_username }}
