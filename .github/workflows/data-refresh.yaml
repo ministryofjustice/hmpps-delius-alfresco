@@ -250,7 +250,7 @@ jobs:
           S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
           echo "s3_bucket_name=$S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
 
-  refresh-s3:
+  refresh_s3:
     name: Refresh S3 (${{ inputs.source_env }} -> ${{ inputs.destination_env }})
     if: ${{ inputs.refresh_s3 }}
     runs-on: ubuntu-22.04
