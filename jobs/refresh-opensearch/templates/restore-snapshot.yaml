@@ -53,7 +53,7 @@ spec:
             - name: SLACK_WEBHOOK_URL
               value: "{{ .Values.slackWebhookUrl }}"
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
               ERROR_LOG=/tmp/error.log

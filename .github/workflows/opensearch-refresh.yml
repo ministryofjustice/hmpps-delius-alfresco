@@ -57,7 +57,7 @@ jobs:
 
       - name: Wait for create job
         run: |
-          kubectl wait job/create-opensearch-refresh-snapshot --for=condition=complete --timeout=3h
+          kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
 
       - name: Get snapshot name
         id: get_snapshot_name
