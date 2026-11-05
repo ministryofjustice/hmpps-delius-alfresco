@@ -52,7 +52,7 @@ jobs:
             helm install create-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
               --set jobType=create \
               --set sourceEnv=${{ inputs.source_env }} \
-              --set destEnv=${{ inputs.dest_env }}
+              --set destEnv=${{ inputs.dest_env }} \
               --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Wait for create job
@@ -96,7 +96,7 @@ jobs:
             --set jobType=restore \
             --set sourceEnv=${{ inputs.source_env }} \
             --set destEnv=${{ inputs.dest_env }} \
-            --set snapshotName=${{ needs.create_snapshot.outputs.SNAPSHOT_NAME }}
+            --set snapshotName=${{ needs.create_snapshot.outputs.SNAPSHOT_NAME }} \
             --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Wait for restore job

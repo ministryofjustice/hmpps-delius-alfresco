@@ -197,7 +197,7 @@ jobs:
           echo "Refreshing database..."
           helm install refresh-db . \
             --set sourceEnvironment=${{ inputs.source_env }} \
-            --set destinationEnvironment=${{ inputs.destination_env }}
+            --set destinationEnvironment=${{ inputs.destination_env }} \
             --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
           
           echo "Waiting for Kubernetes job to be created..."
