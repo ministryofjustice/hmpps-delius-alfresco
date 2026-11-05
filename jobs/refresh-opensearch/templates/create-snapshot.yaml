@@ -51,7 +51,7 @@ spec:
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
           command:
-          - /bin/bssh
+          - /bin/bash
           - -c
           - |
             ERROR_LOG=/tmp/error.log
