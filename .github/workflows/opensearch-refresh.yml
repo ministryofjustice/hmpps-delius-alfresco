@@ -47,6 +47,11 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
+      - name: Uninstall Existing Chart
+        run: |
+          echo "Uninstalling existing refresh-db Helm chart..."
+          helm uninstall create-opensearch-refresh-snapshot --ignore-not-found
+
       - name: Create snapshot
         run: |
             helm install create-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
@@ -56,8 +61,7 @@ jobs:
               --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Wait for create job
-        run: |
-          kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
+        run: kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
 
       - name: Get snapshot name
         id: get_snapshot_name
@@ -90,6 +94,11 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
+      - name: Uninstall Existing Chart
+        run: |
+          echo "Uninstalling existing refresh-db Helm chart..."
+          helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found
+
       - name: Restore snapshot
         run: |
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
@@ -100,8 +109,7 @@ jobs:
             --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Wait for restore job
-        run: |
-          kubectl wait job/restore-opensearch-refresh-snapshot --for=condition=complete --timeout=3h
+        run: kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
 
       - name: Cleanup
         if: always()
