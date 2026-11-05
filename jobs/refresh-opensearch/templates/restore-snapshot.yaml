@@ -50,10 +50,34 @@ spec:
               value: "{{ $.Values.destEnv }}"
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
+            - name: SLACK_WEBHOOK_URL
+              value: "{{ .Values.slackWebhookUrl }}"
           command:
             - /bin/sh
             - -c
             - |
+              ERROR_LOG=/tmp/error.log
+              LAST_COMMAND=""
+              exec 2> >(tee -a "$ERROR_LOG" >&2)
+
+              trap 'LAST_COMMAND=$BASH_COMMAND' DEBUG
+              send_slack_notification() {
+                STATUS=$1
+
+                if [ "$STATUS" -eq 0 ]; then
+                  JSON_PAYLOAD=$(jq -n --arg text "✅ Opensearch Refresh (${SRC_ENV} → ${DST_ENV}) SUCCEEDED" '{text: $text}')
+                else
+                  ERROR_MSG=$(tail -n 20 ~/error.log 2>/dev/null | tr '\n' ' ')
+                  ERROR_MSG=${ERROR_MSG:-"Unknown error"}
+                  JSON_PAYLOAD=$(jq -n --arg text "❌ Opensearch Refresh (${SRC_ENV} → ${DST_ENV}) FAILED. *Failing Command:* ${LAST_COMMAND}.
+                  *Error:* ${ERROR_MSG}" '{text: $text}')
+                fi
+
+                curl -s -X POST -H "Content-Type: application/json" --data "$JSON_PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+              }
+
+              trap 'send_slack_notification $?' EXIT
+            
               echo "OPENSEARCH_ENDPOINT: ${OPENSEARCH_ENDPOINT}"
               echo "SOURCE_S3_BUCKET_NAME: ${SOURCE_S3_BUCKET_NAME}"
               echo "SNAPSHOT_ROLE_ARN: ${SNAPSHOT_ROLE_ARN}"

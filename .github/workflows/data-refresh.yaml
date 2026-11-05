@@ -198,6 +198,7 @@ jobs:
           helm install refresh-db . \
             --set sourceEnvironment=${{ inputs.source_env }} \
             --set destinationEnvironment=${{ inputs.destination_env }}
+            --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
           
           echo "Waiting for Kubernetes job to be created..."
           if kubectl wait --for=create job/refresh-db --timeout=60s; then
