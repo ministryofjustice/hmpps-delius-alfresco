@@ -144,6 +144,6 @@ spec:
               fi
             done
 
-            echo "${SNAPSHOT_NAME}"
+            echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
 
 {{- end }}

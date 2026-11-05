@@ -97,6 +97,8 @@ metadata:
   labels:
     name-prefix: refresh-db
 spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
   template:
     spec:
       containers:
@@ -190,6 +192,4 @@ spec:
         configMap:
           name: refresh-db-script
           defaultMode: 0755
-      backoffLimit: 0
-      ttlSecondsAfterFinished: 86400
 ...

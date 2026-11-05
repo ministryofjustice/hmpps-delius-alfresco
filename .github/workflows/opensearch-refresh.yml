@@ -66,8 +66,8 @@ jobs:
       - name: Get snapshot name
         id: get_snapshot_name
         run: |
-          POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-refresh-snapshot -o jsonpath="{.items[0].metadata.name}")
-          SNAPSHOT_NAME=$(kubectl logs $POD_NAME | tail -n 1)
+          POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-snapshot -o jsonpath="{.items[0].metadata.name}")
+          SNAPSHOT_NAME=$(kubectl logs "$POD_NAME" | grep '^SNAPSHOT_NAME=' | tail -n 1 | cut -d= -f2-)
           echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" >> $GITHUB_OUTPUT
 
       - name: Cleanup
