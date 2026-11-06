@@ -25,14 +25,61 @@ on:
           - training
 
 jobs:
+  get_destination_secrets:
+    name: Get Destination Secrets (${{ inputs.dest_env }})
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ inputs.dest_env }}
+    outputs:
+      # DEST_S3_BUCKET_NAME: ${{ steps.get_bucket_name.outputs.s3_bucket_name }}
+      DEST_OPENSEARCH_PROXY_URL: ${{ steps.get_opensearch_endpoint.outputs.opensearch_proxy_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+        with:
+          version: 'v1.35.8'
+        id: kubectl_install
+
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: 'v3.15.2'
+        id: install
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      # - name: Retrieve ${{ inputs.dest_env }} S3 Bucket Name
+      #   id: get_bucket_name
+      #   run: |
+      #     S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+      #     echo "s3_bucket_name=$S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Retrieve ${{ inputs.dest_env }} Opensearch Endpoint
+        id: get_opensearch_endpoint
+        run: |
+          OPENSEARCH_PROXY_URL=$(kubectl get secret opensearch-output -o jsonpath='{.data.PROXY_URL}' | base64 -d)
+          echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL" >> "$GITHUB_OUTPUT"
+
   create_snapshot:
     name: "Create snapshot (${{ inputs.source_env }})"
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.source_env }}
-    outputs:
-      SNAPSHOT_NAME: ${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }}
-      SOURCE_S3_BUCKET_NAME: ${{ steps.get_bucket_name.outputs.SOURCE_S3_BUCKET_NAME }}
+      name: ${{ inputs.source_env }}-preapproved
+    needs: get_destination_secrets
+    env:
+      # DEST_S3_BUCKET_NAME: ${{ needs.get_destination_secrets.outputs.DEST_S3_BUCKET_NAME }}
+      DEST_OPENSEARCH_PROXY_URL: ${{ needs.get_destination_secrets.outputs.DEST_OPENSEARCH_PROXY_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
@@ -71,35 +118,9 @@ jobs:
           SNAPSHOT_NAME=$(kubectl logs "$POD_NAME" | grep '^SNAPSHOT_NAME=' | tail -n 1 | cut -d= -f2-)
           echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Retrieve ${{ inputs.dest_env }} S3 Bucket Name
-        id: get_bucket_name
-        run: |
-          SOURCE_S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
-          echo "SOURCE_S3_BUCKET_NAME=$SOURCE_S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
-
       - name: Cleanup
         if: always()
         run: helm uninstall create-opensearch-refresh-snapshot --ignore-not-found
-
-  restore_snapshot:
-    name: "Restore snapshot (${{ inputs.dest_env }})"
-    needs: create_snapshot
-    runs-on: ubuntu-latest
-    environment:
-      name: ${{ inputs.dest_env }}-preapproved
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4.2.2
-      - name: Configure kubectl
-        run: |
-          echo "${{ secrets.KUBE_CERT }}" > ca.crt
-          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-          kubectl config use-context ${KUBE_CLUSTER}
-        env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
       - name: Uninstall Existing Chart
         run: |
@@ -112,13 +133,14 @@ jobs:
             --set jobType=restore \
             --set sourceEnv=${{ inputs.source_env }} \
             --set destEnv=${{ inputs.dest_env }} \
-            --set snapshotName=${{ needs.create_snapshot.outputs.SNAPSHOT_NAME }} \
-            --set sourceBucketName=${{ needs.create_snapshot.outputs.SOURCE_S3_BUCKET_NAME }} \
+            --set snapshotName=$SNAPSHOT_NAME \
+            --set sourceBucketName=$SOURCE_S3_BUCKET_NAME \
+            --set opensearchURL=$DEST_OPENSEARCH_PROXY_URL \
             --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
+
+      # - name: Cleanup
+      #   if: always()
+      #   run: helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found
 
       - name: Wait for restore job
         run: kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
-
-      - name: Cleanup
-        if: always()
-        run: helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found

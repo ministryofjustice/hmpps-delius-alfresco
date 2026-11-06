@@ -23,11 +23,11 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           env:
-            - name: OPENSEARCH_ENDPOINT
+            - name: SOURCE_S3_BUCKET_NAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ $.Values.opensearch.endpointSecretName }}
-                  key: {{ $.Values.opensearch.endpointSecretKey }}
+                  name: {{ $.Values.s3.s3BucketSecretName }}
+                  key: {{ $.Values.s3.s3BucketNameKey }}
             - name: SNAPSHOT_ROLE_ARN
               valueFrom:
                 secretKeyRef:
@@ -45,8 +45,8 @@ spec:
               value: "{{ $.Values.destEnv }}"
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
-            - name: SOURCE_S3_BUCKET_NAME
-              value: "{{ .Values.sourceBucketName }}"
+            - name: OPENSEARCH_ENDPOINT
+              value: "{{ .Values.opensearchURL }}"
             - name: SLACK_WEBHOOK_URL
               value: "{{ .Values.slackWebhookUrl }}"
           command:
