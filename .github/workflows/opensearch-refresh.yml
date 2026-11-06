@@ -108,7 +108,7 @@ jobs:
         id: get_snapshot_name
         run: |
           POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-snapshot -o jsonpath="{.items[0].metadata.name}")
-          echo "POD_NAME=${SNAPSHOT_NAME}"
+          echo "POD_NAME=${POD_NAME}"
           SNAPSHOT_NAME=$(kubectl logs "$POD_NAME" | grep '^SNAPSHOT_NAME=' | tail -n 1 | cut -d= -f2-)
           echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
           echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" >> $GITHUB_OUTPUT
@@ -124,6 +124,7 @@ jobs:
 
       - name: Restore snapshot
         run: |
+            echo "DEST_OPENSEARCH_PROXY_URL=$DEST_OPENSEARCH_PROXY_URL"
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
             --set-string jobType=restore \
             --set-string sourceEnv=${{ inputs.source_env }} \

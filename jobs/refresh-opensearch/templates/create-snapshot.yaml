@@ -50,6 +50,8 @@ spec:
               value: "{{ $.Values.destEnv }}"
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
+            - name: SLACK_WEBHOOK_URL
+              value: "{{ $.Values.slackWebhookUrl }}"
           command:
           - /bin/bash
           - -c
