@@ -11,6 +11,7 @@ data:
     ERROR_LOG=/tmp/error.log
 
     send_slack_notification() {
+      echo "===== SENDING SLACK NOTIFICATION ====="
       STATUS=$1
 
       if [ "$STATUS" -eq 0 ]; then
@@ -20,6 +21,9 @@ data:
         ERROR_MSG=${ERROR_MSG:-"Unknown error"}
         PAYLOAD="{\"text\":\"❌ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *FAILED*\n*Directory*: ${DIR}\nError: ${ERROR_MSG}\"}"
       fi
+
+      echo "Payload:"
+      echo "$PAYLOAD"
 
       wget --header="Content-Type: application/json" --post-data="$PAYLOAD" -qO- "$SLACK_WEBHOOK_URL" >/dev/null 2>&1 || true
     }
@@ -31,7 +35,10 @@ data:
     aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2  2>"$ERROR_LOG"
 
     set +x
-    echo sync of $DIR directory completed
+    echo "sync of $DIR directory completed"
+
+    send_slack_notification "$STATUS"
+    exit "$STATUS"
 
 {{- range .Values.directories }}
 ---
