@@ -66,7 +66,7 @@ jobs:
           echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL" >> "$GITHUB_OUTPUT"
 
   refresh_opensearch:
-    name: "Create snapshot (${{ inputs.source_env }})"
+    name: "Refresh Opensearch (${{ inputs.dest_env }})"
     runs-on: ubuntu-latest
     environment:
       name: ${{ inputs.source_env }}-preapproved
