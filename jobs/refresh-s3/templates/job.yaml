@@ -14,14 +14,14 @@ data:
       STATUS=$1
 
       if [ "$STATUS" -eq 0 ]; then
-        JSON_PAYLOAD="{\"text\":\"✅ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*\n*Directory*: ${DIR}\"}"
+        PAYLOAD="{\"text\":\"✅ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*\n*Directory*: ${DIR}\"}"
       else
         ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
         ERROR_MSG=${ERROR_MSG:-"Unknown error"}
-        JSON_PAYLOAD="{\"text\":\"❌ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *FAILED*\n*Directory*: ${DIR}\nError: ${ERROR_MSG}\"}"
+        PAYLOAD="{\"text\":\"❌ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *FAILED*\n*Directory*: ${DIR}\nError: ${ERROR_MSG}\"}"
       fi
 
-      curl -s -X POST -H "Content-Type: application/json" --data "$JSON_PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+      wget --header="Content-Type: application/json" --post-data="$PAYLOAD" -qO- "$SLACK_WEBHOOK_URL" >/dev/null 2>&1 || true
     }
 
     trap 'send_slack_notification $?' EXIT
