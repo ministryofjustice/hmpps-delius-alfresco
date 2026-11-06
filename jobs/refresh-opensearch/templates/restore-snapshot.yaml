@@ -6,7 +6,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.destEnv }}"
+      serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.sourceEnv }}"
       restartPolicy: Never
       containers:
         - name: restore-opensearch-snapshot
@@ -34,9 +34,9 @@ spec:
                   name: {{ $.Values.opensearch.endpointSecretName }}
                   key: {{ $.Values.opensearch.snapshotRoleArnKey }}
             - name: SNAPSHOT_NAME
-              value: "{{ $.Values.opensearch.snapshotName }}"
+              value: "{{ $.Values.snapshotName }}"
             - name: SNAPSHOT_REPOSITORY
-              value: "refresh-snapshots-{{ $.Values.sourceEnv }}"
+              value: "{{ $.Values.opensearch.snapshotRepository }}"
             - name: REGION
               value: "{{ $.Values.s3.region }}"
             - name: SOURCE_ENV
@@ -46,9 +46,9 @@ spec:
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
             - name: OPENSEARCH_ENDPOINT
-              value: "{{ .Values.opensearchURL }}"
+              value: "{{ $.Values.opensearchURL }}"
             - name: SLACK_WEBHOOK_URL
-              value: "{{ .Values.slackWebhookUrl }}"
+              value: "{{ $.Values.slackWebhookUrl }}"
           command:
             - /bin/bash
             - -c
