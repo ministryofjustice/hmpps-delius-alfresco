@@ -28,8 +28,6 @@ data:
       wget --header="Content-Type: application/json" --post-data="$PAYLOAD" -qO- "$SLACK_WEBHOOK_URL" >/dev/null 2>&1 || true
     }
 
-    trap 'send_slack_notification $?' EXIT
-
     aws configure set default.s3.max_concurrent_requests 2000
 
     if aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2  2>"$ERROR_LOG"
