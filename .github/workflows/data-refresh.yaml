@@ -320,6 +320,8 @@ jobs:
           DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
           echo "DIRS: $DIRS"
 
+          echo "DEST_SLACK_WEBHOOK_URL=$DEST_SLACK_WEBHOOK_URL"
+
           helm install refresh-s3 . \
             --set sourceEnvironment=${{ inputs.source_env }} \
             --set destinationEnvironment=${{ inputs.destination_env }} \
