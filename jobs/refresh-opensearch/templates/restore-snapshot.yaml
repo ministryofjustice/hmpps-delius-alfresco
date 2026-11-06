@@ -46,7 +46,7 @@ spec:
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
             - name: OPENSEARCH_ENDPOINT
-              value: "{{ $.Values.opensearchURL }}"
+              value: "{{ $.Values.opensearchUrl }}"
             - name: SLACK_WEBHOOK_URL
               value: "{{ $.Values.slackWebhookUrl }}"
           command:
