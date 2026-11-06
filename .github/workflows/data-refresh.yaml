@@ -316,4 +316,5 @@ jobs:
           helm install refresh-s3 . \
             --set sourceEnvironment=${{ inputs.source_env }} \
             --set destinationEnvironment=${{ inputs.destination_env }} \
-            --set directories="{${DIRS}}"
+            --set directories="{${DIRS}}" \
+            --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
