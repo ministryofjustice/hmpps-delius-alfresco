@@ -18,11 +18,13 @@ data:
       STATUS=$1
 
       if [ "$STATUS" -eq 0 ]; then
-        JSON_PAYLOAD=$(jq -n --arg text "✅ Alfresco RDS Refresh (${SRC_ENV} → ${DST_ENV}) SUCCEEDED" '{text: $text}')
+        JSON_PAYLOAD=$(jq -n --arg text "✅ *Alfresco RDS Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*"
+        '{text: $text}')
       else
-        ERROR_MSG=$(tail -n 20 ~/error.log 2>/dev/null | tr '\n' ' ')
+        ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
         ERROR_MSG=${ERROR_MSG:-"Unknown error"}
-        JSON_PAYLOAD=$(jq -n --arg text "❌ Alfresco RDS Refresh (${SRC_ENV} → ${DST_ENV}) FAILED. *Failing Command:* ${LAST_COMMAND}.
+        JSON_PAYLOAD=$(jq -n --arg text "❌ *Alfresco RDS Refresh* (${SRC_ENV} → ${DST_ENV}) *FAILED*.
+        *Failing Command:* ${LAST_COMMAND}.
         *Error:* ${ERROR_MSG}" '{text: $text}')
       fi
 
@@ -71,7 +73,6 @@ data:
 
     # Restore the source database dump to the destination database
     pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump
-    rm -rv /home/job/db-dump ~/.pgpass
 
     echo "Restoring destination OpenSearch URL..."
     OPENSEARCH_HOST=$(echo "$OPENSEARCH_PROXY_URL" | sed -E 's#https?://##; s#:[0-9]+$##')
@@ -80,6 +81,8 @@ data:
           SET string_value = '${OPENSEARCH_HOST}'
           WHERE string_value LIKE 'opensearch-proxy-service-cloud-platform%';
         "
+
+    rm -rv /home/job/db-dump ~/.pgpass
 
     echo "OpenSearch URL restored."
 

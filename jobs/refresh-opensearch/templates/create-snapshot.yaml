@@ -57,17 +57,18 @@ spec:
             ERROR_LOG=/tmp/error.log
             LAST_COMMAND=""
             exec 2> >(tee -a "$ERROR_LOG" >&2)
-
             trap 'LAST_COMMAND=$BASH_COMMAND' DEBUG
+
             send_slack_notification() {
               STATUS=$1
 
               if [ "$STATUS" -eq 0 ]; then
-                JSON_PAYLOAD=$(jq -n --arg text "✅ Opensearch Snapshot Creation (${SRC_ENV} → ${DST_ENV}) SUCCEEDED" '{text: $text}')
+                JSON_PAYLOAD=$(jq -n --arg text "✅ *Opensearch Snapshot Creation* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*" '{text: $text}')
               else
-                ERROR_MSG=$(tail -n 20 ~/error.log 2>/dev/null | tr '\n' ' ')
+                ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
                 ERROR_MSG=${ERROR_MSG:-"Unknown error"}
-                JSON_PAYLOAD=$(jq -n --arg text "❌ Opensearch Snapshot Creation (${SRC_ENV} → ${DST_ENV}) FAILED. *Failing Command:* ${LAST_COMMAND}.
+                JSON_PAYLOAD=$(jq -n --arg text "❌ Opensearch Snapshot Creation (${SRC_ENV} → ${DST_ENV}) FAILED.
+                *Failing Command:* ${LAST_COMMAND}.
                 *Error:* ${ERROR_MSG}" '{text: $text}')
               fi
 

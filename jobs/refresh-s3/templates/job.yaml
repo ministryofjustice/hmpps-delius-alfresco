@@ -5,11 +5,36 @@ metadata:
   name: refresh-s3-script
 data:
   entrypoint.sh: |-
-    #!/bin/sh
+    #!/bin/bash
     set -xe
 
+    ERROR_LOG=/tmp/error.log
+    LAST_COMMAND=""
+    exec 2> >(tee -a "$ERROR_LOG" >&2)
+    trap 'LAST_COMMAND=$BASH_COMMAND' DEBUG
+    
+    send_slack_notification() {
+      STATUS=$1
+
+      if [ "$STATUS" -eq 0 ]; then
+        JSON_PAYLOAD=$(jq -n --arg text "✅ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*
+        *Directory:* ${DIR}"
+        '{text: $text}')
+      else
+        ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
+        ERROR_MSG=${ERROR_MSG:-"Unknown error"}
+        JSON_PAYLOAD=$(jq -n --arg text "❌ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *FAILED*.
+        *Directory:* ${DIR}
+        *Failing Command:* ${LAST_COMMAND}
+        *Error:* ${ERROR_MSG}" '{text: $text}')
+      fi
+
+      curl -s -X POST -H "Content-Type: application/json" --data "$JSON_PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+    }
+
+    trap 'send_slack_notification $?' EXIT
+
     aws configure set default.s3.max_concurrent_requests 2000
-    # aws configure set default.s3.use_accelerate_endpoint true
 
     aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2
 
@@ -38,6 +63,10 @@ spec:
         command:
         - /bin/entrypoint.sh
         env:
+        - name: SRC_ENV
+          value: "{{ $.Values.sourceEnvironment }}"
+        - name: DST_ENV
+          value: "{{ $.Values.destinationEnvironment }}"
         - name: SRC_BUCKET
           valueFrom:
             secretKeyRef:
