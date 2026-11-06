@@ -249,6 +249,7 @@ jobs:
       - name: Retrieve ${{ inputs.destination_env }} Slack Webhook URL
         id: get_slack_webhook_URL
         run: |
+          echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}"
           echo "slack_webhook_url=${{ secrets.SLACK_WEBHOOK_URL }}" >> "$GITHUB_OUTPUT"
 
       - name: Retrieve ${{ inputs.destination_env }} S3 Bucket Name
