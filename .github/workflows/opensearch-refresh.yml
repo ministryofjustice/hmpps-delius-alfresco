@@ -32,6 +32,7 @@ jobs:
       name: ${{ inputs.dest_env }}
     outputs:
       DEST_OPENSEARCH_PROXY_URL: ${{ steps.get_opensearch_endpoint.outputs.opensearch_proxy_url }}
+      DEST_OPENSEARCH_PROXY_URL_B64: ${{ steps.get_opensearch_endpoint.outputs.opensearch_proxy_url_b64 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -64,6 +65,10 @@ jobs:
           OPENSEARCH_PROXY_URL=$(kubectl get secret opensearch-output -o jsonpath='{.data.PROXY_URL}' | base64 -d)
           echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL"
           echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL" >> "$GITHUB_OUTPUT"
+          ENCODED_OPENSEARCH_PROXY_URL=$(kubectl get secret opensearch-output -o jsonpath='{.data.PROXY_URL}' | base64 -d)
+          OPENSEARCH_PROXY_URL_B64=$(printf '%s' "$OPENSEARCH_PROXY_URL" | base64 -w0)
+          echo "opensearch_proxy_url_b64=$OPENSEARCH_PROXY_URL_B64"
+          echo "opensearch_proxy_url_b64=$OPENSEARCH_PROXY_URL_B64" >> "$GITHUB_OUTPUT"
 
   refresh_opensearch:
     name: "Refresh Opensearch (${{ inputs.dest_env }})"
@@ -73,6 +78,7 @@ jobs:
     needs: get_destination_secrets
     env:
       DEST_OPENSEARCH_PROXY_URL: ${{ needs.get_destination_secrets.outputs.DEST_OPENSEARCH_PROXY_URL }}
+      DEST_OPENSEARCH_PROXY_URL_B64: ${{ needs.get_destination_secrets.outputs.DEST_OPENSEARCH_PROXY_URL_B64 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
@@ -125,6 +131,8 @@ jobs:
       - name: Restore snapshot
         run: |
             echo "DEST_OPENSEARCH_PROXY_URL=$DEST_OPENSEARCH_PROXY_URL"
+            DEST_OPENSEARCH_PROXY_URL=$(printf '%s' "$DEST_OPENSEARCH_PROXY_URL_B64" | base64 -d)
+            echo "$DEST_OPENSEARCH_PROXY_URL"
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
             --set-string jobType=restore \
             --set-string sourceEnv=${{ inputs.source_env }} \

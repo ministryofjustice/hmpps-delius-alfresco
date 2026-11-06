@@ -44,9 +44,9 @@ spec:
               value: "{{ $.Values.opensearch.snapshotRepository }}"
             - name: REGION
               value: "{{ $.Values.s3.region }}"
-            - name: SOURCE_ENV
+            - name: SRC_ENV
               value: "{{ $.Values.sourceEnv }}"
-            - name: DEST_ENV
+            - name: DST_ENV
               value: "{{ $.Values.destEnv }}"
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
