@@ -71,7 +71,7 @@ jobs:
           echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL"
           echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL" >> "$GITHUB_OUTPUT"
 
-  create_snapshot:
+  refresh_opensearch:
     name: "Create snapshot (${{ inputs.source_env }})"
     runs-on: ubuntu-latest
     environment:
@@ -103,10 +103,10 @@ jobs:
       - name: Create snapshot
         run: |
             helm install create-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
-              --set jobType=create \
-              --set sourceEnv=${{ inputs.source_env }} \
-              --set destEnv=${{ inputs.dest_env }} \
-              --set slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
+              --set-string jobType=create \
+              --set-string sourceEnv=${{ inputs.source_env }} \
+              --set-string destEnv=${{ inputs.dest_env }} \
+              --set-string slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
 
       - name: Wait for create job
         run: kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
@@ -132,12 +132,12 @@ jobs:
       - name: Restore snapshot
         run: |
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
-            --set jobType=restore \
-            --set sourceEnv=${{ inputs.source_env }} \
-            --set destEnv=${{ inputs.dest_env }} \
-            --set snapshotName=${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }} \
-            --set opensearchUrl=$DEST_OPENSEARCH_PROXY_URL \
-            --set slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
+            --set-string jobType=restore \
+            --set-string sourceEnv=${{ inputs.source_env }} \
+            --set-string destEnv=${{ inputs.dest_env }} \
+            --set-string snapshotName=${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }} \
+            --set-string opensearchUrl=$DEST_OPENSEARCH_PROXY_URL \
+            --set-string slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
 
       # - name: Cleanup
       #   if: always()

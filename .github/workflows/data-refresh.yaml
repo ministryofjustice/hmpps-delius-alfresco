@@ -196,9 +196,9 @@ jobs:
         run: |
           echo "Refreshing database..."
           helm install refresh-db . \
-            --set sourceEnvironment=${{ inputs.source_env }} \
-            --set destinationEnvironment=${{ inputs.destination_env }} \
-            --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
+            --set-string sourceEnvironment=${{ inputs.source_env }} \
+            --set-string destinationEnvironment=${{ inputs.destination_env }} \
+            --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
           
           echo "Waiting for Kubernetes job to be created..."
           if kubectl wait --for=create job/refresh-db --timeout=60s; then
@@ -323,7 +323,7 @@ jobs:
           echo "DEST_SLACK_WEBHOOK_URL=$DEST_SLACK_WEBHOOK_URL"
 
           helm install refresh-s3 . \
-            --set sourceEnvironment=${{ inputs.source_env }} \
-            --set destinationEnvironment=${{ inputs.destination_env }} \
-            --set directories="{${DIRS}}" \
-            --set slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
+            --set-string sourceEnvironment=${{ inputs.source_env }} \
+            --set-string destinationEnvironment=${{ inputs.destination_env }} \
+            --set-string directories="{${DIRS}}" \
+            --set-string slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
