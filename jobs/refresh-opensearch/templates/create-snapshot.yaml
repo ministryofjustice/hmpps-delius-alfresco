@@ -80,7 +80,7 @@ spec:
             trap 'send_slack_notification $?' EXIT
             
             TIMESTAMP=$(date "+%Y%m%d%H%M%S")
-            SNAPSHOT_NAME=${SNAPSHOT_PREFIX}-${SOURCE_ENV}-to-${DEST_ENV}-${TIMESTAMP}
+            SNAPSHOT_NAME=${SNAPSHOT_PREFIX}-${SRC_ENV}-to-${DST_ENV}-${TIMESTAMP}
 
             echo "OPENSEARCH_ENDPOINT: ${OPENSEARCH_ENDPOINT}"
             echo "S3_BUCKET_NAME: ${S3_BUCKET_NAME}"
@@ -88,8 +88,8 @@ spec:
             echo "SNAPSHOT_PREFIX: ${SNAPSHOT_PREFIX}"
             echo "SNAPSHOT_REPOSITORY: ${SNAPSHOT_REPOSITORY}"
             echo "REGION: ${REGION}"
-            echo "SOURCE_ENV: ${SOURCE_ENV}"
-            echo "DEST_ENV: ${DEST_ENV}"
+            echo "SOURCE_ENV: ${SRC_ENV}"
+            echo "DEST_ENV: ${DST_ENV}"
             echo "INDICES: ${INDICES}"
 
             # Check if repository exists
