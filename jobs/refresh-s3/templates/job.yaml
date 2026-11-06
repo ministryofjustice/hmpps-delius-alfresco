@@ -12,7 +12,7 @@ data:
     LAST_COMMAND=""
     exec 2> >(tee -a "$ERROR_LOG" >&2)
     trap 'LAST_COMMAND=$BASH_COMMAND' DEBUG
-    
+
     send_slack_notification() {
       STATUS=$1
 
@@ -61,6 +61,7 @@ spec:
             cpu: 4
             memory: 8Gi
         command:
+        - /bin/bash
         - /bin/entrypoint.sh
         env:
         - name: SRC_ENV
