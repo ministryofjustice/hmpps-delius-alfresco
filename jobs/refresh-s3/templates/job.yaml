@@ -5,13 +5,10 @@ metadata:
   name: refresh-s3-script
 data:
   entrypoint.sh: |-
-    #!/bin/bash
+    #!/bin/sh
     set -xe
 
     ERROR_LOG=/tmp/error.log
-    LAST_COMMAND=""
-    exec 2> >(tee -a "$ERROR_LOG" >&2)
-    trap 'LAST_COMMAND=$BASH_COMMAND' DEBUG
 
     send_slack_notification() {
       STATUS=$1
@@ -36,7 +33,7 @@ data:
 
     aws configure set default.s3.max_concurrent_requests 2000
 
-    aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2
+    aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2  2>"$ERROR_LOG"
 
     set +x
     echo sync of $DIR directory completed
@@ -61,7 +58,8 @@ spec:
             cpu: 4
             memory: 8Gi
         command:
-        - /bin/bash
+        - /bin/sh
+        - -c
         - /bin/entrypoint.sh
         env:
         - name: SRC_ENV
