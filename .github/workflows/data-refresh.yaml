@@ -218,7 +218,8 @@ jobs:
     environment:
       name: ${{ inputs.destination_env }}-preapproved
     outputs:
-      s3_bucket_name: ${{ steps.get_bucket_name.outputs.s3_bucket_name }}
+      DEST_SLACK_WEBHOOK_URL: ${{ steps.get_slack_webhook_URL.outputs.slack_webhook_url }}
+      DEST_S3_BUCKET_NAME: ${{ steps.get_bucket_name.outputs.s3_bucket_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -244,6 +245,11 @@ jobs:
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+  
+      - name: Retrieve ${{ inputs.destination_env }} Slack Webhook URL
+        id: get_slack_webhook_URL
+        run: |
+          echo "slack_webhook_url=${{ secrets.SLACK_WEBHOOK_URL }}" >> "$GITHUB_OUTPUT"
 
       - name: Retrieve ${{ inputs.destination_env }} S3 Bucket Name
         id: get_bucket_name
@@ -259,7 +265,8 @@ jobs:
       name: ${{ inputs.source_env }}-preapproved
     needs: get_destination_s3_bucket_name
     env:
-      DST_BUCKET: ${{ needs.get_destination_s3_bucket_name.outputs.s3_bucket_name }}
+      DEST_SLACK_WEBHOOK_URL: ${{ needs.get_destination_s3_bucket_name.outputs.DEST_SLACK_WEBHOOK_URL }}
+      DEST_BUCKET: ${{ needs.get_destination_s3_bucket_name.outputs.DEST_S3_BUCKET_NAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -293,7 +300,7 @@ jobs:
 
           echo "Creating new secret..."
           kubectl create secret generic s3-bucket-output-${{ inputs.destination_env }} \
-            --from-literal=BUCKET_NAME="$DST_BUCKET"
+            --from-literal=BUCKET_NAME="$DEST_BUCKET"
       
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
@@ -317,4 +324,4 @@ jobs:
             --set sourceEnvironment=${{ inputs.source_env }} \
             --set destinationEnvironment=${{ inputs.destination_env }} \
             --set directories="{${DIRS}}" \
-            --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
+            --set slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
