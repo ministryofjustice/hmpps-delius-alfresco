@@ -31,7 +31,6 @@ jobs:
     environment:
       name: ${{ inputs.dest_env }}
     outputs:
-      DEST_SLACK_WEBHOOK_URL: ${{ steps.get_slack_webhook_URL.outputs.slack_webhook_url }}
       DEST_OPENSEARCH_PROXY_URL: ${{ steps.get_opensearch_endpoint.outputs.opensearch_proxy_url }}
     steps:
       - name: Checkout code
@@ -59,11 +58,6 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Retrieve ${{ inputs.dest_env }} Slack Webhook URL
-        id: get_slack_webhook_URL
-        run: |
-          echo "slack_webhook_url=${{ secrets.SLACK_WEBHOOK_URL }}" >> "$GITHUB_OUTPUT"
-
       - name: Retrieve ${{ inputs.dest_env }} Opensearch Endpoint
         id: get_opensearch_endpoint
         run: |
@@ -78,7 +72,6 @@ jobs:
       name: ${{ inputs.source_env }}-preapproved
     needs: get_destination_secrets
     env:
-      DEST_SLACK_WEBHOOK_URL: ${{ needs.get_destination_secrets.outputs.DEST_SLACK_WEBHOOK_URL }}
       DEST_OPENSEARCH_PROXY_URL: ${{ needs.get_destination_secrets.outputs.DEST_OPENSEARCH_PROXY_URL }}
     steps:
       - name: Checkout code
@@ -106,7 +99,7 @@ jobs:
               --set-string jobType=create \
               --set-string sourceEnv=${{ inputs.source_env }} \
               --set-string destEnv=${{ inputs.dest_env }} \
-              --set-string slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
+              --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL_NONPROD }}
 
       - name: Wait for create job
         run: kubectl wait job/create-opensearch-snapshot --for=condition=complete --timeout=3h
@@ -137,7 +130,7 @@ jobs:
             --set-string destEnv=${{ inputs.dest_env }} \
             --set-string snapshotName=${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }} \
             --set-string opensearchUrl=$DEST_OPENSEARCH_PROXY_URL \
-            --set-string slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
+            --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL_NONPROD }}
 
       # - name: Cleanup
       #   if: always()

@@ -218,7 +218,6 @@ jobs:
     environment:
       name: ${{ inputs.destination_env }}-preapproved
     outputs:
-      DEST_SLACK_WEBHOOK_URL: ${{ steps.get_slack_webhook_URL.outputs.slack_webhook_url }}
       DEST_S3_BUCKET_NAME: ${{ steps.get_bucket_name.outputs.s3_bucket_name }}
     steps:
       - name: Checkout code
@@ -245,12 +244,6 @@ jobs:
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-  
-      - name: Retrieve ${{ inputs.destination_env }} Slack Webhook URL
-        id: get_slack_webhook_URL
-        run: |
-          echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}"
-          echo "slack_webhook_url=${{ secrets.SLACK_WEBHOOK_URL }}" >> "$GITHUB_OUTPUT"
 
       - name: Retrieve ${{ inputs.destination_env }} S3 Bucket Name
         id: get_bucket_name
@@ -266,7 +259,6 @@ jobs:
       name: ${{ inputs.source_env }}-preapproved
     needs: get_destination_s3_bucket_name
     env:
-      DEST_SLACK_WEBHOOK_URL: ${{ needs.get_destination_s3_bucket_name.outputs.DEST_SLACK_WEBHOOK_URL }}
       DEST_BUCKET: ${{ needs.get_destination_s3_bucket_name.outputs.DEST_S3_BUCKET_NAME }}
     steps:
       - name: Checkout code
@@ -321,10 +313,8 @@ jobs:
           DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
           echo "DIRS: $DIRS"
 
-          echo "DEST_SLACK_WEBHOOK_URL=$DEST_SLACK_WEBHOOK_URL"
-
           helm install refresh-s3 . \
             --set-string sourceEnvironment=${{ inputs.source_env }} \
             --set-string destinationEnvironment=${{ inputs.destination_env }} \
             --set-string directories="{${DIRS}}" \
-            --set-string slackWebhookUrl=$DEST_SLACK_WEBHOOK_URL
+            --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL_NONPROD }}
