@@ -25,60 +25,13 @@ on:
           - training
 
 jobs:
-  get_destination_secrets:
-    name: Get Destination Secrets (${{ inputs.dest_env }})
-    runs-on: ubuntu-22.04
-    environment:
-      name: ${{ inputs.dest_env }}
-    outputs:
-      DEST_OPENSEARCH_PROXY_URL: ${{ steps.get_opensearch_endpoint.outputs.opensearch_proxy_url }}
-      DEST_OPENSEARCH_PROXY_URL_B64: ${{ steps.get_opensearch_endpoint.outputs.opensearch_proxy_url_b64 }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
-        with:
-          version: 'v1.35.8'
-        id: kubectl_install
-
-      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
-        with:
-          version: 'v3.15.2'
-        id: install
-
-      - name: Configure kubectl
-        run: |
-          echo "${{ secrets.KUBE_CERT }}" > ca.crt
-          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-          kubectl config use-context ${KUBE_CLUSTER}
-        env:
-          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-
-      - name: Retrieve ${{ inputs.dest_env }} Opensearch Endpoint
-        id: get_opensearch_endpoint
-        run: |
-          OPENSEARCH_PROXY_URL=$(kubectl get secret opensearch-output -o jsonpath='{.data.PROXY_URL}' | base64 -d)
-          echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL"
-          echo "opensearch_proxy_url=$OPENSEARCH_PROXY_URL" >> "$GITHUB_OUTPUT"
-          ENCODED_OPENSEARCH_PROXY_URL=$(kubectl get secret opensearch-output -o jsonpath='{.data.PROXY_URL}' | base64 -d)
-          OPENSEARCH_PROXY_URL_B64=$(printf '%s' "$OPENSEARCH_PROXY_URL" | base64 -w0)
-          echo "opensearch_proxy_url_b64=$OPENSEARCH_PROXY_URL_B64"
-          echo "opensearch_proxy_url_b64=$OPENSEARCH_PROXY_URL_B64" >> "$GITHUB_OUTPUT"
-
-  refresh_opensearch:
+  create_snapshot:
     name: "Refresh Opensearch (${{ inputs.dest_env }})"
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.source_env }}-preapproved
-    needs: get_destination_secrets
-    env:
-      DEST_OPENSEARCH_PROXY_URL: ${{ needs.get_destination_secrets.outputs.DEST_OPENSEARCH_PROXY_URL }}
-      DEST_OPENSEARCH_PROXY_URL_B64: ${{ needs.get_destination_secrets.outputs.DEST_OPENSEARCH_PROXY_URL_B64 }}
+      name: ${{ inputs.source_env }}
+    outputs:
+      SNAPSHOT_NAME: ${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
@@ -114,15 +67,28 @@ jobs:
         id: get_snapshot_name
         run: |
           POD_NAME=$(kubectl get pods --selector=job-name=create-opensearch-snapshot -o jsonpath="{.items[0].metadata.name}")
-          echo "POD_NAME=${POD_NAME}"
           SNAPSHOT_NAME=$(kubectl logs "$POD_NAME" | grep '^SNAPSHOT_NAME=' | tail -n 1 | cut -d= -f2-)
-          echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
           echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}" >> $GITHUB_OUTPUT
 
-      # - name: Cleanup
-      #   if: always()
-      #   run: helm uninstall create-opensearch-refresh-snapshot --ignore-not-found
+      - name: Cleanup
+        if: always()
+        run: helm uninstall create-opensearch-refresh-snapshot --ignore-not-found
 
+      - name: Retrieve ${{ inputs.source_env }} S3 Bucket Name
+        id: get_bucket_name
+        run: |
+          S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          echo "s3_bucket_name=$S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
+
+  restore_snapshot:
+    name: Restore Snapshot (${{ inputs.dest_env }})
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ inputs.dest_env }}
+    needs: create_snapshot
+    env:
+      SNAPSHOT_NAME: ${{ needs.create_snapshot.outputs.SNAPSHOT_NAME }}
+    steps:
       - name: Uninstall Existing Chart
         run: |
           echo "Uninstalling existing refresh-db Helm chart..."
@@ -130,20 +96,16 @@ jobs:
 
       - name: Restore snapshot
         run: |
-            echo "DEST_OPENSEARCH_PROXY_URL=$DEST_OPENSEARCH_PROXY_URL"
-            DEST_OPENSEARCH_PROXY_URL=$(printf '%s' "$DEST_OPENSEARCH_PROXY_URL_B64" | base64 -d)
-            echo "$DEST_OPENSEARCH_PROXY_URL"
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
             --set-string jobType=restore \
             --set-string sourceEnv=${{ inputs.source_env }} \
             --set-string destEnv=${{ inputs.dest_env }} \
-            --set-string snapshotName=${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }} \
-            --set-string opensearchUrl=$DEST_OPENSEARCH_PROXY_URL \
+            --set-string snapshotName=$SNAPSHOT_NAME \
             --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL_NONPROD }}
-
-      # - name: Cleanup
-      #   if: always()
-      #   run: helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found
 
       - name: Wait for restore job
         run: kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
+
+      - name: Cleanup
+        if: always()
+        run: helm uninstall restore-opensearch-refresh-snapshot --ignore-not-found
