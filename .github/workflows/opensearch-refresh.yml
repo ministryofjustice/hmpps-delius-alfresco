@@ -26,7 +26,7 @@ on:
 
 jobs:
   create_snapshot:
-    name: "Refresh Opensearch (${{ inputs.dest_env }})"
+    name: "Create Snapshot (${{ inputs.source_env }})"
     runs-on: ubuntu-latest
     environment:
       name: ${{ inputs.source_env }}
@@ -84,11 +84,25 @@ jobs:
     name: Restore Snapshot (${{ inputs.dest_env }})
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ inputs.dest_env }}
+      name: ${{ inputs.dest_env }}-preapproved
     needs: create_snapshot
     env:
       SNAPSHOT_NAME: ${{ needs.create_snapshot.outputs.SNAPSHOT_NAME }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+          
       - name: Uninstall Existing Chart
         run: |
           echo "Uninstalling existing refresh-db Helm chart..."
