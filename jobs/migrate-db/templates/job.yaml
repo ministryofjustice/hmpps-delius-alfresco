@@ -26,7 +26,6 @@ data:
     echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
     echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
     chmod 0600 ~/.pgpass
-    chown job:job ~/.pgpass
     set -x
 
     # Drop the destination database schema whilst the export is running
@@ -421,7 +420,7 @@ spec:
             privileged: false
             readOnlyRootFilesystem: false
             runAsNonRoot: true
-            runAsUser: 999
+            runAsUser: 1001
             capabilities:
               drop:
                 - ALL

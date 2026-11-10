@@ -301,7 +301,7 @@ jobs:
             --restart=Never \
             --overrides='{
               "spec":{
-                "securityContext":{"allowPrivilegeEscalation":false,"privileged":false,"runAsNonRoot":true,"runAsUser":999,"capabilities":{"drop":["ALL"]},"seccompProfile":{"type":"RuntimeDefault"}}
+                "securityContext":{"allowPrivilegeEscalation":false,"privileged":false,"runAsNonRoot":true,"runAsUser":1001,"capabilities":{"drop":["ALL"]},"seccompProfile":{"type":"RuntimeDefault"}}
               }
             }' \
             -- /bin/sh -lc "sleep 600" >/dev/null 2>&1 || true
