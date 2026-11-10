@@ -9,33 +9,60 @@ on:
         required: true
         type: choice
         options:
-          - dev
+          - preprod
+          - prod
       destination_env:
         description: Environment to copy data to
         required: true
         type: choice
         options:
           - poc
+          - dev
+          - test
+          - stage
+          - preprod
+      refresh_database:
+        description: Refresh Database
+        type: boolean
+        required: true
+        default: false
+      refresh_s3:
+        description: Refresh S3
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  stop-destination-environment:
-    name: Stop ${{ github.event.inputs.destination_env }} Environment
+  validate_inputs:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify at least one refresh selected
+        run: |
+          if [[ "${{ inputs.refresh_database }}" != "true" && "${{ inputs.refresh_s3 }}" != "true" ]]; then
+            echo "You must select at least one refresh option"
+            exit 1
+          fi
+
+  stop_destination_environment:
+    name: Stop Environment (${{ inputs.destination_env }})
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ github.event.inputs.destination_env }}
+      name: ${{ inputs.destination_env }}
+    needs: validate_inputs
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Validate environments
         run: |
-          echo "Source: ${{ github.event.inputs.source_env }}"
-          echo "Destination: ${{ github.event.inputs.destination_env }}"
+          echo "Source: ${{ inputs.source_env }}"
+          echo "Destination: ${{ inputs.destination_env }}"
 
-          if [ "${{ github.event.inputs.source_env }}" = "${{ github.event.inputs.destination_env }}" ]; then
+          if [ "${{ inputs.source_env }}" = "${{ inputs.destination_env }}" ]; then
             echo "ERROR: Source and destination environments cannot be the same."
             exit 1
           fi
@@ -56,15 +83,21 @@ jobs:
         with:
           version: '3.49.1'
 
-      - name: Stop ${{ github.event.inputs.destination_env }} Environment
-        run: task scale_down_deployments ENV=${{ github.event.inputs.destination_env }}
+      - name: Stop ${{ inputs.destination_env }} Environment
+        run: task scale_down_deployments ENV=${{ inputs.destination_env }}
 
-  refresh-db:
-    name: Refresh DB
+  get_source_db_creds:
+    name: Get Source RDS Credentials (${{ inputs.source_env }})
+    if: ${{ inputs.refresh_database }}
     runs-on: ubuntu-22.04
-    # environment:
-    #   name: ${{ github.event.inputs.source_env }}
-    # needs: stop-destination-environment
+    needs: stop_destination_environment
+    environment:
+      name: ${{ inputs.source_env }}-preapproved
+    outputs:
+      db_name: ${{ steps.get_secret.outputs.db_name }}
+      db_username: ${{ steps.get_secret.outputs.db_username }}
+      db_password: ${{ steps.get_secret.outputs.db_password }}
+      rds_instance_address: ${{ steps.get_secret.outputs.rds_instance_address }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -72,7 +105,57 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
         with:
-          version: 'v1.33.5'
+          version: 'v1.35.8'
+        id: kubectl_install
+
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: 'v4.2.3'
+        id: install
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Retrieve ${{ inputs.source_env }} RDS Credentials
+        id: get_secret
+        run: |
+          DATABASE_NAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_NAME}' | base64 -d)
+          DATABASE_USERNAME=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_USERNAME}' | base64 -d)
+          DATABASE_PASSWORD=$(kubectl get secret rds-instance-output -o jsonpath='{.data.DATABASE_PASSWORD}' | base64 -d)
+          RDS_INSTANCE_ADDRESS=$(kubectl get secret rds-instance-output -o jsonpath='{.data.RDS_INSTANCE_ADDRESS}' | base64 -d)
+          echo "db_name=$DATABASE_NAME" >> "$GITHUB_OUTPUT"
+          echo "db_username=$DATABASE_USERNAME" >> "$GITHUB_OUTPUT"
+          echo "db_password=$DATABASE_PASSWORD" >> "$GITHUB_OUTPUT"
+          echo "rds_instance_address=$RDS_INSTANCE_ADDRESS" >> "$GITHUB_OUTPUT"
+  
+  refresh_db:
+    name: Refresh DB (${{ inputs.source_env }} -> ${{ inputs.destination_env }})
+    if: ${{ inputs.refresh_database }}
+    runs-on: ubuntu-22.04
+    environment:
+      name: ${{ inputs.destination_env }}-preapproved
+    env:
+      SRC_DATABASE_NAME: ${{ needs.get_source_db_creds.outputs.db_name }}
+      SRC_DATABASE_USERNAME: ${{ needs.get_source_db_creds.outputs.db_username }}
+      SRC_DATABASE_PASSWORD: ${{ needs.get_source_db_creds.outputs.db_password }}
+      SRC_RDS_INSTANCE_ADDRESS: ${{ needs.get_source_db_creds.outputs.rds_instance_address }}
+    needs: get_source_db_creds
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+        with:
+          version: 'v1.35.8'
         id: kubectl_install
 
       - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
@@ -91,32 +174,92 @@ jobs:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
 
-      - name: Uninstall DB Refresh chart
-        run: helm uninstall refresh-db --ignore-not-found
-
-      - name: Fetch Source Env RDS Details
-        working-directory: jobs/refresh-db
+      - name: Create Source DB Credentials Secret
         run: |
-          echo "Database refresh..."
-          # helm install refresh-db . \
-          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-          #   --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
+          echo "Deleting existing secret..."
+          kubectl delete secret rds-instance-output-from-${{ inputs.source_env }} --ignore-not-found=true
+
+          echo "Creating new secret..."
+          kubectl create secret generic rds-instance-output-from-${{ inputs.source_env }} \
+            --from-literal=DATABASE_NAME="$SRC_DATABASE_NAME" \
+            --from-literal=DATABASE_USERNAME="$SRC_DATABASE_USERNAME" \
+            --from-literal=DATABASE_PASSWORD="$SRC_DATABASE_PASSWORD" \
+            --from-literal=RDS_INSTANCE_ADDRESS="$SRC_RDS_INSTANCE_ADDRESS"
+
+      - name: Uninstall DB Refresh chart
+        run: |
+          echo "Uninstalling existing refresh-db Helm chart..."
+          helm uninstall refresh-db --ignore-not-found
+
       - name: DB Refresh
         working-directory: jobs/refresh-db
         run: |
-          echo "Database refresh..."
-          # helm install refresh-db . \
-          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-          #   --set slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
+          echo "Refreshing database..."
+          helm install refresh-db . \
+            --set-string sourceEnvironment=${{ inputs.source_env }} \
+            --set-string destinationEnvironment=${{ inputs.destination_env }} \
+            --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
+          
+          echo "Waiting for Kubernetes job to be created..."
+          if kubectl wait --for=create job/refresh-db --timeout=60s; then
+            echo "✅ Database refresh job submitted successfully."
+          else
+            echo "::error::Database refresh job was not created within 60 seconds. Check the Helm release and Kubernetes events for errors."
+            helm status refresh-db || true
+            kubectl get events --sort-by=.metadata.creationTimestamp | tail -20 || true
+            exit 1
+          fi
 
-  refresh-s3:
-    name: Refresh S3
+  get_destination_s3_bucket_name:
+    name: Get Destination S3 Bucket Name (${{ inputs.destination_env }})
+    if: ${{ inputs.refresh_s3 }}
+    runs-on: ubuntu-22.04
+    needs: stop_destination_environment
+    environment:
+      name: ${{ inputs.destination_env }}-preapproved
+    outputs:
+      DEST_S3_BUCKET_NAME: ${{ steps.get_bucket_name.outputs.s3_bucket_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+        with:
+          version: 'v1.35.8'
+        id: kubectl_install
+
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: 'v3.15.2'
+        id: install
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CERT }}" > ca.crt
+          kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
+          kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
+          kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
+          kubectl config use-context ${KUBE_CLUSTER}
+        env:
+          KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Retrieve ${{ inputs.destination_env }} S3 Bucket Name
+        id: get_bucket_name
+        run: |
+          S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          echo "s3_bucket_name=$S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
+
+  refresh_s3:
+    name: Refresh S3 (${{ inputs.source_env }} -> ${{ inputs.destination_env }})
+    if: ${{ inputs.refresh_s3 }}
     runs-on: ubuntu-22.04
     environment:
-      name: ${{ github.event.inputs.source_env }}
-    needs: stop-destination-environment
+      name: ${{ inputs.source_env }}-preapproved
+    needs: get_destination_s3_bucket_name
+    env:
+      DEST_BUCKET: ${{ needs.get_destination_s3_bucket_name.outputs.DEST_S3_BUCKET_NAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -142,6 +285,15 @@ jobs:
         env:
           KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
           KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+
+      - name: Create Destination S3 Bucket Name Secret
+        run: |
+          echo "Deleting existing secret..."
+          kubectl delete secret s3-bucket-output-${{ inputs.destination_env }} --ignore-not-found=true
+
+          echo "Creating new secret..."
+          kubectl create secret generic s3-bucket-output-${{ inputs.destination_env }} \
+            --from-literal=BUCKET_NAME="$DEST_BUCKET"
       
       - name: Uninstall S3 Refresh chart
         run: helm uninstall refresh-s3 --ignore-not-found
@@ -150,45 +302,19 @@ jobs:
         working-directory: jobs/refresh-s3
         run: |
           echo "S3 refresh..."
-          # set -xeo pipefail
+          set -xeo pipefail
 
-          # SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
-          # SERVICE_POD_NAME=$(kubectl get pod -l app=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}")
+          SERVICE_POD_DEPLOYMENT=$(kubectl get deployment -l app=service-pod -o jsonpath="{.items[0].metadata.name}")
+          SERVICE_POD_NAME=$(kubectl get pod -l name=$SERVICE_POD_DEPLOYMENT -o jsonpath="{.items[0].metadata.name}") # label selector can sometimes be 'app' not 'name'
+          echo "SERVICE_POD_NAME: $SERVICE_POD_NAME"
 
-          # SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          SRC_BUCKET=$(kubectl get secrets s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
 
-          # DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
+          DIRS=$(kubectl exec $SERVICE_POD_NAME -- aws s3 ls $SRC_BUCKET | grep -v contentstore | awk '/\/$/ && NF {print $2}' | tr -d '/' | tr '\n' ',' | sed 's/,$/\n/')
+          echo "DIRS: $DIRS"
 
-          # helm install refresh-s3 . \
-          #   --set sourceEnvironment=${{ github.event.inputs.source_env }} \
-          #   --set destinationEnvironment=${{ github.event.inputs.destination_env }} \
-          #   --set directories="{${DIRS}}"
-
-          # kubectl wait jobs -l name-prefix=refresh-s3 --for=condition=complete --timeout 10h
-
-      - name: Uninstall S3 Refresh chart
-        run: helm uninstall refresh-s3 --ignore-not-found
-
-  start-destination-environment:
-    name: Start ${{ github.event.inputs.destination_env }} Environment
-    runs-on: ubuntu-22.04
-    environment:
-      name: ${{ github.event.inputs.destination_env }}
-    needs:
-      - refresh-db
-      - refresh-s3
-
-    steps:
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBE_CERT }}" > ca.crt
-        kubectl config set-cluster ${KUBE_CLUSTER} --certificate-authority=./ca.crt --server=https://${KUBE_CLUSTER}
-        kubectl config set-credentials deploy-user --token=${{ secrets.KUBE_TOKEN }}
-        kubectl config set-context ${KUBE_CLUSTER} --cluster=${KUBE_CLUSTER} --user=deploy-user --namespace=${KUBE_NAMESPACE}
-        kubectl config use-context ${KUBE_CLUSTER}
-      env:
-        KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
-        KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
-
-    - name: Start ${{ github.event.inputs.destination_env }} Environment
-      run: task scale_up_deployments ENV=${{ github.event.inputs.destination_env }}
+          helm install refresh-s3 . \
+            --set-string sourceEnvironment=${{ inputs.source_env }} \
+            --set-string destinationEnvironment=${{ inputs.destination_env }} \
+            --set-string directories="{${DIRS}}" \
+            --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL_NONPROD }}

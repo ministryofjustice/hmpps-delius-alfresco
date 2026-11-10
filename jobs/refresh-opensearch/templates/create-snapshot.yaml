@@ -44,18 +44,43 @@ spec:
               value: "{{ $.Values.opensearch.snapshotRepository }}"
             - name: REGION
               value: "{{ $.Values.s3.region }}"
-            - name: SOURCE_ENV
+            - name: SRC_ENV
               value: "{{ $.Values.sourceEnv }}"
-            - name: DEST_ENV
+            - name: DST_ENV
               value: "{{ $.Values.destEnv }}"
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
+            - name: SLACK_WEBHOOK_URL
+              value: "{{ $.Values.slackWebhookUrl }}"
           command:
-          - /bin/sh
+          - /bin/bash
           - -c
           - |
+            ERROR_LOG=/tmp/error.log
+            LAST_COMMAND=""
+            exec 2> >(tee -a "$ERROR_LOG" >&2)
+            trap 'LAST_COMMAND=$BASH_COMMAND' DEBUG
+
+            send_slack_notification() {
+              STATUS=$1
+
+              if [ "$STATUS" -eq 0 ]; then
+                JSON_PAYLOAD=$(jq -n --arg text "✅ *Opensearch Snapshot Creation* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*" '{text: $text}')
+              else
+                ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
+                ERROR_MSG=${ERROR_MSG:-"Unknown error"}
+                JSON_PAYLOAD=$(jq -n --arg text "❌ Opensearch Snapshot Creation (${SRC_ENV} → ${DST_ENV}) *FAILED*.
+                *Failing Command:* ${LAST_COMMAND}.
+                *Error:* ${ERROR_MSG}" '{text: $text}')
+              fi
+
+              curl -s -X POST -H "Content-Type: application/json" --data "$JSON_PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+            }
+
+            trap 'send_slack_notification $?' EXIT
+            
             TIMESTAMP=$(date "+%Y%m%d%H%M%S")
-            SNAPSHOT_NAME=${SNAPSHOT_PREFIX}-${SOURCE_ENV}-to-${DEST_ENV}-${TIMESTAMP}
+            SNAPSHOT_NAME=${SNAPSHOT_PREFIX}-${SRC_ENV}-to-${DST_ENV}-${TIMESTAMP}
 
             echo "OPENSEARCH_ENDPOINT: ${OPENSEARCH_ENDPOINT}"
             echo "S3_BUCKET_NAME: ${S3_BUCKET_NAME}"
@@ -63,8 +88,8 @@ spec:
             echo "SNAPSHOT_PREFIX: ${SNAPSHOT_PREFIX}"
             echo "SNAPSHOT_REPOSITORY: ${SNAPSHOT_REPOSITORY}"
             echo "REGION: ${REGION}"
-            echo "SOURCE_ENV: ${SOURCE_ENV}"
-            echo "DEST_ENV: ${DEST_ENV}"
+            echo "SOURCE_ENV: ${SRC_ENV}"
+            echo "DEST_ENV: ${DST_ENV}"
             echo "INDICES: ${INDICES}"
 
             # Check if repository exists
@@ -122,6 +147,6 @@ spec:
               fi
             done
 
-            echo "${SNAPSHOT_NAME}"
+            echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
 
 {{- end }}

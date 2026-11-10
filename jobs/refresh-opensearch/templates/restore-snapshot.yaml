@@ -4,6 +4,7 @@ kind: Job
 metadata:
   name: restore-opensearch-snapshot
 spec:
+  backoffLimit: 0
   template:
     spec:
       serviceAccountName: "{{ $.Values.job.serviceAccountPrefix }}-{{ $.Values.destEnv }}"
@@ -28,85 +29,115 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.opensearch.endpointSecretName }}
                   key: {{ $.Values.opensearch.endpointSecretKey }}
-            - name: SOURCE_S3_BUCKET_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: "{{ $.Values.s3.s3BucketSecretName }}-{{ $.Values.sourceEnv }}"
-                  key: {{ $.Values.s3.s3BucketNameKey }}
             - name: SNAPSHOT_ROLE_ARN
               valueFrom:
                 secretKeyRef:
                   name: {{ $.Values.opensearch.endpointSecretName }}
                   key: {{ $.Values.opensearch.snapshotRoleArnKey }}
             - name: SNAPSHOT_NAME
-              value: "{{ $.Values.opensearch.snapshotName }}"
+              value: "{{ $.Values.snapshotName }}"
             - name: SNAPSHOT_REPOSITORY
-              value: "refresh-snapshots-{{ $.Values.sourceEnv }}"
+              value: "{{ $.Values.opensearch.snapshotRepository }}"
             - name: REGION
               value: "{{ $.Values.s3.region }}"
-            - name: SOURCE_ENV
+            - name: SRC_ENV
               value: "{{ $.Values.sourceEnv }}"
-            - name: DEST_ENV
+            - name: DST_ENV
               value: "{{ $.Values.destEnv }}"
             - name: INDICES
               value: "{{ $.Values.opensearch.indices }}"
+            - name: SOURCE_S3_BUCKET_NAME
+              value: "{{ $.Values.sourceS3Bucket }}"
+            - name: SLACK_WEBHOOK_URL
+              value: "{{ $.Values.slackWebhookUrl }}"
+        
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
+              ERROR_LOG=/tmp/error.log
+              LAST_COMMAND=""
+              exec 2> >(tee -a "$ERROR_LOG" >&2)
+              trap 'LAST_COMMAND=$BASH_COMMAND' DEBUG
+
+              send_slack_notification() {
+                STATUS=$1
+
+                if [ "$STATUS" -eq 0 ]; then
+                  JSON_PAYLOAD=$(jq -n --arg text "✅ *Opensearch Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*" '{text: $text}')
+                else
+                  ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
+                  ERROR_MSG=${ERROR_MSG:-"Unknown error"}
+                  JSON_PAYLOAD=$(jq -n --arg text "❌ *Opensearch Refresh* (${SRC_ENV} → ${DST_ENV}) *FAILED*.
+                  *Failing Command:* ${LAST_COMMAND}.
+                  *Error:* ${ERROR_MSG}" '{text: $text}')
+                fi
+
+                curl -s -X POST -H "Content-Type: application/json" --data "$JSON_PAYLOAD" "$SLACK_WEBHOOK_URL" || true
+              }
+            
               echo "OPENSEARCH_ENDPOINT: ${OPENSEARCH_ENDPOINT}"
               echo "SOURCE_S3_BUCKET_NAME: ${SOURCE_S3_BUCKET_NAME}"
               echo "SNAPSHOT_ROLE_ARN: ${SNAPSHOT_ROLE_ARN}"
               echo "SNAPSHOT_NAME: ${SNAPSHOT_NAME}"
               echo "SNAPSHOT_REPOSITORY: ${SNAPSHOT_REPOSITORY}"
               echo "REGION: ${REGION}"
-              echo "SOURCE_ENV: ${SOURCE_ENV}"
-              echo "DEST_ENV: ${DEST_ENV}"
+              echo "SOURCE_ENV: ${SRC_ENV}"
+              echo "DEST_ENV: ${DST_ENV}"
               echo "INDICES: ${INDICES}"
 
               # Check if repository exists
-              REPO_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY")
+              REPO_RESPONSE=$(curl -s "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY")
 
-              if [ "$REPO_CHECK" = "404" ]; then
+              if echo "$REPO_RESPONSE" | grep -q "\"$SNAPSHOT_REPOSITORY\""; then
+                echo "Repository already exists"
+              else
                 echo "Repository does not exist. Creating snapshot repository..."
-                RESPONSE=$(curl -XPUT "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY" -H 'Content-Type: application/json' -d "{
-                  \"type\": \"s3\",
-                  \"settings\": {
-                    \"bucket\": \"$SOURCE_S3_BUCKET_NAME\",
-                    \"region\": \"$REGION\",
-                    \"role_arn\": \"$SNAPSHOT_ROLE_ARN\",
-                    \"base_path\": \"refresh-snapshots\"
-                  }
-                }")
+
+                RESPONSE=$(curl -s -XPUT \
+                  "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY" \
+                  -H 'Content-Type: application/json' \
+                  -d "{
+                    \"type\": \"s3\",
+                    \"settings\": {
+                      \"bucket\": \"$SOURCE_S3_BUCKET_NAME\",
+                      \"region\": \"$REGION\",
+                      \"role_arn\": \"$SNAPSHOT_ROLE_ARN\",
+                      \"base_path\": \"refresh-snapshots\"
+                    }
+                  }")
+
                 if echo "$RESPONSE" | grep -q '"acknowledged":true'; then
                   echo "Repository created successfully"
                 else
                   echo "Failed to create repository: $RESPONSE"
                   exit 1
                 fi
-              else
-                echo "Repository already exists"
               fi
 
-              # Close indices before restore if they exist
-              echo "Checking and closing existing indices..."
+              # Delete indices before restore if they exist
+              echo "Checking and deleting existing indices..."
               for INDEX in $(echo "$INDICES" | tr ',' ' '); do
                 INDEX_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "$OPENSEARCH_ENDPOINT/$INDEX")
+
                 if [ "$INDEX_CHECK" = "200" ]; then
-                  echo "Closing index $INDEX..."
-                  curl -XPOST "$OPENSEARCH_ENDPOINT/$INDEX/_close"
+                  echo "Deleting index $INDEX..."
+                  curl -XDELETE "$OPENSEARCH_ENDPOINT/$INDEX"
                 fi
               done
 
               # Restore snapshot
               echo "Restoring snapshot..."
-              RESPONSE=$(curl -s -XPOST "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME/_restore" -H 'Content-Type: application/json' -d "{
+              RESPONSE=$(curl -XPOST "$OPENSEARCH_ENDPOINT/_snapshot/$SNAPSHOT_REPOSITORY/$SNAPSHOT_NAME/_restore" -H 'Content-Type: application/json' -d "{
                 \"indices\": \"$INDICES\",
                 \"include_global_state\": false
               }")
 
+              echo "Restore Command: $RESPONSE"
+
               if ! echo "$RESPONSE" | grep -q '"accepted":true'; then
                 echo "Failed to initiate restore: $RESPONSE"
+                send_slack_notification 1
                 exit 1
               fi
 
@@ -123,6 +154,7 @@ spec:
                   break
                 elif echo "$RECOVERY_STATUS" | grep -q "FAILED"; then
                   echo "[$CURRENT_TIME] Restore failed"
+                  send_slack_notification 1
                   exit 1
                 else
                   echo "[$CURRENT_TIME] Restore in progress... (Status: $RECOVERY_STATUS)"
@@ -135,6 +167,7 @@ spec:
               for INDEX in $(echo "$INDICES" | tr ',' ' '); do
                 echo "Opening index $INDEX..."
                 curl -XPOST "$OPENSEARCH_ENDPOINT/$INDEX/_open"
+                send_slack_notification 0
               done
 
   {{- end }}

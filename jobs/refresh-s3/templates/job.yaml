@@ -8,13 +8,37 @@ data:
     #!/bin/sh
     set -xe
 
+    ERROR_LOG=/tmp/error.log
+
+    send_slack_notification() {
+      echo "===== SENDING SLACK NOTIFICATION ====="
+      STATUS="$1"
+
+      if [ "$STATUS" = "0" ]; then
+        PAYLOAD="{\"text\":\"✅ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*\n*Directory*: ${DIR}\"}"
+      else
+        ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
+        ERROR_MSG=${ERROR_MSG:-"Unknown error"}
+        PAYLOAD="{\"text\":\"❌ *S3 Refresh* (${SRC_ENV} → ${DST_ENV}) *FAILED*\n*Directory*: ${DIR}\nError: ${ERROR_MSG}\"}"
+      fi
+
+      echo "Payload:"
+      echo "$PAYLOAD"
+
+      wget --header="Content-Type: application/json" --post-data="$PAYLOAD" -qO- "$SLACK_WEBHOOK_URL" >/dev/null 2>&1 || true
+    }
+
     aws configure set default.s3.max_concurrent_requests 2000
-    # aws configure set default.s3.use_accelerate_endpoint true
 
-    aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2
-
-    set +x
-    echo sync of $DIR directory completed
+    if aws s3 sync s3://$SRC_BUCKET/$DIR s3://$DST_BUCKET/$DIR --delete --only-show-errors --region eu-west-2  2>"$ERROR_LOG"
+    then
+      echo "sync of $DIR directory completed"
+      send_slack_notification 0
+      exit 0
+    else
+      send_slack_notification 1
+      exit 1
+    fi
 
 {{- range .Values.directories }}
 ---
@@ -36,8 +60,16 @@ spec:
             cpu: 4
             memory: 8Gi
         command:
+        - /bin/sh
+        - -c
         - /bin/entrypoint.sh
         env:
+        - name: SRC_ENV
+          value: "{{ $.Values.sourceEnvironment }}"
+        - name: DST_ENV
+          value: "{{ $.Values.destinationEnvironment }}"
+        - name: SLACK_WEBHOOK_URL
+          value: "{{ $.Values.slackWebhookUrl }}"
         - name: SRC_BUCKET
           valueFrom:
             secretKeyRef:
