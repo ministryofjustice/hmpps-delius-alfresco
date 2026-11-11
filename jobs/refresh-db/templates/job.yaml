@@ -64,14 +64,14 @@ data:
     set -x
     echo "Starting Database Refresh now....."
     # Dump the source database
-    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/home/job/db-dump
+    pg_dump --jobs=4 --host="$SRC_DB_HOST" --username="$SRC_DB_USER" --dbname="$SRC_DB_NAME" --no-owner --no-privileges --verbose --format=directory --file=/var/lib/postgresql/db-dump
 
     psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "drop schema if exists public cascade;"
 
     psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "create schema public;"
 
     # Restore the source database dump to the destination database
-    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /home/job/db-dump
+    pg_restore --jobs=4 --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" --no-owner --no-privileges --verbose /var/lib/postgresql/db-dump
 
     echo "Restoring destination OpenSearch URL..."
     OPENSEARCH_HOST=$(echo "$OPENSEARCH_PROXY_URL" | sed -E 's#https?://##; s#:[0-9]+$##')
@@ -81,7 +81,7 @@ data:
           WHERE string_value LIKE 'opensearch-proxy-service-cloud-platform%';
         "
 
-    rm -rv /home/job/db-dump ~/.pgpass
+    rm -rv /var/lib/postgresql/db-dump ~/.pgpass
 
     echo "OpenSearch URL restored."
 
