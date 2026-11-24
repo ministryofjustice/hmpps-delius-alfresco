@@ -78,7 +78,7 @@ jobs:
       - name: Retrieve ${{ inputs.source_env }} S3 Bucket Name
         id: get_bucket_name
         run: |
-          S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          S3_BUCKET_NAME=$(kubectl get secret s3-opensearch-snapshots-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
           echo "SOURCE_S3_BUCKET_NAME=${S3_BUCKET_NAME}" >> "$GITHUB_OUTPUT"
 
   restore_snapshot:
