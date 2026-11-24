@@ -39,11 +39,9 @@ data:
       exit 1
     fi
 
-    mkdir -p "$HOME"
-
-    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > "$HOME/.pgpass"
-    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> "$HOME/.pgpass"
-    chmod 0600 "$HOME/.pgpass"
+    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > "$PGPASSFILE"
+    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> "$PGPASSFILE"
+    chmod 0600 "$PGPASSFILE"
 
     # connectivity checks
     echo "Testing source DB connectivity..."
@@ -83,7 +81,7 @@ data:
           WHERE string_value LIKE 'opensearch-proxy-service-cloud-platform%';
         "
 
-    rm -rv /var/lib/postgresql/db-dump ~/.pgpass
+    rm -rv /var/lib/postgresql/db-dump $PGPASSFILE
 
     echo "OpenSearch URL restored."
 
@@ -117,8 +115,8 @@ spec:
         command:
         - /bin/entrypoint.sh
         env:
-        - name: HOME
-          value: "/home/job"
+        - name: PGPASSFILE
+          value: "/tmp/.pgpass"
         - name: DRY_RUN
           value: "{{ .Values.dryRun }}"
         - name: SRC_DB_NAME
