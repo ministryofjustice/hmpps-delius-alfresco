@@ -18,8 +18,7 @@ data:
       STATUS=$1
 
       if [ "$STATUS" -eq 0 ]; then
-        JSON_PAYLOAD=$(jq -n --arg text "✅ *Alfresco RDS Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*"
-        '{text: $text}')
+        JSON_PAYLOAD=$(jq -n --arg text "✅ *Alfresco RDS Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*" '{text: $text}')
       else
         ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
         ERROR_MSG=${ERROR_MSG:-"Unknown error"}
