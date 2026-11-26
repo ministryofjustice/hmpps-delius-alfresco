@@ -80,6 +80,11 @@ data:
           WHERE string_value LIKE 'opensearch-proxy-service-cloud-platform%';
         "
 
+    # Analyse alf_node_properties after the restore
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "ALTER TABLE alf_node_properties SET (autovacuum_enabled = off);"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "ANALYZE VERBOSE alf_node_properties;"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "ALTER TABLE alf_node_properties SET (autovacuum_enabled = on);"
+
     rm -rv /var/lib/postgresql/db-dump $PGPASSFILE
 
     echo "OpenSearch URL restored."
