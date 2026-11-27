@@ -18,8 +18,7 @@ data:
       STATUS=$1
 
       if [ "$STATUS" -eq 0 ]; then
-        JSON_PAYLOAD=$(jq -n --arg text "✅ *Alfresco RDS Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*"
-        '{text: $text}')
+        JSON_PAYLOAD=$(jq -n --arg text "✅ *Alfresco RDS Refresh* (${SRC_ENV} → ${DST_ENV}) *SUCCEEDED*" '{text: $text}')
       else
         ERROR_MSG=$(tail -n 20 "$ERROR_LOG" 2>/dev/null | tr '\n' ' ')
         ERROR_MSG=${ERROR_MSG:-"Unknown error"}
@@ -39,10 +38,10 @@ data:
       exit 1
     fi
 
-    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > ~/.pgpass
-    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> ~/.pgpass
-    chmod 0600 ~/.pgpass
-    
+    echo "${SRC_DB_HOST}:5432:${SRC_DB_NAME}:${SRC_DB_USER}:${SRC_DB_PASS}" > "$PGPASSFILE"
+    echo "${DST_DB_HOST}:5432:${DST_DB_NAME}:${DST_DB_USER}:${DST_DB_PASS}" >> "$PGPASSFILE"
+    chmod 0600 "$PGPASSFILE"
+
     # connectivity checks
     echo "Testing source DB connectivity..."
     PGPASSWORD="$SRC_DB_PASS" psql -h "$SRC_DB_HOST" -U "$SRC_DB_USER" -d "$SRC_DB_NAME" -c "SELECT 1;"
@@ -80,10 +79,14 @@ data:
           SET string_value = '${OPENSEARCH_HOST}'
           WHERE string_value LIKE 'opensearch-proxy-service-cloud-platform%';
         "
-
-    rm -rv /var/lib/postgresql/db-dump ~/.pgpass
-
     echo "OpenSearch URL restored."
+    
+    # Analyse alf_node_properties after the restore
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "ALTER TABLE alf_node_properties SET (autovacuum_enabled = off);"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "ANALYZE VERBOSE alf_node_properties;"
+    psql --host="$DST_DB_HOST" --username="$DST_DB_USER" --dbname="$DST_DB_NAME" -c "ALTER TABLE alf_node_properties SET (autovacuum_enabled = on);"
+
+    rm -rv /var/lib/postgresql/db-dump $PGPASSFILE
 
 ---
 {{- if eq .Values.sourceEnvironment .Values.destinationEnvironment }}
@@ -115,8 +118,8 @@ spec:
         command:
         - /bin/entrypoint.sh
         env:
-        - name: HOME
-          value: "/home/job"
+        - name: PGPASSFILE
+          value: "/tmp/.pgpass"
         - name: DRY_RUN
           value: "{{ .Values.dryRun }}"
         - name: SRC_DB_NAME

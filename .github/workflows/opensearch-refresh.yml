@@ -32,6 +32,7 @@ jobs:
       name: ${{ inputs.source_env }}
     outputs:
       SNAPSHOT_NAME: ${{ steps.get_snapshot_name.outputs.SNAPSHOT_NAME }}
+      SOURCE_S3_BUCKET_NAME: ${{ steps.get_bucket_name.outputs.SOURCE_S3_BUCKET_NAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -77,8 +78,8 @@ jobs:
       - name: Retrieve ${{ inputs.source_env }} S3 Bucket Name
         id: get_bucket_name
         run: |
-          S3_BUCKET_NAME=$(kubectl get secret s3-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
-          echo "s3_bucket_name=$S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
+          S3_BUCKET_NAME=$(kubectl get secret s3-opensearch-snapshots-bucket-output -o jsonpath='{.data.BUCKET_NAME}' | base64 -d)
+          echo "SOURCE_S3_BUCKET_NAME=${S3_BUCKET_NAME}" >> "$GITHUB_OUTPUT"
 
   restore_snapshot:
     name: Restore Snapshot (${{ inputs.dest_env }})
@@ -88,6 +89,7 @@ jobs:
     needs: create_snapshot
     env:
       SNAPSHOT_NAME: ${{ needs.create_snapshot.outputs.SNAPSHOT_NAME }}
+      SOURCE_S3_BUCKET_NAME: ${{ needs.create_snapshot.outputs.SOURCE_S3_BUCKET_NAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -111,11 +113,12 @@ jobs:
       - name: Restore snapshot
         run: |
             helm install restore-opensearch-refresh-snapshot ./jobs/refresh-opensearch \
-            --set-string jobType=restore \
-            --set-string sourceEnv=${{ inputs.source_env }} \
-            --set-string destEnv=${{ inputs.dest_env }} \
-            --set-string snapshotName=$SNAPSHOT_NAME \
-            --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL_NONPROD }}
+              --set-string jobType=restore \
+              --set-string sourceEnv=${{ inputs.source_env }} \
+              --set-string destEnv=${{ inputs.dest_env }} \
+              --set-string snapshotName=$SNAPSHOT_NAME \
+              --set-string s3BucketName=$SOURCE_S3_BUCKET_NAME \
+              --set-string slackWebhookUrl=${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Wait for restore job
         run: kubectl wait job/restore-opensearch-snapshot --for=condition=complete --timeout=3h
